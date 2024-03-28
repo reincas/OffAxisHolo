@@ -48,6 +48,18 @@ def cross(N, w):
     return F
 
 
+def pixel(N, x, y):
+    
+    """ Return a quadratic float (N,N) array with value 1.0 for pixel x,y
+    relative to the center and 0.0 everywhere else. """
+    
+    F = np.zeros((N,N), dtype=float)
+    x += N // 2
+    y += N // 2
+    F[y,x] = 1.0
+    return F
+
+
 def circle(N, r0, w):
 
     """ Return a centered circle with given radius and line width in pixels
