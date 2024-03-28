@@ -1,0 +1,39 @@
+# pyproject.toml
+[build-system]
+requires = [
+    "setuptools",
+	"numpy",
+	"scipy",
+	"scikit_image",
+	"pycairo",
+	"opencv-python",
+	#"plotfont",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "offaxisholo",
+]
+
+[project]
+name = "OffAxisHolo"
+version = "0.1.0"
+authors = [
+    { name = "Reinhard Caspary", email = "reinhard.caspary@phoenixd.uni-hannover.de"},
+]
+description = "Python 3 package containing tools for the reconstruction and simulation of off-axis holograms."
+readme = "README.md"
+dependencies = [
+    "numpy>=1.15",
+    "scipy>=1.10",
+    "scikit_image>=0.19",
+    "pycairo>=1.26",
+    "opencv-python>=4.9",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
