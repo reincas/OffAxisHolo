@@ -27,10 +27,10 @@ def mesh(N, pitch):
 
 def norm(img):
     
-    """ Return given complex field with magnitude normalized to a maximum
-    value of 1.0."""
+    """ Return given complex field with total magnitude normalized to a value
+    of 1.0."""
     
-    return img / np.max(np.abs(img))
+    return img / np.sum(np.abs(img))
 
 
 def planar(N, theta, phi):

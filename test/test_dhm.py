@@ -21,66 +21,52 @@ N = 1024
 # Wavelength in µm
 wl = 0.675
 
-# Object pixel pitch in wavelength units
-po = 0.276 / wl
-
-# Aperture radius in wavelength units
-ra = 2970 / wl
-
 # Focal length of microscope objective in wavelength units
 fmo = 8250 / wl
+
+# Pupil radius of microscope objective in wavelength units
+ra = 2970 / wl
 
 # Focal length of tube lens in wavelength units
 ftl = 175000 / wl
 
-# Distance of tube lens from back focal plane of objective
-# in wavelength units
+# Distance of tube lens to back focal plane of objective in wavelength units
 dtl = 1.0 * ftl
 
-# Distance of camera sensor from back focal plane of tube lens
-# in wavelength units
-dc = 2000.0 / wl
+# Distance of sensor to back focal plane of tube lens in wavelength units
+ds = 2000.0 / wl
 
-# Polar and azimutal angles of plane reference wave 
+# Off-axis DHM configuration
+params = {
+    "illuminationField": field.planar(N, 0, 0),
+    "objectiveFocalLength": fmo,
+    "pupilRadius": ra,
+    "tubeFocalLength": ftl,
+    "tubeDistance": dtl,
+    "sensorDistance": ds,
+    }
 opt = True
 if opt:
-    fx = N // 4 
-    fy = N // 4 
-    theta = np.arcsin(np.sqrt(fx*fx + fy*fy) / N)
-    phi = np.arctan2(fy, fx)
+    params["referencePosition"] = N // 4
 else:
     theta = 28.006 * np.pi/180.0
     phi = 45.0 * np.pi/180.0
+    params["referenceTilt"] = (theta, phi)
+    
+# Off-axis DHM object
+dhm = simulate.HoloMicroscope(**params)
 
 
 ##########################################################################
 # Simulation
 ##########################################################################
 
-# Illumination field
-Fp = field.planar(N, 0, 0)
-#Fp = field.spherical(N, po, 20000.0 / wl)
+# Object transmission array and pixel pitch in wavelength units
+po = 0.276 / wl
+obj = objects.asphase(objects.usaf(N, po*wl), 0.2)
 
-# Object field
-Fo = Fp * objects.asphase(objects.usaf(N, po*wl), 0.2)
-
-# Aperture plane field (back focal plane of objective)
-Fs, ps = simulate.lens(Fo, po, fmo)
-Fs = field.norm(Fs)
-Fs *= field.aperture(N, ra, ps)
-
-# Image field (back focal plane of tube lens)
-Fi, pi = simulate.lens(Fs, ps, ftl, dtl)
-Fi = field.norm(Fi)
-
-# Camera field with reference wave
-Fc, pc = simulate.propagate(Fi, pi, dc)
-Fc = field.norm(Fc)
-Fc += 1.0 * field.planar(N, theta, phi)
-Fc = field.norm(Fc)
-
-# Hologram image
-holo = np.abs(Fc)
+# Recorded hologram, hologram pitch and dictionary of all fields
+holo, ph, fields = dhm.hologram(obj, po, fields=True)
 
 
 ##########################################################################
@@ -94,28 +80,35 @@ Sc, fx, fy, weight = reconstruct.locateOrder(holo, 16)
 if opt:
     r = np.sqrt(fx*fx + fy*fy) - 5
 else:
-    r = 1.0 * ra/ps
+    pa = fmo / (N*po)
+    r = 1.0 * ra/pa
 Sr = reconstruct.rollImage(Sc, fx, fy)
 Sr = reconstruct.circularMask(Sr, r)
 
 # Reconstructed field with back propagation to image plane
+pc = po * ftl / fmo
 Fr = reconstruct.getField(Sr)
-Fr, pr = simulate.propagate(Fr, pc, -dc)
+Fr = simulate.propagate(Fr, pc, -ds)
 
 
 ##########################################################################
 # Results
 ##########################################################################
 
+Fo, po = fields["object"]
+Fa, pa = fields["pupil"]
+Fi, pi = fields["image"]
+Fc, pc = fields["sensor"]
+
 print("Object pitch:     %.3f um" % (wl*po))
-print("Spectrum pitch:   %.3f um" % (wl*ps))
-print("Apertur diameter: %.1f um (%d px)" % (2*ra*wl, 2*ra/ps))
+print("Spectrum pitch:   %.3f um" % (wl*pa))
+print("Apertur diameter: %.1f um (%d px)" % (2*ra*wl, 2*ra/pa))
 print("Camera pitch:     %.3f um" % (wl*pi))
 print("Order offset:     %d, %d px" % (fx, fy))
-print("DC diameter:      %d px" % (4*ra/ps))
+print("DC diameter:      %d px" % (4*ra/pa))
 
 # List of fields and spectra to be displayed
-fields = [Fo, Fs, Fi, Fc, Sc, Sr, Fr]
+fields = [Fo, Fa, Fi, Fc, Sc, Sr, Fr]
 
 # Prepare magnitude arrays
 mag = [np.abs(F) for F in fields]
@@ -123,10 +116,10 @@ mag[1] = np.log(mag[1] + 1e-7*np.max(mag[1]))
 mag[4] = np.log(mag[4] + 1e-7*np.max(mag[4]))
 mag[5] = np.log(mag[5] + 1e-7*np.max(mag[5]))
 mag = [image.normcolor(F) for F in mag]
-mag[1] = image.drawCircle(mag[1], 0, 0, round(ra/ps), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], 0, 0, round(2*ra/ps), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], -fx, -fy, round(ra/ps), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], fx, fy, round(ra/ps), image.CV_RED, 2)
+mag[1] = image.drawCircle(mag[1], 0, 0, round(ra/pa), image.CV_RED, 2)
+mag[4] = image.drawCircle(mag[4], 0, 0, round(2*ra/pa), image.CV_RED, 2)
+mag[4] = image.drawCircle(mag[4], -fx, -fy, round(ra/pa), image.CV_RED, 2)
+mag[4] = image.drawCircle(mag[4], fx, fy, round(ra/pa), image.CV_RED, 2)
 mag[4] = image.drawCircle(mag[4], -fx, -fy, round(r), image.CV_GREEN, 2)
 mag[4] = image.drawCircle(mag[4], fx, fy, round(r), image.CV_GREEN, 2)
 mag = np.concatenate(mag, axis=1)
@@ -139,7 +132,7 @@ ang = [F/(2*np.pi) for F in ang]
 ang = [(F-F.mean()) + 0.5 for F in ang]
 #ang = [(F-F[0,0]) + 0.5 for F in ang]
 ang = [image.normcolor(F, False) for F in ang]
-ang[1] = image.drawCircle(ang[1], 0, 0, round(ra/ps), image.CV_RED, 2)
+ang[1] = image.drawCircle(ang[1], 0, 0, round(ra/pa), image.CV_RED, 2)
 ang = np.concatenate(ang, axis=1)
 
 # Concatenate all arrays
