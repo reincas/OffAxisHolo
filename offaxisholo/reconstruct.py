@@ -151,19 +151,7 @@ def rollImage(img, x, y):
     x = w//2 and y = h//2, the function is equivalent to np.fft.fftshift(img).
     """
 
-    # Pick content of new quadrants
-    q1 = img[:y,:x]
-    q2 = img[:y,x:]
-    q3 = img[y:,x:]
-    q4 = img[y:,:x]
-
-    # Concatenate new quadrants
-    q21 = np.concatenate((q2, q1), axis=1)
-    q34 = np.concatenate((q3, q4), axis=1)
-    img = np.concatenate((q34, q21), axis=0)
-
-    # Done.
-    return img
+    return np.roll(img, (-y, -x), axis=(0,1))
 
 
 # =============================================================================
