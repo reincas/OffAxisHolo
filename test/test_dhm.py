@@ -25,7 +25,8 @@ wl = 0.675
 fmo = 8250 / wl
 
 # Pupil radius of microscope objective in wavelength units
-ra = 2970 / wl
+ra = 2970 / wl  # External pupil!?
+#ra = 6500 / wl  # Pupil of microscope objective
 
 # Focal length of tube lens in wavelength units
 ftl = 175000 / wl
@@ -64,6 +65,9 @@ dhm = simulate.HoloMicroscope(**params)
 # Object transmission array and pixel pitch in wavelength units
 po = 0.276 / wl
 obj = objects.asphase(objects.usaf(N, po*wl), 0.2)
+#obj = np.zeros((N, N), dtype=complex)
+#obj[N//2-3, N//2-3] = 1.0
+#obj[N//2+2, N//2+2] = 1.0
 
 # Recorded hologram, hologram pitch and dictionary of all fields
 holo, ph, fields = dhm.hologram(obj, po, fields=True)

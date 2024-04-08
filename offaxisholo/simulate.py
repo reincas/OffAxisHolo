@@ -57,7 +57,7 @@ def propagate(Fin, pin, z):
     
     # No propagation
     if float(z) == 0.0:
-        return Fin, pin
+        return Fin
     
     # Spectral pitch
     N = Fin.shape[0]
