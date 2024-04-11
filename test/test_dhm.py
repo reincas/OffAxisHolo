@@ -64,10 +64,15 @@ dhm = simulate.HoloMicroscope(**params)
 
 # Object transmission array and pixel pitch in wavelength units
 po = 0.276 / wl
-obj = objects.asphase(objects.usaf(N, po*wl), 0.2)
-#obj = np.zeros((N, N), dtype=complex)
-#obj[N//2-3, N//2-3] = 1.0
-#obj[N//2+2, N//2+2] = 1.0
+if 1:
+    obj = objects.asphase(objects.usaf(N, po*wl), 0.2)
+else:
+    r = 0.5
+    d = 6.0
+    alpha = 10.0 *np.pi/180.0
+    dx = np.cos(alpha) * d/2
+    dy = np.sin(alpha) * d/2
+    obj = objects.gauss(N, -dx, -dy, r) + objects.gauss(N, dx, dy, r)
 
 # Recorded hologram, hologram pitch and dictionary of all fields
 holo, ph, fields = dhm.hologram(obj, po, fields=True)

@@ -45,7 +45,7 @@ def planar(N, theta, phi):
     return F
 
 
-def spherical(N, pitch, z):
+def spherical(N, pitch, z, approx=False):
     
     """ Return a spherical wave field with magnitude 1.0 at a distance z from
     the center of the sphere as a complex (N,N) array. The center of the sphere
@@ -53,7 +53,10 @@ def spherical(N, pitch, z):
     
     # FIXME: Check the equation!
     y, x = mesh(N, pitch)
-    F = np.exp(1j*np.pi * (x*x + y*y) / z)
+    if approx:
+        F = np.exp(2j*np.pi * (z + (x*x + y*y) / (2*z)))
+    else:
+        F = np.exp(2j*np.pi * np.sqrt(x*x + y*y + z*z))
     return F
 
 

@@ -353,7 +353,7 @@ class HoloMicroscope(object):
         Fp = self.illuminationField
         
         # Object field
-        Fo *= Fp
+        Fo = Fo * Fp
         
         # Aperture plane field (back focal plane of objective)
         fmo = self.objectiveFocalLength

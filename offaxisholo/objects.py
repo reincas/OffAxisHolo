@@ -13,6 +13,7 @@ import cv2 as cv
 
 from . import field
 from .usaf1951 import chart
+from .field import mesh
  
 
 def usaf(N, pitch):
@@ -35,6 +36,18 @@ def gray_img(N, fn):
     if F.shape != (N, N):
         F = cv.resize(F, (N, N))
     return F
+
+
+def gauss(N, dx, dy, r):
+    
+    """ Return 2D Gaussian distribution with peak at dx,dy relative to the
+    center and radius r as quadratic float (N,N) array with a peak value of
+    1.0. All parameters given in pixels. """
+    
+    y, x = np.indices((N, N), dtype=float)
+    x -= 0.5*np.max(x)
+    y -= 0.5*np.max(y)
+    return np.exp(-((x-dx)**2 + (y-dy)**2 / r**2))
 
 
 def cross(N, w):
