@@ -51,6 +51,7 @@ def propagate(Fin, pin, z):
     the distance z from an input field at distance 0.0. Return the output
     field and its pixel pitch. Input and output pitch are identical for this
     method. """
+    # ToDo: there is not output pitch - just input
     
     assert len(Fin.shape) == 2
     assert Fin.shape[0] == Fin.shape[1]

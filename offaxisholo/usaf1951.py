@@ -47,18 +47,18 @@ def frame(ctx):
 
 
 def text(ctx, text, lw, args):
-    
+
     """ Write text with given line width and font arguments at the current
     position. """
-    
+
     # Save context status
     ctx.save()
-    
+
     # Get text strokes
     font = Font(**args)
     lines = font.string(text)
     #bbox = font.bbox(lines)
-    
+
     # Draw text strokes
     ctx.set_line_width(lw)
     ctx.set_line_cap(cairo.LineCap.ROUND)

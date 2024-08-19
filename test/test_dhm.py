@@ -125,12 +125,12 @@ mag[1] = np.log(mag[1] + 1e-7*np.max(mag[1]))
 mag[4] = np.log(mag[4] + 1e-7*np.max(mag[4]))
 mag[5] = np.log(mag[5] + 1e-7*np.max(mag[5]))
 mag = [image.normcolor(F) for F in mag]
-mag[1] = image.drawCircle(mag[1], 0, 0, round(ra/pa), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], 0, 0, round(2*ra/pa), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], -fx, -fy, round(ra/pa), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], fx, fy, round(ra/pa), image.CV_RED, 2)
-mag[4] = image.drawCircle(mag[4], -fx, -fy, round(r), image.CV_GREEN, 2)
-mag[4] = image.drawCircle(mag[4], fx, fy, round(r), image.CV_GREEN, 2)
+# mag[1] = image.drawCircle(mag[1], 0, 0, round(ra/pa), image.CV_RED, 2)
+# mag[4] = image.drawCircle(mag[4], 0, 0, round(2*ra/pa), image.CV_RED, 2)
+# mag[4] = image.drawCircle(mag[4], -fx, -fy, round(ra/pa), image.CV_RED, 2)
+# mag[4] = image.drawCircle(mag[4], fx, fy, round(ra/pa), image.CV_RED, 2)
+# mag[4] = image.drawCircle(mag[4], -fx, -fy, round(r), image.CV_GREEN, 2)
+# mag[4] = image.drawCircle(mag[4], fx, fy, round(r), image.CV_GREEN, 2)
 mag = np.concatenate(mag, axis=1)
 
 # Prepare phase arrays
