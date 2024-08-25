@@ -13,7 +13,7 @@ from offaxisholo.utils import get_hologram
 
 
 # ToDo: Umschreiben der gesamten Klasse sodass immer nur der Container erforderlich ist. Braucht man eine nicht-Container VErsion?
-# TODO: Refractive Index 1.5 einfügen und umwandeln in höhenprofil
+
 class HologramTomographic:
 
     def __init__(self, root_directory, logger=None):
@@ -289,10 +289,10 @@ class Reconstruction:
         """
         n_air = 1
         delta_n = n_air - self.DHM.n_resin  # change in refractive index - only approximate values
-        height_profile = self.DHM.wavelength * phase / (2 * np.pi * (delta_n))
+        height_profile = self.DHM.wavelength * phase / (2 * np.pi * delta_n)
         return height_profile
 
-    def plotImage(self, img, title=None, save=False):
+    def plotImage(self, img, title=None, save=False, cmap='viridis'):
         if save:
             if title is not None:
                 name = title.replace(" ", "_") + '.png'
@@ -304,14 +304,14 @@ class Reconstruction:
                 self.var_4_saving += 1
         else:
             if title == None:
-                plt.imshow(img, cmap='viridis')
+                plt.imshow(img, cmap=cmap)
             else:
-                plt.imshow(img, cmap='viridis')
+                plt.imshow(img, cmap=cmap)
                 plt.title(title)
             plt.show()  # show image
         return
 
-    def plot_height(self, height_profile, title=None, save=False, legend_bar=True):
+    def plot_height(self, height_profile, title=None, save=False, legend_bar=True, cmap='coolwarm'):
         """
         Plotting of the reconstructed height profile. Make sure the dimensions of the height profile matches the
         dimensions of the hologram.
@@ -328,7 +328,7 @@ class Reconstruction:
         # Creating the meshgrid
         X, Y = np.meshgrid(X, Y)
         # Plot the surface.
-        surf = ax.plot_surface(X, Y, height_profile, cmap=cm.coolwarm,
+        surf = ax.plot_surface(X, Y, height_profile, cmap=cmap,
                                linewidth=0, antialiased=False)
         if title is not None:
             plt.title(title)
