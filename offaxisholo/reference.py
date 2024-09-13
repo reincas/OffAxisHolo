@@ -1,5 +1,5 @@
 import numpy as np
-from offaxisholo.Hologram import Hologram
+from offaxisholo import Hologram
 
 
 class ReferenceHologram(Hologram):

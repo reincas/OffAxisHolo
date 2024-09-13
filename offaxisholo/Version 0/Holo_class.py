@@ -1,15 +1,19 @@
-import fnmatch
 import os
 from skimage.restoration import unwrap_phase
 import numpy as np
 import scidatacontainer
 from matplotlib import pyplot as plt
-from matplotlib import cm
-from scidatacontainer import Container
 
-from offaxisholo.reconstruct import locateOrder, rollImage, circularMask, holo2Field, angularSpectrum, getField, \
+from offaxisholo.reconstruct import locateOrder, rollImage, circularMask, angularSpectrum, getField, \
     getSpectrum
-from offaxisholo.utils import get_hologram
+from offaxisholo import get_hologram
+
+class DHM:
+    def __init__(self):
+        self.pixel_pitch = []
+        self.wavelength = 0
+        self.prop_dist = 20
+        self.n_resin = 0
 
 
 # ToDo: Umschreiben der gesamten Klasse sodass immer nur der Container erforderlich ist. Braucht man eine nicht-Container VErsion?
@@ -57,13 +61,6 @@ class HologramTomographic:
         pass
 
 
-class DHM_DUMMY:
-    def __init__(self):
-        self.pixel_pitch = []
-        self.wavelength = 0
-        self.prop_dist = 20
-        self.n_resin = 0
-
 
 class Reconstruction:
     def __init__(self, hologram, objective, DHM=None, background_hologram=None):
@@ -76,9 +73,7 @@ class Reconstruction:
         if self.hologram.shape[0] != self.hologram.shape[1]:
             raise Exception("Quadratic hologram image required!")
         # initialisation of spectrum and field saving variables
-        self.spectrum_not_shifted = None
-        self.spectrum_shifted = None
-        self.spectrum_masked = None
+
         self.reconstructed_field = None
         self.int_reconstructed = None
         self.phase_reconstructed = None
@@ -373,7 +368,8 @@ class Reconstruction:
 
     def set_save_path(self, path):
         self.img_save_path = path
-        # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically determine a subfolder /img/ for the images - maybe done in the future for the complete structure class
+        # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
+        #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure class
 
     def evaluate(self, background_hologram=None, save_img=False, compensate=True):
         """

@@ -1,9 +1,8 @@
-import fnmatch
 import os
 
-from offaxisholo.Holo_class import Reconstruction
-from offaxisholo.utils import get_hologram
-from offaxisholo.filtering import hybrid_median_mean_filter as hm2f
+from offaxisholo import Reconstruction
+from offaxisholo import get_hologram
+from offaxisholo import hybrid_median_mean_filter as hm2f
 
 
 def test_evalutate():

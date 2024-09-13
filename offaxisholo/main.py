@@ -1,25 +1,57 @@
 import numpy as np
-from offaxisholo.DHM_DUMMY import DHM
-from offaxisholo.hologram import Hologram
-from offaxisholo.postprocessor import HologramPostProcessor
-from offaxisholo.reconstructor import HologramReconstructor
-from offaxisholo.structure import Structure3D
+
+# from offaxisholo import DHM
+# from offaxisholo import Hologram
+# from offaxisholo import HologramReconstructor
+# from offaxisholo import Structure3D
+# from offaxisholo import HologramPostProcessor
+from offaxisholo import *
+
+zdc_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
+            "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/dhm/"
+            "dhm_lens0_ABZ_h_0.1_l_0.15.0.zdc")
+back_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
+             "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/"
+             "dhm_lens0_ABZ_h_0.1_l_0.15_before.zdc")
 
 # Initialize the DHM object
-dhm_machine = DHM(wavelength=632.8e-9, magnification=10, pixel_size=6.5e-6)
+dhm_machine = DHM(objective="Zeiss 63x")
+
+# Initialize and use other classes
+hologram_data = get_hologram(path=zdc_path)
+background_data = get_hologram(path=back_path)
+hologram = Hologram(data=hologram_data, dhm=dhm_machine)
+background = ReferenceHologram(data=background_data, dhm=dhm_machine,
+                               first_diffraction_order_pos=hologram.first_diffraction_order_pos)
+
+processor = HologramPostProcessor(hologram)
+reconstructor = HologramReconstructor(hologram=hologram, processor=processor, reference=background)
+
+phase = reconstructor.run()
+reconstructor.plotImage(img=phase)
+
+structure_3d = Structure3D()
+structure_3d.add_layer(reconstructor)
+# final_structure = structure_3d.reconstruct_3d_structure()
+
+"""
+
+
+# Initialize the DHM object
+dhm_machine = DHM_DUMMY(wavelength=632.8e-9, magnification=63, pixel_size=6.5e-6)
 
 # Initialize and use other classes
 hologram_data = np.random.rand(512, 512)
 hologram = Hologram(hologram_data, dhm_machine)
 
-processor = HologramProcessor(hologram, dhm_machine)
+processor = HologramPostProcessor(hologram)
 reconstructor = HologramReconstructor(hologram, processor, dhm_machine)
 
 structure_3d = Structure3D(dhm_machine)
 structure_3d.add_layer(reconstructor)
 final_structure = structure_3d.reconstruct_3d_structure()
 
-"""
+
 Summary of Documentation Structure
 ------------------------------------
 DHM Class:

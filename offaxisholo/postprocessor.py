@@ -1,8 +1,11 @@
 import numpy as np
-from offaxisholo.Hologram import Hologram
-from offaxisholo.Filter import *
 
+from offaxisholo.hologram_class import Hologram
+from offaxisholo.filter import Filter
 
+"""
+Focuses on post-processing steps, like filtering and image enhancement.
+"""
 class HologramPostProcessor:
     def __init__(self, hologram: Hologram):
         self.hologram = hologram
