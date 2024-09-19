@@ -66,3 +66,16 @@ def get_hologram(path, filename=None, img_container=False) -> np.ndarray:
         return dc._items['meas/image.png']
     else:
         return dc._items['meas/image.png'].data
+
+
+def get_datafiles(root, subdir=False, ending='.dat') -> list:
+    if subdir:
+        files='**\*'+ending
+        path = os.path.join(root, files)
+    else:
+        files = '*' + ending
+        path = os.path.join(root, files)
+    try:
+        return glob.glob(path)
+    except Exception as e:
+        raise FileNotFoundError(f"No directory {root}. Exception {e}")
