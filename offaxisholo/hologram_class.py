@@ -182,12 +182,17 @@ class Hologram(Holo_Dummy):
         # Initialize the variable for field and phase after propagation
         self.finished_reconstruction = False  # flag for full reconstruction with propagation and unwrapping
 
-        self.reconstructed_field = None
-        self.int_reconstructed = None
-        self.phase_reconstructed = None
-        self.phase_unwrapped = None
-        self.phase_compensated = None
-        self.height_profile = None
+        self.reconstructed_field = None     # field after numerical reconstruction - before propagation
+        self.int_reconstructed = None       # intensity after numerical reconstruction - before propagation
+        self.phase_reconstructed = None     # phase after numerical reconstruction - before propagation
+
+        # Attributes, which will only be set with a full reconstruction
+        self.propagated_field = None        # field after propagation and numerical reconstruction
+        self.propagated_intensity = None    # intensity after propagation and numerical reconstruction
+        self.propagated_phase = None        # phase after propagation and numerical reconstruction
+
+        self.phase_unwrapped = None         # phase of the propagated phase after unwrapping
+        # self.height_profile = None          # height profile of the unwrapped phase - to be done in future
 
     @property
     def shape(self):
@@ -203,13 +208,18 @@ class Hologram(Holo_Dummy):
         else:
             return self.reconstructed_field_before_propagation
 
-    def set_fullreconstruction(self, re_field, phase_unwrapped, height_profile=None):
+    def set_full_reconstruction(self, re_field, propagated_field, phase_unwrapped, height_profile=None):
         self.finished_reconstruction = True
+        # if re_field.all()==propagated_field.all():
+        #     print("Gleich")
         self.reconstructed_field = re_field
         self.phase_reconstructed = self.phase(re_field)
         self.int_reconstructed = self.intensity(re_field)
+        self.propagated_field = propagated_field
+        self.propagated_intensity = self.intensity(propagated_field)
+        self.propagated_phase = self.phase(propagated_field)
         self.phase_unwrapped = phase_unwrapped
-        self.height_profile = height_profile
+        # self.height_profile = height_profile
 
     def __locate_order(self):
         """

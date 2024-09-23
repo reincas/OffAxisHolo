@@ -1,10 +1,5 @@
 import numpy as np
 
-# from offaxisholo import DHM
-# from offaxisholo import Hologram
-# from offaxisholo import HologramReconstructor
-# from offaxisholo import Structure3D
-# from offaxisholo import HologramPostProcessor
 from offaxisholo import *
 
 zdc_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
@@ -13,6 +8,7 @@ zdc_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFac
 back_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
              "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/"
              "dhm_lens0_ABZ_h_0.1_l_0.15_before.zdc")
+save_path = "C:\\Users\\hanne\\Desktop\\Test4DHMReconstruction\\20240923"
 
 # Initialize the DHM object
 dhm_machine = DHM(objective="Zeiss 63x")
@@ -27,11 +23,12 @@ background = ReferenceHologram(data=background_data, dhm=dhm_machine,
 processor = HologramPostProcessor(hologram)
 reconstructor = HologramReconstructor(hologram=hologram, processor=processor, reference=background)
 
-phase = reconstructor.run()
-reconstructor.plotImage(img=phase)
+reconstructor.set_save_path(path=save_path)
+phase = reconstructor.evaluate(save_img=True)
 
-structure_3d = Structure3D()
-structure_3d.add_layer(reconstructor)
+
+# structure_3d = Structure3D()
+# structure_3d.add_layer(reconstructor)
 # final_structure = structure_3d.reconstruct_3d_structure()
 
 """

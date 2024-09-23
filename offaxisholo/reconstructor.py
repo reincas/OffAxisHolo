@@ -1,7 +1,9 @@
+from typing import Any
+
 import numpy as np
 from skimage.restoration import unwrap_phase
 from offaxisholo.postprocessor import HologramPostProcessor
-from offaxisholo.hologram_class import Hologram
+from offaxisholo.hologram_class import Hologram, ReferenceHologram
 from offaxisholo.plotter import DHMPlotter
 
 """
@@ -9,8 +11,9 @@ Coordinates the entire reconstruction process, ensuring that all necessary steps
 properly executed.
 """
 
+
 class HologramReconstructor(DHMPlotter):
-    def __init__(self, hologram: Hologram, processor: HologramPostProcessor, reference: Hologram = None,
+    def __init__(self, hologram: Hologram, processor: HologramPostProcessor, reference: ReferenceHologram = None,
                  propagation_distance=0):
         super().__init__()
         self.hologram = hologram
@@ -23,44 +26,67 @@ class HologramReconstructor(DHMPlotter):
 
         self.wavelength = self.hologram.wavelength
         self.pixel_pitch = self.hologram.pixel_pitch
-        self.propagation_distance = propagation_distance  #Noch ändern, wenn man herausgefunden hat was diese distanz ist
+        self.propagation_distance = self.hologram.propagation_distance  # Noch ändern, wenn man herausgefunden hat was diese distanz ist
         self.n_resin = 1.5  # ToDO hier import nochmal überarbeiten
 
         self.phase_compensated = None
         self.height_profile = None
 
-    def run(self, prop_dist=None) -> np.ndarray:
+    def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, prop_dist=None,
+            compensate=True) -> np.ndarray | tuple[Any, Any]:
         """Full reconstruction pipeline including filtering and compensation."""
-        # Get the unwrapped phase
-        if not self.hologram.finished_reconstruction:
-            phase_unwrapped = self.reconstruct_phase(hologram=self.hologram, propagation_distance=prop_dist)
+        # Reconstruction of Hologram
+        if hologram is None:
+            if not self.hologram.finished_reconstruction:
+                phase_unwrapped = self.reconstruct_phase(hologram=self.hologram, propagation_distance=prop_dist)
+            else:
+                phase_unwrapped = self.hologram.phase_unwrapped
         else:
-            phase_unwrapped = self.hologram.phase_unwrapped
-        if not self.background.finished_reconstruction:
-            phase_unwrapped_reference = self.reconstruct_phase(hologram=self.background, propagation_distance=prop_dist)
+            if not hologram.finished_reconstruction:
+                phase_unwrapped = self.reconstruct_phase(hologram=hologram, propagation_distance=prop_dist)
+            else:
+                phase_unwrapped = hologram.phase_unwrapped
+        # Reconstruction of Background image
+        if background_hologram is None:
+            if not self.background.finished_reconstruction:
+                phase_unwrapped_reference = self.reconstruct_phase(hologram=self.background,
+                                                                   propagation_distance=prop_dist)
+            else:
+                phase_unwrapped_reference = self.background.phase_unwrapped
         else:
-            phase_unwrapped_reference = self.background.phase_unwrapped
+            if not background_hologram.finished_reconstruction:
+                phase_unwrapped_reference = self.reconstruct_phase(hologram=background_hologram,
+                                                                   propagation_distance=prop_dist)
+            else:
+                phase_unwrapped_reference = background_hologram.phase_unwrapped
         # Aberration Compensation of Optics with Background image
-        compensated = self.compensate(original=phase_unwrapped, reference=phase_unwrapped_reference)
+        if compensate:
+            reconstructed = self.compensate(original=phase_unwrapped, reference=phase_unwrapped_reference)
+            self.phase_compensated = reconstructed
+        else:
+            reconstructed = phase_unwrapped
+
         # Filering of the phase
         # ToDo: Filtering needs rework or postprocessor needs rework
         # filtered = self.processor.filter(compensated)
         # self.height_profile = self.phase_to_height(filtered)
         # return filtered
-        return compensated
+        return reconstructed
 
     def reconstruct_phase(self, hologram, propagation_distance=None):
         # Step 1: Reconstruction of electrical field
-        reconstructed = hologram.reconstruct()
+        reconstructed_field = hologram.reconstruct()
         # Step 2: Propagation of E-field into focal plane
         if propagation_distance is None:
-            propagated = self.propagate(field=reconstructed, distance=self.propagation_distance)
+            propagated = self.propagate(field=reconstructed_field, distance=self.propagation_distance)
         else:
-            propagated = self.propagate(field=reconstructed, distance=propagation_distance)
+            propagated = self.propagate(field=reconstructed_field, distance=propagation_distance)
         # Step 3: Unwrapping phase
         propagated_phase = hologram.phase(propagated)
         phase_unwrapped = self.phase_unwrapping(propagated_phase)
-        self.hologram.set_fullreconstruction(re_field=propagated, phase_unwrapped=phase_unwrapped)
+        # save the reconstructed fields
+        self.hologram.set_full_reconstruction(re_field=reconstructed_field, propagated_field=propagated,
+                                              phase_unwrapped=phase_unwrapped)
         return phase_unwrapped
 
     def compensate(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
@@ -68,13 +94,13 @@ class HologramReconstructor(DHMPlotter):
         self.phase_compensated = original - reference
         return self.phase_compensated
 
-    def propagate(self, field, distance, pixel_pitch=None):
+    def propagate(self, field, distance, pixel_pitch: list[float] = None):
         if pixel_pitch is None:
-            dx=self.pixel_pitch[0]
-            dy=self.pixel_pitch[1]
+            dx = self.pixel_pitch[0]
+            dy = self.pixel_pitch[1]
         else:
-            dx=pixel_pitch[0]
-            dy=pixel_pitch[1]
+            dx = pixel_pitch[0]
+            dy = pixel_pitch[1]
         wv = self.wavelength
         propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
         return propagated
@@ -84,38 +110,39 @@ class HologramReconstructor(DHMPlotter):
         # Function to diffract a complex field using the angular spectrum approximation
         # Inputs:
         # field - complex field
-        # z - propagation distance
-        # wavelength - wavelength
-        # dx,dy - pixel pitch
+        # z - propagation distance [unit like wavelength]
+        # wavelength - wavelength [unit like propagation distance]
+        # dx, dy - pixel pitch
         """
         field = np.array(field)
-        # sanity check
+
+        # Sanity check
         assert len(field.shape) == 2, "2D hologram image required!"
-        assert field.shape[0] == field.shape[1], "Quadratic hologram image required!"
-        assert field.shape[0] % 2 == 0, "Hologram image with even dimensions required!"
-
         M, N = field.shape
-        x = np.arange(0, N, 1)  # array x
-        y = np.arange(0, M, 1)  # array y
-        X, Y = np.meshgrid(x - (N / 2), y - (M / 2), indexing='xy')
 
-        dfx = 1 / (dx * M)
-        dfy = 1 / (dy * N)
+        # Spatial frequency coordinates
+        fx = np.fft.fftshift(np.fft.fftfreq(N, d=dx))
+        fy = np.fft.fftshift(np.fft.fftfreq(M, d=dy))
+        FX, FY = np.meshgrid(fx, fy)
 
-        spectrum = np.fft.fftshift(field)
-        spectrum = np.fft.fft2(spectrum)
-        spectrum = np.fft.fftshift(spectrum)
+        root = (2 * np.pi) ** 2 * ((1. / wavelength) ** 2 - FX ** 2 - FY ** 2)
 
-        phase = np.exp2(
-            1j * z * np.pi * np.sqrt(np.power(1 / wavelength, 2) - (np.power(X * dfx, 2) + np.power(Y * dfy, 2))))
+        # Calculate the propagating and the evanescent (complex) modes
+        tmp = np.sqrt(np.abs(root))
+        kz = np.where(root >= 0, tmp, 1j * tmp)
+        # Compute the transfer function (Angular Spectrum)
+        H = np.exp(1j * kz * z)
 
-        tmp = spectrum * phase
+        # Fourier transform of the input field
+        spectrum = self.hologram.getSpectrum(field)
 
-        field_prop = np.fft.ifftshift(tmp)
-        field_prop = np.fft.ifft2(field_prop)
-        field_prop = np.fft.ifftshift(field_prop)
+        # Multiply by transfer function in frequency domain
+        propagated_ft = spectrum * H
 
-        return field_prop
+        # Inverse Fourier transform to get back to spatial domain
+        propagated_field = self.hologram.getField(propagated_ft)
+
+        return propagated_field
 
     def phase_unwrapping(self, phase_wrapped):
         """
@@ -127,7 +154,6 @@ class HologramReconstructor(DHMPlotter):
         """
         phase_unwrapped = unwrap_phase(phase_wrapped)
         return phase_unwrapped
-
 
     def phase_to_height(self, phase):
         """
@@ -148,16 +174,33 @@ class HologramReconstructor(DHMPlotter):
     # ------------------------------------------------------------------------------------------------------------------
     # ToDo Überarbeitung dieses Abschnittes
 
-    def set_save_path(self, path):
-        self.img_save_path = path
-        # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
-        #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure class
-
-    def evaluate(self, background_hologram=None, save_img=False, compensate=True):
+    def evaluate(self, hologram=None, background_hologram=None, save_img=False, compensate=True, propagate=True,
+                 prop_dist=None):
         """
         All-in-one method for investigating a taken hologram.
         If save_img = True , then the plotted images will be safed to self.img_save_path
                                 - set the path with set_save_path(path)
+
+        Plotting of all steps:
+        recording of hologram
+        holo = hologram.data
+        field to spectrum
+        spectrum_normal = hologram.spectrum_not_shifted
+        shift spectrum
+        spectrum_shifted = hologram.spectrum_shifted
+        mask spectrum (to get the -1 diffraction order)
+        spectrum_shifted_masked = hologram.spectrum_masked
+        inverse fouriertransform
+        reconstructed_int = hologram.reconstructed_intensity
+        reconstructed_phase = hologram.reconstructed_phase
+        propagation
+        propagated_int = hologram.propagated_intensity
+        propagated_phase = hologram.propagated_phase
+        phase unwrapping
+        unwrapped_phase = hologram.phase_unwrapped
+        aberration compensation
+        compensated_phase = self.phase_compensated
+        height_profile = self.phase_to_height(compensated_phase)
         """
         # ToDo Title der Auswertungen ändern.
         # ToDo save_img und savepath überarbeiten
@@ -166,28 +209,42 @@ class HologramReconstructor(DHMPlotter):
             raise Exception("A path for saving the images is needed! \nUse the method set_save_path for this purpose.")
         if background_hologram is None and compensate is True:
             assert self.background_available == True
+
+        # make sure that an instance of hologram does exist
+        if hologram is None:
+            hologram = self.hologram
+        if background_hologram is None:
+            background_hologram = self.background
+
+        if propagate:
+            self.run(hologram=hologram, background_hologram=background_hologram, compensate=compensate,
+                     prop_dist=prop_dist)
         else:
-            self.calc_background(background_hologram)
+            self.run(hologram=hologram, background_hologram=background_hologram, prop_dist=0, compensate=compensate)
 
-        self.run(compensation=compensate)
+        ######### ---- PLOTTING ---- ###########
+        self.plotImage(self.hologram.data, "Recorded Hologram", save=save_img)
+        # Plotting of spectrum - normal, shifted, masked
+        self.plotImage(self.hologram.intensity(hologram.spectrum_not_shifted), "Angular spectrum not shifted",
+                       save=save_img)
+        self.plotImage(self.hologram.intensity(hologram.spectrum_shifted), "Angular spectrum shifted",
+                       save=save_img)
+        self.plotImage(self.hologram.intensity(hologram.spectrum_masked), "Angular spectrum shifted and masked",
+                       save=save_img)
 
-        # Plotting of spectrum - normal, shifted, masked (2 different r)
-        self.plotImage(self.intensity(self.spectrum_not_shifted), "Intensity not shifted", save=save_img)
-        self.plotImage(self.intensity(self.spectrum_shifted), "Intensity shifted", save=save_img)
-        self.plotImage(self.intensity(self.spectrum_masked), "Intensity shifted and masked", save=save_img)
         # Plotting of field and phase after masking and iFFT
-        # Plotting of field and phase after compensation
-        self.plotImage(self.intensity(self.reconstructed_field), "intensity after prop", save=save_img)
-        self.plotImage(self.phase(self.reconstructed_field), "phase after prop, before unwrapping", save=save_img)
+        self.plotImage(hologram.reconstructed_intensity, "Intensity before propagation", save=save_img)
+        self.plotImage(hologram.reconstructed_phase, "Phase before propagation", save=save_img)
+
+        # Plotting of field and phase after propagation
+        self.plotImage(hologram.propagated_intensity, "Intensity after propagation", save=save_img)
+        self.plotImage(hologram.propagated_phase, "Phase after propagation", save=save_img)
+
+        tmp = hologram.reconstructed_intensity - hologram.propagated_intensity
+        self.plotImage(tmp, "Intensity difference", save=save_img)
         # Plotting of unwrapped images
-        self.plotImage(self.phase_unwrapped, "Phase after unwrapping", save=save_img)
+        self.plotImage(hologram.phase_unwrapped, "Phase after unwrapping", save=save_img)
         if compensate:
             self.plotImage(self.phase_compensated, "Phase after compensation", save=save_img)
-            self.plot_height(-self.height_profile, title="Height profile of the Structure", save=save_img)
-
-        # ToDo Add variable for this evaluation
-        # self.plotImage(self.intensity(self.reconstructed_field), "intensity before prop", save=save_img)
-        # self.plotImage(self.phase(self.reconstructed_field), "phase before prop and unwrapping", save=save_img)
-        # Plotting of unwrapped images BEFORE PROPAGATION
-        # self.plotImage(phase_unwrapped_rmax_not_prop, "phase after unwrapping BEFORE prop (correct r)", save=save_img)
-        # self.plotImage(phase_unwrapped_rcalc_not_prop, "phase after unwrapping BEFORE prop (false r)", save=save_img)
+            self.plot_height(self.phase_to_height(self.phase_compensated), title="Height profile of the Structure",
+                             save=save_img)
