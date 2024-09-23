@@ -5,6 +5,7 @@ from offaxisholo.filter import Filter
 
 """
 Focuses on post-processing steps, like filtering and image enhancement.
+To Be reworked
 """
 class HologramPostProcessor:
     def __init__(self, hologram: Hologram):

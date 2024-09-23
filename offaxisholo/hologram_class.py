@@ -256,7 +256,7 @@ class Hologram(Holo_Dummy):
 
 class ReferenceHologram(Hologram):
     def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm):
-        super().__init__(data=data,dhm=dhm,first_diffraction_order_pos=first_diffraction_order_pos)
+        super().__init__(data=data, dhm=dhm, first_diffraction_order_pos=first_diffraction_order_pos)
         self.calc_radius_mask()
 
 
