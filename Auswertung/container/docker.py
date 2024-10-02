@@ -5,36 +5,14 @@ Vorgehensweise:
 
 1. Pfad des Experiments
 """
-import os.path
-import json
 
 from offaxisholo import ReferenceHologram, Hologram, HologramReconstructor, HologramPostProcessor, Structure3D
-from offaxisholo.Container_Structure import StructureCollector
+from .collector import StructureCollector
 
 
 class Docker:
     def __init__(self):
         pass
-
-class Experiment:
-    def __init__(self, root_path, dhm):
-        self.root_path = root_path
-        self.struct_info_dict = {}
-        self.structure_path_list = []
-        self.DHM = dhm # DHM(objective="Zeiss 63x") # ToDo: Hier überarbeiten wegen des DHMs - vielleicht einfach erstmal weiter den DHM Dummy nutzen und mit informationen aus den json dateien füllen.
-
-        self.post_init()
-
-    def post_init(self):
-        self.get_structure_informations()
-
-    def get_structure_informations(self):
-        pfad = self.root_path + "\\structures.json"
-        with open(pfad) as datei:
-            dictionary = json.load(datei)
-        self.struct_info_dict = dictionary
-        for structure in dictionary:
-            self.structure_path_list.append(os.path.join(self.root_path, structure["name"]))
 
     def evaluate(self):
         description = ""
@@ -61,7 +39,8 @@ class Experiment:
 
         structure_3d = Structure3D()
 
+
 if __name__ == "__main__":
     root = "C:\\Users\\hanne\\Documents\\Seafile\\Nanoproduction_Hannes\\Code\\NanoFactorySystem\\mains\\.output\\dhm_paper\\20240820_dhm_testprint_Zeiss 63x"
-    Exp = Experiment(root_path=root)
+    Exp = ExperimentCollector(root_path=root)
     Exp.evaluate()

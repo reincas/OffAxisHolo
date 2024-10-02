@@ -1,7 +1,7 @@
 import numpy as np
 
-from offaxisholo.hologram_class import Hologram
-from offaxisholo.filter import Filter
+from .hologram_class import Hologram
+from .filter import Filter
 
 """
 Focuses on post-processing steps, like filtering and image enhancement.
