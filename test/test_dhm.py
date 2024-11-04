@@ -149,7 +149,7 @@ img = np.concatenate((mag, ang), axis=0)
 
 # Store result in file
 path = mkdir("test/dhm")
-file = Path(path, "dhm.png")
+file = Path(path, "dhm_parameter.png")
 image.write(file, img)
 
 # Display result

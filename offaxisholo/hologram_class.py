@@ -68,7 +68,8 @@ class Holo_Dummy(DHMPlotter):
             raise RuntimeError("Real positive hologram image required!")
         if holo.shape[0] % 2 != 0 or holo.shape[1] % 2 != 0:
             raise RuntimeError("Hologram image with even dimensions required!")
-        holo = holo.astype(np.float64)
+        # if holo.dtype != float
+        # holo = holo.astype(np.float64)
 
         # Spatial spectrum of the hologram
         spectrum = self.getSpectrum(holo)
@@ -157,7 +158,7 @@ class Holo_Dummy(DHMPlotter):
 
 
 class Hologram(Holo_Dummy):
-    def __init__(self, data: np.ndarray, dhm, first_diffraction_order_pos=None):
+    def __init__(self, data: np.ndarray, dhm_parameter, first_diffraction_order_pos=None):
         super().__init__(dummy_mode=False)
         if isinstance(data, scidatacontainer.fileimage.PngFile):
             self.data = data.data
@@ -168,16 +169,19 @@ class Hologram(Holo_Dummy):
         if self.data.shape[0] != self.data.shape[1]:
             raise Exception("Quadratic hologram image required!")
 
-        # ToDo: change settings of DHM based information to a correct useage
-        self.radius_0_order = dhm.r0
-        self.propagation_distance = dhm.prop_dist
-        self.wavelength = dhm.wavelength
-        self.pixel_pitch = dhm.pixel_pitch
+        assert isinstance(dhm_parameter, dict)
+        self.radius_0_order = dhm_parameter["DC radius"]
+        self.propagation_distance = dhm_parameter["propagation distance"]
+        self.wavelength = dhm_parameter["wavelength"]
+        self.pixel_pitch = dhm_parameter["pixel pitch"]
+        self.n_resin = dhm_parameter["refractive index"]
 
         self.first_diffraction_order_pos = first_diffraction_order_pos
         # Starting the necessary functions
         if self.first_diffraction_order_pos is None:
             self.__locate_order()
+        else:
+            self.calc_radius_mask()
 
         # Initialize the variable for field and phase after propagation
         self.finished_reconstruction = False  # flag for full reconstruction with propagation and unwrapping
@@ -242,7 +246,6 @@ class Hologram(Holo_Dummy):
         self.reconstructed_intensity = self.intensity(self.reconstructed_field_before_propagation)
         self.finished_reconstruction = False  # Reset the finished reconstruction flag
 
-
     def calc_radius_mask(self):
         if self.radius_0_order is None:
             raise Exception(f"Dc Radius not implemented for objective {self.dhm.objective}")
@@ -255,8 +258,8 @@ class Hologram(Holo_Dummy):
 
 
 class ReferenceHologram(Hologram):
-    def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm):
-        super().__init__(data=data, dhm=dhm, first_diffraction_order_pos=first_diffraction_order_pos)
+    def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter):
+        super().__init__(data=data, dhm_parameter=dhm_parameter, first_diffraction_order_pos=first_diffraction_order_pos)
         self.calc_radius_mask()
 
 

@@ -73,7 +73,6 @@ class StructureContainer(Container):
         self.kwargs["items"] = items
 
     def __post_init__(self):
-
         """ Initialize this container. """
 
         # Type check of the container
@@ -83,31 +82,55 @@ class StructureContainer(Container):
 
     @property
     def objective(self):
-
         """ Shortcut to the parameter data dictionary. """
-
         return self["data/objective.json"]
 
     @property
     def dhm_params(self):
+        """ Shortcut to the dhm_parameter-parameter data dictionary. """
+        obj_name = self["data/objective.json"]["key"]
+        dc_radius = self["data/objective.json"]["dcRadius"]
+        magnification = self["data/objective.json"]["magnification"]
+        na_objective = self["data/objective.json"]["numericalAperture"]
+        wavelength_m = self["data/hologram.json"]["device"]["laser"]["wavelengthUm"] * 10e-6
+        if obj_name == "Zeiss 63x":
+            pixel_pitch_m = [0.0869e-6, 0.0869e-6]  # ToDo implement it for 63 obj
+        else:
+            pixel_pitch_m = [self["data/hologram.json"]["objective"]["xPixelSizeUm"] * 10e-6,
+                             self["data/hologram.json"]["objective"]["yPixelSizeUm"] * 10e-6]
+        if "propagationDistance" in self["data/hologram.json"]["device"]["dhm"]:
+            propagation_distance = self["data/hologram.json"]["device"]["dhm"]["propagationDistance"] # ToDo implement it!
+        else:
+            propagation_distance = 0.0
+        n_resin = 1.5
+        if "info/substrate.json" in self:  # ToDo create the substrate json file
+            if "refractive index material" in self["info/substrate.json"]:
+                n_resin = self["info/substrate.json"]["refractive index material"]
 
-        """ Shortcut to the dhm-parameter data dictionary. """
+        dhm_params = {"objective name": obj_name,
+                      "DC radius": dc_radius,
+                      "magnification": magnification,
+                      "propagation distance": propagation_distance,
+                      "wavelength": wavelength_m,
+                      "pixel pitch": pixel_pitch_m,
+                      "NA objective": na_objective,
+                      "refractive index": n_resin}
 
-        return self["data/hologram.json"]
+        return dhm_params
 
     @property
     def background_hologram(self):
         """ Shortcut to the background hologram. """
-        return self["meas/dhm/background.png"]
+        return self["meas/dhm_parameter/background.png"]
 
     @property
     def complete_hologram(self):
         """ Shortcut to the last taken hologram. """
-        return self["meas/dhm/finished.png"]
+        return self["meas/dhm_parameter/finished.png"]
 
     @property
     def number_of_layer(self):
-        return self["info/properties.json"]["number of layers"]
+        return self["info/properties.json"]["number of layer"]
 
     @property
     def camera_params(self):
@@ -158,31 +181,6 @@ class ExperimentContainer(Container):
         # Update items dictionary
         items["content.json"] = content
         items["meta.json"] = meta
-
-        # Camera image
-        # img = self.kwargs.pop("img")
-        # if not isinstance(img, np.ndarray) or len(img.shape) != 2:
-        #     raise RuntimeError("Hologram image expected!")
-        # items["meas/image.png"] = img
-
-        # Camera parameters
-        params = self.kwargs.pop("params")
-        if not isinstance(params, dict):
-            raise RuntimeError("Parameter dictionary expected!")
-        items["data/camera.json"] = params
-
-        # Objective parameters
-        objective = self.kwargs.pop("objective")
-        if not isinstance(objective, dict):
-            raise RuntimeError("Objective dictionary expected!")
-        items["data/objective.json"] = objective
-
-        # Optional location coordinates
-        loc = self.kwargs.pop("loc", None)
-        if loc:
-            if not isinstance(loc, dict):
-                raise RuntimeError("Location dictionary expected!")
-            items["data/location.json"] = loc
 
         # Replace container items dictionary
         self.kwargs["items"] = items

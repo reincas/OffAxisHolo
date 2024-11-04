@@ -25,10 +25,10 @@ class Docker:
 
         # Initialize and use other classes
         i = 0
-        hologram_data = structure_dict[f"meas/dhm/layer_{i}.png"].data
-        background_data = structure_dict["meas/dhm/background.png"].data
-        hologram = Hologram(data=hologram_data, dhm=dhm_machine)
-        background = ReferenceHologram(data=background_data, dhm=dhm_machine,
+        hologram_data = structure_dict[f"meas/dhm_parameter/layer_{i}.png"].data
+        background_data = structure_dict["meas/dhm_parameter/background.png"].data
+        hologram = Hologram(data=hologram_data, dhm_parameter=dhm_machine)
+        background = ReferenceHologram(data=background_data, dhm_parameter=dhm_machine,
                                        first_diffraction_order_pos=hologram.first_diffraction_order_pos)
 
         processor = HologramPostProcessor(hologram)

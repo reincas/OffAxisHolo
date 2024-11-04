@@ -3,7 +3,7 @@ GENERAL TODOS WHICH HAVE TO BE DONE IN THE FUTURE.
 
 ToDo 1:     license thing on top of this file
 ToDo 2:     update regularly this usage if new components are added to the aerotech file/ saving - system
-ToDo 3:     Make a "StructureContainer" of the normal Container in the StructureCollector in save_container
+DONEToDo 3:     Make a "StructureContainer" of the normal Container in the StructureCollector in save_container
 ToDo 4:     saving and using the locations of the camera images -  until now it is only saved in the original zdc
 ToDo 5:
 
@@ -19,10 +19,10 @@ collector = StructureCollector(path, exp_description=description)
 structureContainer = collector.collect_container()
 
 """
-from container import StructureContainer, ExperimentContainer
-from util import update_container, set_container_description
+from .structure import StructureContainer, ExperimentContainer
+from .util import update_container, set_container_description
 
-from scidatacontainer import Container
+from scidatacontainer import Container, load_config
 from typing import Any
 import cv2 as cv
 import fnmatch
@@ -82,11 +82,11 @@ class StructureCollector:
 
         # initialize content lists
         self.program_content = []  # txt files in the program folder
-        self.dhm_content = []  # zdc files in the dhm folder
+        self.dhm_content = []  # zdc files in the dhm_parameter folder
         self.camera_content = []  # zdc files in the camera folder
         self.root_content = []  # all files located in the root folder
         self.root_zdc_content = []  # list of all zdc files in root directory
-        self.root_dhm_content = []  # list of the dhm-containers in root directory
+        self.root_dhm_content = []  # list of the dhm_parameter-containers in root directory
         self.root_camera_content = []  # list of the camera-containers in root directory
 
         # initialize dictionaries
@@ -230,8 +230,8 @@ class StructureCollector:
         tmp_dict.update(tmp)
 
         # DHM Images
-        file_after = os.path.join(self.root_path, self.root_dhm_content[0])  # after dhm picture
-        file_before = os.path.join(self.root_path, self.root_dhm_content[1])  # before dhm picture
+        file_after = os.path.join(self.root_path, self.root_dhm_content[0])  # after dhm_parameter picture
+        file_before = os.path.join(self.root_path, self.root_dhm_content[1])  # before dhm_parameter picture
         dc_after = Container(file=file_after)
         dc_before = Container(file=file_before)
         dc_after_img = dc_after._items["meas/image.png"].data
@@ -286,10 +286,10 @@ class StructureCollector:
 
     def get_root_content(self):
         content = os.listdir(self.root_path)
-        zdc_content = fnmatch.filter(os.listdir(path), '*.zdc')  # make sure only zdc files are selected
+        zdc_content = fnmatch.filter(os.listdir(self.root_path), '*.zdc')  # make sure only zdc files are selected
         self.root_content.extend(content)
         self.root_zdc_content.extend(zdc_content)
-        dhm_root_content = fnmatch.filter(zdc_content, '[dhm]*')  # make sure only zdc files are selected
+        dhm_root_content = fnmatch.filter(zdc_content, '[dhm_parameter]*')  # make sure only zdc files are selected
         camera_root_content = fnmatch.filter(zdc_content, '[camera]*')  # make sure only zdc files are selected
         self.root_dhm_content.extend(dhm_root_content)
         self.root_camera_content.extend(camera_root_content)
@@ -363,16 +363,24 @@ class ExperimentCollector:
         self.structure_reference_list = {}
 
     def init_container(self):
-        self.container = ExperimentContainer()
+        # ToDo: After creation of experiment zdc, which is always constructed, rework this!#
+        config = load_config(
+            author="Hannes Robben",
+            email="hannes.robben@phoenixd.uni-hannover.de",
+            organization="PhoenixD",
+            orcid="000"
+        )
+        self.container = ExperimentContainer(config=config)
+        self.container.write(self.root_path+".zdc")
 
     def collect(self):
         # Initialization of experiment object with path of the experiment
         self.init_container()  # creation of a base-container
 
-        # Saving all general information: structure.json, experiment.png, oplscan.txt, planefit
+        # Saving all general information: structure.json, experiment.png, oplscan.txt, plane-fit
         self.structure_information()  # gets the list of the names of the structures + saving the file in .zdc
         self.experiment_information()  # gets the .png plotting file + console + opl_scan file and saves it
-        self.planefit_information()  # handles all the information of the planefitting process
+        self.planefit_information()  # handles all the information of the plane-fitting process
 
         # do the zdc stuff with the structures
         self.create_structure_container()  # create the individual structure container
@@ -380,12 +388,12 @@ class ExperimentCollector:
 
     def structure_information(self):
         pfad = self.root_path + "\\structures.json"
-        with open(pfad) as datei:
-            dictionary = json.load(datei)
+        with open(pfad) as file:
+            dictionary = json.load(file)
         self.struct_info_dict = dictionary
         for structure in dictionary:
             self.structure_name.append(structure["name"])
-            self.structure_path_list.append(os.path.join(self.root_path, structure["name"]))
+            self.structure_path_list.append(os.path.join(self.root_path, "structures", structure["name"]))
         # uploading the structure.json file to the experiment container
         update_container(self.container_path, {"meas/structures.json": dictionary})
 
@@ -429,7 +437,7 @@ class ExperimentCollector:
 
         dc = Container(file=layer_container_path)
         tmp_dict = dc.items()
-        for key, val in tmp_dict:
+        for key, val in tmp_dict.items():
             if key == "meas/result.json":
                 plane_dictionary.update({"meas/planefit/result.json": val})
             elif key == "meas/steps.json":
@@ -446,7 +454,7 @@ class ExperimentCollector:
         for structure_path in self.structure_path_list:
             structure = StructureCollector(structure_path, exp_description="")
             structureContainer = structure.collect()
-            save_path = structureContainer.saving_directory_container
+            save_path = structure.saving_directory_container
             # ToDo change the description in a informative way: where is the structure - maybe grid number if possible, what was printed and what is the name
             description = ""
             set_container_description(save_path, description=description)

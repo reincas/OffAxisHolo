@@ -3,7 +3,7 @@ import numpy as np
 from offaxisholo import *
 
 zdc_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
-            "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/dhm/"
+            "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/dhm_parameter/"
             "dhm_lens0_ABZ_h_0.1_l_0.15.0.zdc")
 back_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
              "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/"
@@ -16,8 +16,8 @@ dhm_machine = DHM(objective="Zeiss 63x")
 # Initialize and use other classes
 hologram_data = get_hologram(path=zdc_path)
 background_data = get_hologram(path=back_path)
-hologram = Hologram(data=hologram_data, dhm=dhm_machine)
-background = ReferenceHologram(data=background_data, dhm=dhm_machine,
+hologram = Hologram(data=hologram_data, dhm_parameter=dhm_machine)
+background = ReferenceHologram(data=background_data, dhm_parameter=dhm_machine,
                                first_diffraction_order_pos=hologram.first_diffraction_order_pos)
 
 processor = HologramPostProcessor(hologram)

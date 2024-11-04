@@ -13,8 +13,8 @@ properly executed.
 
 
 class HologramReconstructor(DHMPlotter):
-    def __init__(self, hologram: Hologram, processor: HologramPostProcessor, reference: ReferenceHologram = None,
-                 propagation_distance=0):
+    def __init__(self, hologram: Hologram, reference: ReferenceHologram = None,
+                 processor: HologramPostProcessor = None):
         super().__init__()
         self.hologram = hologram
         self.processor = processor
@@ -26,8 +26,8 @@ class HologramReconstructor(DHMPlotter):
 
         self.wavelength = self.hologram.wavelength
         self.pixel_pitch = self.hologram.pixel_pitch
-        self.propagation_distance = self.hologram.propagation_distance  # Noch ändern, wenn man herausgefunden hat was diese distanz ist
-        self.n_resin = 1.5  # ToDO hier import nochmal überarbeiten
+        self.propagation_distance = self.hologram.propagation_distance
+        self.n_resin = self.hologram.n_resin
 
         self.phase_compensated = None
         self.height_profile = None
@@ -116,6 +116,9 @@ class HologramReconstructor(DHMPlotter):
         """
         field = np.array(field)
 
+        if float(z) == 0.0:
+            return field
+
         # Sanity check
         assert len(field.shape) == 2, "2D hologram image required!"
         M, N = field.shape
@@ -141,6 +144,66 @@ class HologramReconstructor(DHMPlotter):
 
         # Inverse Fourier transform to get back to spatial domain
         propagated_field = self.hologram.getField(propagated_ft)
+
+        return propagated_field
+
+    import numpy as np
+
+    def angular_spectrum_propagation(self, field, z, wavelength, dx, dy):
+        """
+        Propagate a complex optical field using the Angular Spectrum Method.
+
+        Parameters:
+        -----------
+        field : 2D numpy array (complex)
+            Input complex field amplitude
+        z : float
+            Propagation distance [same unit as wavelength]
+        wavelength : float
+            Wavelength of light [same unit as z]
+        dx, dy : float
+            Pixel pitch in x and y directions [same unit as wavelength]
+
+        Returns:
+        --------
+        propagated_field : 2D numpy array (complex)
+            Propagated complex field amplitude
+        """
+        if z == 0:
+            return field
+
+        # Verify input is 2D
+        if len(field.shape) != 2:
+            raise ValueError("Input field must be 2D!")
+
+        M, N = field.shape
+        k = 2 * np.pi / wavelength  # wavenumber
+
+        # Spatial frequencies
+        fx = np.fft.fftfreq(N, dx)
+        fy = np.fft.fftfreq(M, dy)
+        FX, FY = np.meshgrid(fx, fy)
+
+        # Calculate kz component of wavevector
+        # Note: we use broadcasting to avoid explicit meshgrid
+        kz = np.sqrt(k ** 2 - (2 * np.pi * FX) ** 2 - (2 * np.pi * FY) ** 2 + 0j)
+
+        # Transfer function
+        H = np.exp(1j * kz * z)
+
+        # Apply bandlimit to avoid aliasing
+        # Maximum allowed spatial frequency based on sampling
+        fx_max = 1 / (2 * dx)
+        fy_max = 1 / (2 * dy)
+
+        # Create frequency filter
+        freq_mask = (np.abs(FX) <= fx_max * 0.9) & (np.abs(FY) <= fy_max * 0.9)
+        H *= freq_mask
+
+        # Propagate field
+        spectrum = np.fft.fft2(field)
+        propagated_spectrum = spectrum * np.fft.fftshift(H)
+        propagated_field = np.fft.ifft2(propagated_spectrum)
 
         return propagated_field
 
@@ -208,7 +271,7 @@ class HologramReconstructor(DHMPlotter):
         if save_img and self.img_save_path is None:
             raise Exception("A path for saving the images is needed! \nUse the method set_save_path for this purpose.")
         if background_hologram is None and compensate is True:
-            assert self.background_available == True
+            assert self.background_available
 
         # make sure that an instance of hologram does exist
         if hologram is None:
