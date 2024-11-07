@@ -121,12 +121,12 @@ class StructureContainer(Container):
     @property
     def background_hologram(self):
         """ Shortcut to the background hologram. """
-        return self["meas/dhm_parameter/background.png"]
+        return self["meas/dhm/background.png"]
 
     @property
     def complete_hologram(self):
         """ Shortcut to the last taken hologram. """
-        return self["meas/dhm_parameter/finished.png"]
+        return self["meas/dhm/finished.png"]
 
     @property
     def number_of_layer(self):
