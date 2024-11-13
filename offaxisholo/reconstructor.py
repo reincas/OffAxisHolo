@@ -33,6 +33,7 @@ class HologramReconstructor(DHMPlotter):
         self.n_resin = self.hologram.n_resin
 
         self.phase_compensated = None
+        self.intensity_compensated = None
         self.height_profile = None
 
     def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, prop_dist=None,
@@ -73,6 +74,7 @@ class HologramReconstructor(DHMPlotter):
             field_propagated = self.propagate(field=field, distance=prop_dist)
             field_finished = field_propagated
 
+        self.intensity_compensated = hologram.intensity(field_finished)
         hologram.set_full_reconstruction(re_field=field, propagated_field=field_propagated if propagate else None,
                                          phase_unwrapped=self.phase_unwrapping(holo_phase))
         # Filering of the phase
@@ -84,11 +86,17 @@ class HologramReconstructor(DHMPlotter):
 
     def propagate(self, field, distance, pixel_pitch: list[float] = None):
         if pixel_pitch is None:
-            dx = self.pixel_pitch[0]
-            dy = self.pixel_pitch[1]
+            if isinstance(self.pixel_pitch, list) or isinstance(self.pixel_pitch, tuple):
+                dx = self.pixel_pitch[0]
+                dy = self.pixel_pitch[1]
+            else:
+                dx = dy = self.pixel_pitch
         else:
-            dx = pixel_pitch[0]
-            dy = pixel_pitch[1]
+            if isinstance(pixel_pitch, float) or isinstance(pixel_pitch, int):
+                dx = dy = pixel_pitch
+            else:
+                dx = pixel_pitch[0]
+                dy = pixel_pitch[1]
         wv = self.wavelength
         # propagated = self.angular_spectrum_propagation(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
         propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
@@ -152,7 +160,7 @@ class HologramReconstructor(DHMPlotter):
         phase_unwrapped = unwrap_phase(phase_wrapped)
         return phase_unwrapped
 
-    def phase_to_height(self, phase):
+    def phase_to_height(self, phase, n_resin=None):
         """
         Height reconstruction based on the theoretical investigation by Nguyen et al.
         Thanh Nguyen, George Nehmetallah, Christopher Raub, Scott Mathews, and Rola Aylo, "Accurate quantitative phase
@@ -162,7 +170,9 @@ class HologramReconstructor(DHMPlotter):
         http://dx.doi.org/10.1364/AO.55.005666
         """
         n_air = 1
-        delta_n = n_air - self.n_resin  # change in refractive index - only approximate values
+        if n_resin is None:
+            n_resin = self.n_resin
+        delta_n = n_air - n_resin  # change in refractive index - only approximate values
         height_profile = self.wavelength * phase / (2 * np.pi * delta_n)
         return height_profile
 

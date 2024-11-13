@@ -5,10 +5,73 @@ from typing import Optional
 import pandas as pd
 from matplotlib import pyplot as plt
 
+
+class PlotData:
+    def __init__(self):
+        pass
+
+    def plot_height_3D_complete(self, data=None) -> plt.figure:
+        if data == None:
+            data = self.df_matrix
+        else:
+            if isinstance(data, SensofarData):
+                data = data.as_matrix()
+            elif isinstance(data, np.ndarray):
+                pass
+            elif isinstance(data, pd.DataFrame):
+                raise Warning("Data has to be a 2D matrix!")
+            data = data
+        x = np.arange(0, self.x_max_id)
+        y = np.arange(0, self.y_max_id)
+        X, Y = np.meshgrid(x, y)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(X=X, Y=Y, Z=data, cmap='viridis')
+        plt.show()
+        return fig
+
+    def plot_height_3D(self) -> plt.figure:
+        x = np.arange(self.structure_loc[0][0], self.structure_loc[1][0])
+        y = np.arange(self.structure_loc[0][1], self.structure_loc[1][1])
+        X, Y = np.meshgrid(x, y)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        matrix = self.as_matrix()
+        matrix = matrix[self.structure_loc[0][1]:self.structure_loc[1][1],
+                 self.structure_loc[0][0]:self.structure_loc[1][0]]
+
+        ax.plot_surface(X=X, Y=Y, Z=matrix, cmap='viridis')
+        plt.show()
+        return fig
+
+    def plot_profile(self, axis, index, plot_axes: plt.axes = None, return_data=False) -> plt.figure:
+        if axis.lower() == 'x':
+            data = self.get_x_profile(index)
+        elif axis.lower() == 'y':
+            data = self.get_y_profile(index)
+        else:
+            raise NotImplementedError(f"Axis {axis} is not implemented.")
+
+        fig = plt.figure()
+        if plot_axes is not None:
+            plot_axes.plot(data)
+        else:
+            ax = fig.add_subplot()
+            ax.plot(data)
+            plt.show()
+        if return_data:
+            return fig, data
+        else:
+            return fig
+
+
 @dataclass
-class SensofarData():
+class SensofarData(PlotData):
     def __init__(self, path):
         self.data_path = path
+        self.data_name = path.split("\\")[-1].split('.')[0]
         self.df = pd.DataFrame()
         self.load_data()
         self.data_correction()
@@ -55,15 +118,15 @@ class SensofarData():
         y_pixel_size = self.df['y'].values[-1] / self.y_max_id
         x_pixel_size = self.df['x'].values[-1] / self.x_max_id
         diff = y_pixel_size - x_pixel_size
+        self.pixel_size = (y_pixel_size + x_pixel_size) / 2
         if diff > 10e-3:
             print(f"Difference in pixel size: {diff}")
-        self.pixel_size = (y_pixel_size + x_pixel_size) / 2
+            self.pixel_size = [x_pixel_size, y_pixel_size]
 
     def as_matrix(self) -> np.array:
         return self.df_matrix
 
     def _add_matrix(self):
-        # ToDo: Kontrollieren warum erst y_max_id kommt und dann x - ich weiß dass es irgendwo vorher ein problem mit den dimensionen gab und das den fehler gelöst hat, aber ist das jetzt noch richtig von der orientierung?
         self.df_matrix = self.df['z_no_nan'].__array__().reshape(self.y_max_id, self.x_max_id)
         self.df_matrix_as_matrix = np.matrix(self.df_matrix)
 
@@ -75,66 +138,42 @@ class SensofarData():
     def __x_max_matrix(self):
         return self.x_max_id
 
-    def plot_height_3D_complete(self) -> plt.figure:
-        x = np.arange(0, self.x_max_id)
-        y = np.arange(0, self.y_max_id)
-        X, Y = np.meshgrid(x, y)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(X=X, Y=Y, Z=data_aspherical_left.as_matrix(), cmap='viridis')
-        plt.show()
-        return fig
-
-    def plot_height_3D(self) -> plt.figure:
-        x = np.arange(self.structure_loc[0][0], self.structure_loc[1][0])
-        y = np.arange(self.structure_loc[0][1], self.structure_loc[1][1])
-        X, Y = np.meshgrid(x, y)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        matrix = data_aspherical_left.as_matrix()
-        matrix = matrix[self.structure_loc[0][1]:self.structure_loc[1][1],
-                 self.structure_loc[0][0]:self.structure_loc[1][0]]
-
-        ax.plot_surface(X=X, Y=Y, Z=matrix, cmap='viridis')
-        plt.show()
-        return fig
+    def safe_matrix(self, as_numpy=False):
+        # ToDo: Find a good way to save the pixelsize
+        save_path = os.path.dirname(self.data_path)
+        if as_numpy:
+            # save as a numpy array
+            name = self.data_name + '.npy'
+            np.save(os.path.join(save_path, name), np.asarray(self.df_matrix))
+        else:
+            # save as csv
+            name = self.data_name + '.csv'
+            self.df_matrix.to_csv(os.path.join(save_path, name))
+        # Save the pixel_size, because it es necessary
+        name = self.data_name + '_pixel_size.txt'
+        pixel_path = os.path.join(save_path, name)
+        f = open(pixel_path, 'w')
+        f.write(str(self.pixel_size))
+        f.close()
 
     def get_x_profile(self, index) -> np.array:
         """
-        get height-profile of the x axis at y-coordinate y_index
+        get height-profile of the x-axis at y-coordinate y_index
         """
         return self.df_matrix[index, :]
 
     def get_y_profile(self, index) -> np.array:
         """
-        get height-profile of the y axis at x-coordinate x_index
+        get height-profile of the y-axis at x-coordinate x_index
         """
         return self.df_matrix[:, index]
 
-    def plot_profile(self, axis, index, plot_axes: plt.axes = None, return_data=False) -> plt.figure:
-        if axis.lower() == 'x':
-            data = self.get_x_profile(index)
-        elif axis.lower() == 'y':
-            data = self.get_y_profile(index)
-        else:
-            raise NotImplementedError(f"Axis {axis} is not implemented.")
-
-        fig = plt.figure()
-        if plot_axes is not None:
-            plot_axes.plot(data)
-        else:
-            ax = fig.add_subplot()
-            ax.plot(data)
-            plt.show()
-        if return_data:
-            return fig, data
-        else:
-            return fig
-
     def calc_structure_information(self, threshold=0.5):
-        # ToDo: mean abfrage und dadurch auch threshold überdenken und ggf. ersetzen
+        """
+        Another implementation can be found in DataClass_np_array NumpyDataClass with the function locate_structure
+        :param threshold:
+        :return:
+        """
         lower_val = np.mean(self.get_x_profile(index=0)) if np.mean(self.get_x_profile(index=0)) <= np.mean(
             self.get_y_profile(index=0)) else np.mean(self.get_y_profile(index=0))
         # high_val = np.mean(self.get_x_profile(index=int(np.ceil(self.x_max_id / 2)))) if np.mean(
@@ -173,15 +212,13 @@ class SensofarData():
 
 
 if __name__ == "__main__":
-    base_path = 'C:\\Users\\hanne\\Documents\\Seafile\\Nanoproduction_Hannes\\Sensofar'
-    experiment = "2024_06_25 DHM Paper Pillow test\Data"
-    path = os.path.join(base_path, experiment)
-    # data_name = "Aspherical_left_structureonly.dat"
-    data_name = "Aspherical_left_good.dat"
-    data_path = os.path.join(base_path, experiment, data_name)
+    # base_path = 'C:\\Users\\hanne\\Documents\\Seafile\\Nanoproduction_Hannes\\Sensofar'
+    base_path = r"C:\Users\hanne\Documents\Seafile\Nanoproduction_Hannes\Sensofar\Substrat DHMPaper\#Auswertungsdaten"
+    data_name = "DOE1.dat"
+    data_path = os.path.join(base_path, data_name)
 
-    data_aspherical_left = SensofarData(data_path)
+    data_DOE1 = SensofarData(data_path)
 
     # plotting the middle crosssection in x-direction
-    fig, data = data_aspherical_left.plot_profile(axis="y", index=data_aspherical_left.structure_loc_mid[1],
+    fig, data = data_DOE1.plot_profile(axis="y", index=data_DOE1.structure_loc_mid[1],
                                                   return_data=True)

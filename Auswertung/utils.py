@@ -138,6 +138,16 @@ def plot_surface_from_points(dataframe):
     return fig
 
 
+def mkdir(path):
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except FileExistsError as e:
+            print(f"An Error occured: {e}")
+            pass
+    return path
+
+
 if __name__ == "__main__":
     base_path = 'C:\\Users\\hanne\\Documents\\Seafile\\Nanoproduction_Hannes\\Sensofar'
     path = os.path.join(base_path, "2024_06_25 DHM Paper Pillow test\Data")

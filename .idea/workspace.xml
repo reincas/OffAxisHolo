@@ -5,12 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="38bf9839-92e8-4907-bdc5-686d17c67caa" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Auswertung/create_Plot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Auswertung/DataClass_np_array.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Auswertung/collect_experiment.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/container/structure.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/container/structure.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/DataClass_Sensofar.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/DataClass_Sensofar.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/create_Plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/create_Plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Auswertung/evaluate.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/evaluate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/test_propagation.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/test_propagation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/offaxisholo/reconstructor.py" beforeDir="false" afterPath="$PROJECT_DIR$/offaxisholo/reconstructor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -37,40 +39,73 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Container_Structure.executor&quot;: &quot;Run&quot;,
-    &quot;Python.FocusDetectionHandler.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.collector.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.container.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.datacontainer_test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.evaluate.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.main.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.scratch_2.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.scratch_4.executor&quot;: &quot;Run&quot;,
-    &quot;Python.structure.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_propagation.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Holo__HR&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/hanne/Documents/Seafile/phoenixd-robben/Code/OffAxisHolo&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Container_Structure.executor": "Run",
+    "Python.DataClass_Sensofar.executor": "Run",
+    "Python.FocusDetectionHandler.executor": "Debug",
+    "Python.collect_experiment.executor": "Run",
+    "Python.collector.executor": "Debug",
+    "Python.container.executor": "Debug",
+    "Python.create_Plot.executor": "Run",
+    "Python.datacontainer_test.executor": "Run",
+    "Python.evaluate.executor": "Debug",
+    "Python.main.executor": "Debug",
+    "Python.scratch_2.executor": "Debug",
+    "Python.scratch_4.executor": "Run",
+    "Python.structure.executor": "Run",
+    "Python.test_propagation.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "Holo__HR",
+    "last_opened_file_path": "C:/Users/hanne/Documents/Seafile/phoenixd-robben/Code/OffAxisHolo",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
-      &quot;Python&quot;
+  "keyToStringList": {
+    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "Python"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\hanne\Documents\Seafile\phoenixd-robben\Code\OffAxisHolo\Auswertung" />
       <recent name="C:\Users\hanne\Documents\Seafile\phoenixd-robben\Code\OffAxisHolo\offaxisholo\container" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="create_Plot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="OffAxisHolo" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Auswertung" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Auswertung/create_Plot.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.create_Plot" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -100,6 +135,9 @@
       <workItem from="1730703866602" duration="28750000" />
       <workItem from="1730794015140" duration="16106000" />
       <workItem from="1730813228348" duration="7225000" />
+      <workItem from="1730975112180" duration="10073000" />
+      <workItem from="1731310476056" duration="28027000" />
+      <workItem from="1731487925621" duration="15781000" />
     </task>
     <servers />
   </component>
@@ -139,16 +177,19 @@
     </watches-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/OffAxisHolo$collector.coverage" NAME="collector Coverage Results" MODIFIED="1727790945638" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung/container" />
-    <SUITE FILE_PATH="coverage/OffAxisHolo$Container_Structure.coverage" NAME="Container_Structure Coverage Results" MODIFIED="1727710656036" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/offaxisholo" />
-    <SUITE FILE_PATH="coverage/OffAxisHolo$datacontainer_test.coverage" NAME="datacontainer_test Coverage Results" MODIFIED="1727693110845" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
-    <SUITE FILE_PATH="coverage/OffAxisHolo$test_propagation.coverage" NAME="test_propagation Coverage Results" MODIFIED="1730795595340" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$collect_experiment.coverage" NAME="collect_experiment Coverage Results" MODIFIED="1731502021771" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$DataClass_Sensofar.coverage" NAME="DataClass_Sensofar Coverage Results" MODIFIED="1731059197130" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
     <SUITE FILE_PATH="coverage/OffAxisHolo$FocusDetectionHandler.coverage" NAME="FocusDetectionHandler Coverage Results" MODIFIED="1727692513615" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
-    <SUITE FILE_PATH="coverage/OffAxisHolo$main.coverage" NAME="main Coverage Results" MODIFIED="1730807254509" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
     <SUITE FILE_PATH="coverage/OffAxisHolo$container.coverage" NAME="container Coverage Results" MODIFIED="1727790939278" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung/container" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$create_Plot.coverage" NAME="create_Plot Coverage Results" MODIFIED="1731510354823" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
     <SUITE FILE_PATH="coverage/OffAxisHolo$evaluate.coverage" NAME="evaluate Coverage Results" MODIFIED="1729769554831" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
-    <SUITE FILE_PATH="coverage/OffAxisHolo$scratch_4.coverage" NAME="scratch_4 Coverage Results" MODIFIED="1730736673991" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/OffAxisHolo$scratch_2.coverage" NAME="scratch_2 Coverage Results" MODIFIED="1727777202996" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/OffAxisHolo$structure.coverage" NAME="structure Coverage Results" MODIFIED="1728035991826" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung/container" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$collector.coverage" NAME="collector Coverage Results" MODIFIED="1727790945638" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung/container" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$Container_Structure.coverage" NAME="Container_Structure Coverage Results" MODIFIED="1727710656036" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/offaxisholo" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$test_propagation.coverage" NAME="test_propagation Coverage Results" MODIFIED="1730795595340" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$datacontainer_test.coverage" NAME="datacontainer_test Coverage Results" MODIFIED="1727693110845" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$main.coverage" NAME="main Coverage Results" MODIFIED="1730807254509" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Auswertung" />
+    <SUITE FILE_PATH="coverage/OffAxisHolo$scratch_4.coverage" NAME="scratch_4 Coverage Results" MODIFIED="1730736673991" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
   </component>
 </project>

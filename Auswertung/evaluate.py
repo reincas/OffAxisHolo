@@ -10,7 +10,7 @@ from Auswertung.container import update_container
 from offaxisholo import Hologram, HologramReconstructor, ReferenceHologram, HologramPostProcessor
 
 
-def evaluate_image(img_path, background_img_path=None, save_path=None, objective="Zeiss 63x"):
+def evaluate_image(img_path, background_img_path=None, save_path=None, objective="Zeiss 63x", return_reconstructor=True):
     if objective == "Zeiss 63x":
         dhm_params = {"pixel pitch": 0.0869e-6,
                       "wavelength": 0.6749e-6,
@@ -68,8 +68,12 @@ def evaluate_image(img_path, background_img_path=None, save_path=None, objective
         plt.imshow(height_structure)
         plt.show()
 
+    if return_reconstructor: return reconstructor
+
 
 def evaluate_structure(structure_path):
+    # ToDo: speed up this function + too much memory consumption atm
+    # ToDo: 2 Full reconstructions per layer (background + layer)? I have to change calculation order and improve the code
     if structure_path.endswith(".zdc"):
         data_container = StructureContainer(file=structure_path)
     else:
