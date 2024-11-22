@@ -5,14 +5,32 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="38bf9839-92e8-4907-bdc5-686d17c67caa" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Auswertung/test_unwrap.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/offaxisholo/phase_unwrapping_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/offaxisholo/phase_unwrapping_functions.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/DataClass_np_array.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/DataClass_np_array.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/create_Plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/create_Plot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/evaluate.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/evaluate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Auswertung/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/Auswertung/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/DataClass_Sensofar.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/DataClass_np_array.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/FocusDetectionHandler.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/Lens_original.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/Referenzlink.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/collect_experiment.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/comparison_lens.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/container/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/container/collector.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/container/docker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/container/structure.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/container/util.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/create_Plot.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/evaluate.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/test_propagation.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testdata/dhm_DOE_Random_5x5_10µm_after.zdc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testdata/dhm_DOE_Random_5x5_10µm_before.zdc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testdata/link for data.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testdata/test.zdc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testfiles/datacontainer_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/testfiles/diff_img_investigate.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auswertung/utils.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/offaxisholo/reconstructor.py" beforeDir="false" afterPath="$PROJECT_DIR$/offaxisholo/reconstructor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -59,7 +77,7 @@
     "Python.test_unwrap.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "Holo__HR",
-    "last_opened_file_path": "C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem",
+    "last_opened_file_path": "C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/dhm4qpi",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -140,7 +158,9 @@
       <workItem from="1730975112180" duration="10073000" />
       <workItem from="1731310476056" duration="28027000" />
       <workItem from="1731487925621" duration="24756000" />
-      <workItem from="1732015416317" duration="31863000" />
+      <workItem from="1732015416317" duration="31263000" />
+      <workItem from="1732196474000" duration="47000" />
+      <workItem from="1732196992017" duration="2703000" />
     </task>
     <servers />
   </component>

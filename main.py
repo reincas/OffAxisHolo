@@ -1,6 +1,6 @@
 import numpy as np
 
-from offaxisholo import *
+from OffAxisHolo.offaxisholo import *
 
 zdc_path = ("C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem/mains/.output/dhm_paper/"
             "20240905_parameter_testprint_Zeiss 63x/structures/lens0_ABZ_h_0.1_l_0.15/dhm_parameter/"
