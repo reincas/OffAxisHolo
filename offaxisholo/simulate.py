@@ -11,10 +11,68 @@
 #
 ##########################################################################
 
+
+# This module provides functions to generate quadratic field arrays. All
+# length parameters are expected as unitless multiples of the wavelength.
+#
+##########################################################################
+
 import numpy as np
 
-from . import field
 
+def mesh(N, pitch):
+    """ Return quadratic x and y position arrays with given pitch and origin
+    of the coordinate system at the array center."""
+
+    y, x = np.indices((N, N), dtype=float)
+    x -= 0.5 * np.max(x)
+    y -= 0.5 * np.max(y)
+    x *= pitch
+    y *= pitch
+    return y, x
+
+
+def norm(img):
+    """ Return given complex field with total magnitude normalized to a value
+    of 1.0."""
+
+    return img / np.sum(np.abs(img))
+
+
+def planar(N, theta, phi):
+    """ Return a planar wave field with magnitude 1.0 and tilted by a polar
+    angle theta and an azimutal angle phi as complex (N,N) array. """
+
+    fx = np.sin(theta) * np.cos(phi)
+    fy = np.sin(theta) * np.sin(phi)
+    y, x = mesh(N, 1.0)
+    F = np.exp(2j * np.pi * (fx * x + fy * y))
+    return F
+
+
+def spherical(N, pitch, z, approx=False):
+    """ Return a spherical wave field with magnitude 1.0 at a distance z from
+    the center of the sphere as a complex (N,N) array. The center of the sphere
+    is located on the optical axis. """
+
+    # FIXME: Check the equation!
+    y, x = mesh(N, pitch)
+    if approx:
+        F = np.exp(2j * np.pi * (z + (x * x + y * y) / (2 * z)))
+    else:
+        F = np.exp(2j * np.pi * np.sqrt(x * x + y * y + z * z))
+    return F
+
+
+def aperture(N, r0, pitch, x0=0, y0=0):
+    """ Return (N,N) array with value 1.0 inside and 0.0 outside a circular
+    aperture with radius r0 and offset (x0,y0) relative to the center of the
+    array. """
+
+    y, x = mesh(N, pitch)
+    r = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
+    F = np.where(r <= r0, 1.0, 0.0)
+    return F
 
 def lens(Fin, pin, f, d=None):
     """ Transformation of a complex field Fin with given pixel pitch in the
@@ -37,7 +95,7 @@ def lens(Fin, pin, f, d=None):
 
     # Quadratic phase factor
     if d is not None:
-        v, u = field.mesh(N, f / (N * pin))
+        v, u = mesh(N, f / (N * pin))
         Fout *= np.exp(1j * np.pi / f * (1 - d / f) * (u * u + v * v))
 
     # Return output field and pitch
@@ -161,7 +219,7 @@ class HoloMicroscope(object):
         assert h == w, "Quadratic field required"
         assert w & (w - 1) == 0, "Field size must be a power of two!"
         Fin = Fin.astype(complex)
-        self._params["illuminationField"] = field.norm(Fin)
+        self._params["illuminationField"] = norm(Fin)
 
     @property
     def objectiveFocalLength(self):
@@ -333,7 +391,7 @@ class HoloMicroscope(object):
         Fs, ps = lens(Fo, po, fmo)
         N = self.fieldSize
         ra = self.pupilRadius
-        Fs *= field.aperture(N, ra, ps)
+        Fs *= aperture(N, ra, ps)
 
         # Image field (back focal plane of tube lens)
         ftl = self.tubeFocalLength
@@ -343,7 +401,7 @@ class HoloMicroscope(object):
         # Reference wave
         theta, phi = self.referenceTilt
         mr = self.referenceMagnitude
-        Fr = mr * field.planar(N, theta, phi)
+        Fr = mr * planar(N, theta, phi)
 
         # Field on camera sensor with reference wave
         ds = self.sensorDistance

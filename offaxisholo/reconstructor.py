@@ -172,7 +172,7 @@ class HologramReconstructor(DHMPlotter):
         n_air = 1
         if n_resin is None:
             n_resin = self.n_resin
-        delta_n = n_air - n_resin  # change in refractive index - only approximate values
+        delta_n = n_resin - n_air  # change in refractive index - only approximate values
         height_profile = self.wavelength * phase / (2 * np.pi * delta_n)
         return height_profile
 
@@ -225,7 +225,7 @@ class HologramReconstructor(DHMPlotter):
 
         self.run(hologram=hologram, background_hologram=background_hologram, propagate=propagate, compensate=compensate,
                  prop_dist=prop_dist)
-
+        
         ######### ---- PLOTTING ---- ###########
         self.plotImage(hologram.data, "Recorded Hologram", save=save_img)
         # Plotting of spectrum - normal, shifted, masked

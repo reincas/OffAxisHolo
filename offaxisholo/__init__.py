@@ -8,7 +8,7 @@
 # off-axis holograms.
 #
 ##########################################################################
-
+import glob
 from pathlib import Path
 import os
 from scidatacontainer import Container
@@ -16,13 +16,14 @@ from shutil import rmtree
 
 import numpy as np
 
-from .hologram_class import Hologram,ReferenceHologram
+from .hologram_class import Hologram, ReferenceHologram
 from .filter import Filter, HM2F
 from .postprocessor import HologramPostProcessor
 from .reconstructor import HologramReconstructor
 from .structure import Structure3D
 from .plotter import DHMPlotter
 from .DHM_DUMMY import DHM
+
 
 def mkdir(path, clean=False):
     """ Make sure that the given folder exists and is empty. """
