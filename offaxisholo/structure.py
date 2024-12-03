@@ -1,5 +1,5 @@
 import numpy as np
-from reconstructor import HologramReconstructor
+from .reconstructor import HologramReconstructor
 
 """
 Manages the compilation of multiple holograms into a 3D structure, facilitating layer-by-layer reconstruction.

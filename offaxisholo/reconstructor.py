@@ -1,12 +1,14 @@
+import os.path
 from typing import Any
-
+import json
 import numpy as np
+from numpy import save
 from numpy.lib.scimath import sqrt
 
 from skimage.restoration import unwrap_phase
-from offaxisholo.postprocessor import HologramPostProcessor
-from offaxisholo.hologram_class import Hologram, ReferenceHologram
-from offaxisholo.plotter import DHMPlotter
+from .postprocessor import HologramPostProcessor
+from .hologram_class import Hologram, ReferenceHologram
+from .plotter import DHMPlotter
 
 """
 Coordinates the entire reconstruction process, ensuring that all necessary steps (FFT, filtering, compensation) are 
@@ -32,14 +34,35 @@ class HologramReconstructor(DHMPlotter):
         self.propagation_distance = self.hologram.propagation_distance
         self.n_resin = self.hologram.n_resin
 
-        self.phase_compensated = None
-        self.intensity_compensated = None
-        self.height_profile = None
+        # All possible fields
+        self.initial_field = None  # initial field after fft - shift 1st order - ifft
+        self.field_propagated = None  # field after propagation
+        self.phase_compensated = None  # phase after compensation
+        self.intensity_compensated_linear = None  # intensity after compensation
+        self.intensity_compensated_db = None  # intensity after compensation
+        self.field_compensated = None  # combined field of the compensated intensity and phase
+        self.field_filtered = None  # field after filtering (not yet implemented)
+        self.intensity_reconstructed = None  # intensity distribution of reconstructed field (same as compensated if no filtering is done
+        self.field_reconstructed = None  # final reconstructed electromagnetic field (compensated intensity + phase)
+        self.phase_map = None  # unwrapped phase map of the compensated, propagated hologram
+        self.height_profile = None  # final height profile of the Hologram (reconstructed field)
 
     def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, prop_dist=None,
             propagate=True,
             compensate=True) -> np.ndarray | tuple[Any, Any]:
-        """Full reconstruction pipeline including filtering and compensation."""
+        """
+        Full reconstruction:
+
+        Reconstruction Hologram + Reconstruction Background
+        Propagation Hologram
+                -- if no propagation -> set propagate = False or prop_dist = 0 !
+        Compensation for Aberrations (intensity and phase independent)
+                -- if no compensation -> set compensate = False
+        Phase unwrapping
+        Filtering (not yet implemented)
+        """
+
+        return_field = None  # field which will be returned
         if hologram is None:
             hologram = self.hologram
         if background_hologram is None:
@@ -50,41 +73,43 @@ class HologramReconstructor(DHMPlotter):
 
         # Reconstruction of Hologram
         holo_field = hologram.reconstruct()
-        holo_phase = self.phase_unwrapping(hologram.phase(holo_field))
-        field_finished = holo_field
-
-        # Reconstruction of Background
-        if background_hologram is not None:
-            background_field = background_hologram.reconstruct()
-            background_phase = self.phase_unwrapping(hologram.phase(background_field))
-
-        # Aberration Compensation of Optics with Background image
-        if compensate:
-            field = self.compensate(original=holo_field, reference=background_field)
-            phase = self.compensate(original=holo_phase, reference=background_phase)
-            self.phase_compensated = phase
-            field_finished = field
-        else:
-            phase = holo_phase
-            field = holo_field,
-            field_finished = field
+        return_field = holo_field
 
         # Propagation of the electrical field to the focal plane
         if propagate:
-            field_propagated = self.propagate(field=field, distance=prop_dist)
-            field_finished = field_propagated
+            self.field_propagated = self.propagate(field=return_field, distance=prop_dist)
+            return_field = self.field_propagated
 
-        self.intensity_compensated = hologram.intensity(field_finished)
-        hologram.set_full_reconstruction(re_field=field, propagated_field=field_propagated if propagate else None,
-                                         phase_unwrapped=self.phase_unwrapping(holo_phase))
-        # Filering of the phase
+        # Aberration Compensation of Optics with Background image
+        if compensate:
+            # Reconstruction of Background
+            if background_hologram is not None:
+                background_field = background_hologram.reconstruct()
+            else:
+                raise NotImplementedError("No Background image found.")
+
+            return_field = self.compensate(original=return_field, reference=background_field)
+
+        # Filtering
         # ToDo: Filtering needs rework or postprocessor needs rework
-        # filtered = self.processor.filter(compensated)
-        # self.height_profile = self.phase_to_height(filtered)
+        # return_field = self.processor.filter(return_field)
 
-        return field_finished
+        self.phase_map = self.phase_unwrapping(self.phase(return_field))
+        self.intensity_reconstructed = self.intensity(return_field)
+        # save necessary fields in hologram
+        hologram.set_full_reconstruction(re_field=return_field,
+                                         propagated_field=self.field_propagated if propagate else None,
+                                         phase_unwrapped=self.phase_map)
+
+        self.height_profile = self.phase_to_height(return_field)
+        self.field_reconstructed = return_field
+        return return_field
 
     def propagate(self, field, distance, pixel_pitch: list[float] = None):
+        PROPAGATION_ALGORITHM = "Angular Spectrum"  # todo: follow up implementation of different algorithms
+
+        if distance == 0 or distance is None:
+            return field
         if pixel_pitch is None:
             if isinstance(self.pixel_pitch, list) or isinstance(self.pixel_pitch, tuple):
                 dx = self.pixel_pitch[0]
@@ -97,9 +122,14 @@ class HologramReconstructor(DHMPlotter):
             else:
                 dx = pixel_pitch[0]
                 dy = pixel_pitch[1]
+        if distance is None:
+            distance = self.propagation_distance
         wv = self.wavelength
-        # propagated = self.angular_spectrum_propagation(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
-        propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
+        if PROPAGATION_ALGORITHM.lower() == "angular spectrum" and int(distance) != 0:
+            propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
+        else:
+            propagated = field
+
         return propagated
 
     def angularSpectrum(self, field, z, wavelength, dx, dy):
@@ -133,8 +163,21 @@ class HologramReconstructor(DHMPlotter):
         out = np.fft.ifftshift(tmp)
         out = np.fft.ifft2(out)
         out = np.fft.ifftshift(out)
-
         return out
+
+    def compensate_phase(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """
+        Compensation of spherical phase aberrations are possible by capturing a background image with the same imaging
+        system and subtraction of the background from the image with the specimen in it.
+        Research done by:
+        Pietro Ferraro, Sergio De Nicola, Andrea Finizio, Giuseppe Coppola, Simonetta Grilli, Carlo Magro, and Giovanni
+        Pierattini, "Compensation of the inherent wave front curvature in digital holographic coherent microscopy for
+        quantitative phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
+        https://doi.org/10.1364/AO.42.001938
+        """
+        # ToDo change compensate, so it takes the e-field and calculate the correct compensation and returns a field
+        compensated = original - reference
+        return compensated
 
     def compensate(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """
@@ -146,8 +189,17 @@ class HologramReconstructor(DHMPlotter):
         quantitative phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
         https://doi.org/10.1364/AO.42.001938
         """
-        compensated = original - reference
-        return compensated
+        self.phase_compensated = self.phase(original) - self.phase(reference)
+        self.intensity_compensated_linear = self.intensity(original, mode="linear") - self.intensity(reference,
+                                                                                                     mode="linear")
+        self.intensity_compensated_db = self.intensity(original, mode="db") - self.intensity(reference, mode="db")
+        self.field_compensated = self.calculate_efield(intensity=self.intensity_compensated_linear,
+                                                       phase=self.phase_compensated)
+        self.plotImage(self.phase_compensated)
+        self.plotImage(self.phase(self.field_compensated))
+        self.plotImage(self.intensity_compensated_linear)
+        self.plotImage(self.intensity_compensated_db)
+        return self.field_compensated
 
     def phase_unwrapping(self, phase_wrapped):
         """
@@ -225,7 +277,7 @@ class HologramReconstructor(DHMPlotter):
 
         self.run(hologram=hologram, background_hologram=background_hologram, propagate=propagate, compensate=compensate,
                  prop_dist=prop_dist)
-        
+
         ######### ---- PLOTTING ---- ###########
         self.plotImage(hologram.data, "Recorded Hologram", save=save_img)
         # Plotting of spectrum - normal, shifted, masked

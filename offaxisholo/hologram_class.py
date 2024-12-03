@@ -26,23 +26,9 @@ class Holo_Dummy(DHMPlotter):
         self.spectrum_not_shifted = None
         self.spectrum_shifted = None
         self.spectrum_masked = None
-        self.reconstructed_field_before_propagation = None  # np.complex128  # ToDo: How to initialize this as type
+        self.reconstructed_field = None  # np.complex128  # ToDo: How to initialize this as type
         self.reconstructed_intensity = None
         self.reconstructed_phase = None
-
-    def intensity(self, inp, log=True):
-        out = np.abs(inp)
-        if not log:
-            out = out * out
-        else:
-            out = 20 * np.log(out)
-            out[out == np.inf] = 0
-            out[out == -np.inf] = 0
-        return out
-
-    def phase(self, inp):
-        out = np.angle(inp)
-        return out
 
     def getField(self, spectrum) -> np.ndarray:
         """ Return complex field from centered spectrum. """
@@ -186,6 +172,7 @@ class Hologram(Holo_Dummy):
         # Initialize the variable for field and phase after propagation
         self.finished_reconstruction = False  # flag for full reconstruction with propagation and unwrapping
 
+        # ToDo : delete obsolote variables ! - compare holo_dummy
         self.reconstructed_field = None     # field after numerical reconstruction - before propagation
         self.int_reconstructed = None       # intensity after numerical reconstruction - before propagation
         self.phase_reconstructed = None     # phase after numerical reconstruction - before propagation
@@ -206,11 +193,11 @@ class Hologram(Holo_Dummy):
         self.calc_field()
 
     def reconstruct(self, force=False):
-        if self.reconstructed_field_before_propagation is None or force is True:
+        if self.reconstructed_field is None or force is True:
             self.calc_field()
-            return self.reconstructed_field_before_propagation
+            return self.reconstructed_field
         else:
-            return self.reconstructed_field_before_propagation
+            return self.reconstructed_field
 
     def set_full_reconstruction(self, re_field, propagated_field, phase_unwrapped, height_profile=None):
         self.finished_reconstruction = True
@@ -239,11 +226,11 @@ class Hologram(Holo_Dummy):
         """
         Calculate the field of the hologram. Only use this function if you want to use the hologram of the object itself.
         """
-        (self.reconstructed_field_before_propagation, self.spectrum_not_shifted, self.spectrum_shifted,
+        (self.reconstructed_field, self.spectrum_not_shifted, self.spectrum_shifted,
          self.spectrum_masked) = self.holo2Field(holo=self.data, fx=self.first_diffraction_order_pos[0],
                    fy=self.first_diffraction_order_pos[1], r=self.radius_mask, return_spectrum=True)
-        self.reconstructed_phase = self.phase(self.reconstructed_field_before_propagation)
-        self.reconstructed_intensity = self.intensity(self.reconstructed_field_before_propagation)
+        self.reconstructed_phase = self.phase(self.reconstructed_field)
+        self.reconstructed_intensity = self.intensity(self.reconstructed_field)
         self.finished_reconstruction = False  # Reset the finished reconstruction flag
 
     def calc_radius_mask(self):

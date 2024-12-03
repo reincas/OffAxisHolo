@@ -18,6 +18,7 @@ def plot_phase(phase, path=None):
     if path is not None:
         path = os.path.join(path, 'phase_unwrapped_normal.png')
         plt.savefig(path)
+        plt.close()
     else:
         plt.show()
 
@@ -37,6 +38,7 @@ def phase_unwrapping_skimage(phase_wrapped, plot=True, path=None):
         if path is not None:
             path = os.path.join(path, 'phase_unwrapped_normal.png')
             plt.savefig(path)
+            plt.close()
         else:
             plt.show()
     return img_unwrapped
@@ -58,6 +60,7 @@ def phase_unwrapping_wrap_around(phase_wrapped, plot=True, path=None):
         if path is not None:
             path = os.path.join(path, 'phase_unwrapped_wrap_around.png')
             plt.savefig(path)
+            plt.close()
         else:
             plt.show()
     return image_unwrapped_wrap_around
@@ -79,6 +82,7 @@ def phase_unwrapping_kamui_normal(phase_wrapped, plot=True, path=None):
         if path is not None:
             path = os.path.join(path, 'phase_unwrapped_kamui_normal.png')
             plt.savefig(path)
+            plt.close()
         else:
             plt.show()
     return img_unwrapped
@@ -101,6 +105,7 @@ def phase_unwrapping_kamui_graph(phase_wrapped, plot=True, path=None):
         if path is not None:
             path = os.path.join(path, 'phase_unwrapped_kamui_graph.png')
             plt.savefig(path)
+            plt.close()
         else:
             plt.show()
     return img_unwrapped
@@ -121,6 +126,7 @@ def phase_unwrapping_numpy(phase_wrapped, plot=True, path=None):
         if path is not None:
             path = os.path.join(path, 'phase_unwrapped_numpy.png')
             plt.savefig(path)
+            plt.close()
         else:
             plt.show()
     return img_unwrapped
