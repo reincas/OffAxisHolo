@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 import os
 from scidatacontainer import Container
@@ -64,16 +65,18 @@ class DataLoader:
                     # data = data_container.data_layered  # to be implemented
                 else:
                     # loading of completed print
-                    if self.logger:
-                        self.logger.INFO("Loading data from Container...")
+                    self.logger.INFO("Loading hologram data from Container...")
                     data = data_container.complete_hologram
             else:
                 if self.loading_background or self.loading_layer_data:
-                    raise Warning(
-                        f"Background images and layered data can only be loaded with specific structure container."
-                        f"Set the kwarg 'structure_container' = True to access the features.")
+                    self.logger.warning(f"Background images and layered data can only be loaded with specific structure\
+                     container. Set the kwarg 'structure_container' = True to access the features.")
+                    # warnings.warn(
+                    #     f"Background images and layered data can only be loaded with specific structure container."
+                    #     f"Set the kwarg 'structure_container' = True to access the features.")
 
                 data = self.load_scidatacontainer()
+
         elif file_type == "png" or file_type == "tif" or file_type == "tiff":
             if self.logger:
                 self.logger.INFO("Loading image ...")
@@ -101,7 +104,7 @@ class DataLoader:
 
     def load_scidatacontainer(self):
         dc = Container(file=self.path)
-        data = dc['meas/image.png']
+        data = dc._items['meas/image.png']
         return data.data
 
     def load_scidatacontainer_layers(self):  # todo: to be removed
@@ -116,17 +119,16 @@ class DataLoader:
 
     def load_image(self):
         data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
-        if getattr(self, 'convert_to_grayscale', None):
+        if getattr(self, 'convert_to_grayscale', False):
             # Convert to grayscale
-            if self.logger:
-                self.logger.INFO("Converting image to grayscale...")
+            self.logger.INFO("Converting image to grayscale...")
             data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
         return data
 
     def get_data(self):
         try:
             if self.loading_background and self.structure_container:
-                return self.data_loaded, self.background_data
+                return [self.data_loaded, self.background_data]
             else:
                 return self.data_loaded
         except Exception as e:

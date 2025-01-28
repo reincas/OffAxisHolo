@@ -12,17 +12,15 @@ import glob
 from pathlib import Path
 import os
 from scidatacontainer import Container
+import logging
 from shutil import rmtree
-
 import numpy as np
+from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
+from .reconstruction import DHMPlotter
+from .loader import DataLoader
 
-from .hologram_class import Hologram, ReferenceHologram
-from .filter import Filter, HM2F
-from .postprocessor import HologramPostProcessor
-from .reconstructor import HologramReconstructor
-from .structure import Structure3D
-from .plotter import DHMPlotter
-from .DHM_DUMMY import DHM
+LOGFMT = logging.Formatter(fmt="%(asctime)s / %(levelname)s / %(message)s",
+                           datefmt="%Y-%m-%d %H:%M:%S")
 
 
 def mkdir(path, clean=False):
@@ -37,6 +35,29 @@ def mkdir(path, clean=False):
             elif sub.is_dir():
                 rmtree(sub)
     return path
+
+def get_logger(logfile=None):
+    """ Configure and return a logger object. """
+
+    # Initialize logger object
+    logger = logging.getLogger('dummy')
+    logger.setLevel(logging.DEBUG)
+
+    # Console output
+    consolehandler = logging.StreamHandler()
+    consolehandler.setLevel(logging.DEBUG)
+    consolehandler.setFormatter(LOGFMT)
+    logger.addHandler(consolehandler)
+
+    # Optional file output
+    if logfile:
+        filehandler = logging.FileHandler(logfile)
+        filehandler.setLevel(logging.DEBUG)
+        filehandler.setFormatter(LOGFMT)
+        logger.addHandler(filehandler)
+
+    # Return logger object
+    return logger
 
 
 def get_hologram(path, filename=None, img_container=False) -> np.ndarray:

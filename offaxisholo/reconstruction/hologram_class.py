@@ -239,7 +239,7 @@ class Hologram(HologramCore):
 
 
 class ReferenceHologram(Hologram):
-    def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter):
+    def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter, logger=None):
         super().__init__(data=data, dhm_parameter=dhm_parameter,
-                         first_diffraction_order_pos=first_diffraction_order_pos)
+                         first_diffraction_order_pos=first_diffraction_order_pos, logger=logger)
         self._calc_radius_mask()

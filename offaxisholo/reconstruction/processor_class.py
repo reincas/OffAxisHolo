@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Literal
 import numpy as np
 
@@ -15,7 +16,8 @@ properly executed.
 
 # ToDo
 #   - implement the DHMPlotter as an object of this class.
-#   - IMPLEMENT ALL THE FILTERING ETC
+#   - IMPLEMENT ALL THE FILTERING ETC (see run, init and filter.py)
+#       to be added: gaussian, median, mean, hm2f, butterworth
 
 
 class HologramProcessor(HologramCore):
@@ -23,6 +25,7 @@ class HologramProcessor(HologramCore):
     referenceHologram: ReferenceHologram = None
     required_dhm_keys = {'propagationDistance', 'name', 'pixelPitch', 'wavelength'}
     refractive_index_default = 1.5  # default value for refractive index
+    available_filters = []  # todo implement filter in the py file and add it here
 
     # All possible fields
     # propagated field
@@ -75,10 +78,14 @@ class HologramProcessor(HologramCore):
         assert all(key in self.params for key in self.required_dhm_keys), \
             f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
 
-    def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, prop_dist=None,
-            propagate=True, compensate=True, mode="print", phase_unwrapping_method="Fast 2D",
-            propagation_method="angularSpectrum",
-            refractive_index=None) -> np.ndarray | tuple[Any, Any]:
+    def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, *,
+            prop_dist=None, propagate=True,
+            compensate=True, compensation_mode: Literal["Background", "ZernikePolynomial"] = "Background",
+            filtering=False, filter_applied: list = None,  # todo think of a better name
+            refractive_index=None,
+            mode="print",
+            phase_unwrapping_method="Fast 2D",
+            propagation_method="angularSpectrum") -> np.ndarray | tuple[Any, Any]:
         # ToDo: check if all e-fields are available even if propagate or compensation = False
         """
         Full reconstruction:
@@ -128,24 +135,53 @@ class HologramProcessor(HologramCore):
         # Future ToDo: Aberration compensation using zernike polynom or other numerical methods
         # Aberration Compensation of Optics with Background image
         if compensate:
-            # Reconstruction of Background
-            background_field = background_hologram.reconstruct()
+            if compensation_mode == "Background":
+                self.logger.info(f"Starting compensation with the background field...")
+                # Reconstruction of Background
+                background_field = background_hologram.reconstruct()
 
-            self.logger.info(f"Starting compensation with the background field.")
-            self.compensate(original=self.field_propagated, reference=background_field)
-            # Note: recalculated field is not correct (while printing)
+                self.compensate(original=self.field_propagated, reference=background_field)
+                # Note: recalculated field is not correct (while printing)
 
-            self.logger.info(f"Starting phase unwrapping with {phase_unwrapping_method} method.")
-            if mode.lower() == "print":
-                self.phase_map = self.phase_unwrapping(self.phase_compensated, method=phase_unwrapping_method)
-                self.intensity_reconstructed = self.intensity_compensated_db
-            elif mode.lower() == "developed":
-                self.phase_map = self.phase_unwrapping(self.phase_compensated, method=phase_unwrapping_method)
-                self.intensity_reconstructed = self.intensity_compensated_db
+                self.logger.info(f"Starting phase unwrapping with {phase_unwrapping_method} method.")
+                if mode.lower() == "print":
+                    self.phase_map = self.phase_unwrapping(self.phase_compensated, method=phase_unwrapping_method)
+                    self.intensity_reconstructed = self.intensity_compensated_db
+                elif mode.lower() == "developed":
+                    self.phase_map = self.phase_unwrapping(self.phase_compensated, method=phase_unwrapping_method)
+                    self.intensity_reconstructed = self.intensity_compensated_db
+            elif compensation_mode == "ZernikePolynomial":
+                self.logger.warning("ZernikePolynomial not implemented yet.")
+                # self.logger.info(f"Starting compensation with the zernike polynomials...") # todo future
+                raise NotImplementedError("ZernikePolynomial not yet implemented.")
+            else:
+                raise NotImplementedError(f"Compensation method {compensation_mode} not implemented.")
 
         # Filtering
-        # ToDo: Filtering needs rework or postprocessor needs rework
+        # ToDo: Filtering needs implementation of algorithms
+        if filtering:
+            if filter_applied is None:
+                warnings.warn("No filter selected! Please select filter using the variable 'filter_applied'.")
+                self.logger.info("No filter applied.")
+                return
+            self.logger.info("Start applying filters.")
+            for i in range(len(filter_applied)):
+                filter_name = filter_applied[i]
+                if filter_name not in self.available_filters:
+                    raise NotImplementedError(f"Filter {filter_name} not implemented.")
+                if filter_name.lower() == "gauss" or filter_name.lower() == "gaussian":
+                    pass
+                elif filter_name.lower() == "median":
+                    pass
+                elif filter_name.lower() == "hm2f" or filter_name.lower() == "hybrid mean-median filter":
+                    pass
+                elif filter_name.lower() == "butterworth":
+                    pass
+        else:
+            self.logger.info("No filter applied.")
 
+        self.logger.info(f"Converting unwrapped phase to height map using refractive index=\
+                        {refractive_index if not None else self.refractive_index_default}.")
         self.height_profile = self.phase_to_height(self.phase_map, n_resin=refractive_index)
 
         self.reconstruction_dict = {
