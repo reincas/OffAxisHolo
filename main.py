@@ -72,8 +72,8 @@ properly executed.
 ------------------------------------
 Structure3D Class:
 
-Manages the compilation of multiple holograms into a 3D structure, facilitating layer-by-layer reconstruction.
-This documentation structure provides a clear and detailed overview of each class's purpose, attributes, and methods. It
+Manages the compilation of multiple holograms into a 3D structure_dhm, facilitating layer-by-layer reconstruction.
+This documentation structure_dhm provides a clear and detailed overview of each class's purpose, attributes, and methods. It
 serves as a guide for both users and developers to understand and effectively use the code for hologram reconstruction.
 ------------------------------------
 

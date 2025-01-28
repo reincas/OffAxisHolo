@@ -1,7 +1,10 @@
+import os
+
 import numpy as np
 import cv2 as cv
 import scidatacontainer
 from scipy.ndimage import maximum_filter
+from numpy.lib.scimath import sqrt
 
 from .plotter import DHMPlotter
 
@@ -9,6 +12,7 @@ from .plotter import DHMPlotter
 Handles individual holograms, including their data and reconstruction through FFT.
 Provides methods for compensating aberrations using reference holograms.
 """
+
 
 class Holo_Dummy(DHMPlotter):
     def __init__(self, dummy_mode=True):
@@ -25,6 +29,7 @@ class Holo_Dummy(DHMPlotter):
 
         self.spectrum_not_shifted = None
         self.spectrum_shifted = None
+        self.spectrum_propagated = None
         self.spectrum_masked = None
         self.reconstructed_field = None  # np.complex128  # ToDo: How to initialize this as type
         self.reconstructed_intensity = None
@@ -39,6 +44,109 @@ class Holo_Dummy(DHMPlotter):
         FT = np.fft.fft2(field)
         spectrum = np.fft.fftshift(FT)
         return spectrum
+
+    def propagate(self, field, distance, pixel_pitch: list[float] = None):
+        """
+        TEMPORARY PROPAGATE -- ORIGINALLY IN RECONSTRUCTOR!!
+        """
+        PROPAGATION_ALGORITHM = "Angular Spectrum"  # todo: follow up implementation of different algorithms
+
+        if distance == 0 or distance is None:
+            return field
+        if pixel_pitch is None:
+            if isinstance(self.pixel_pitch, list) or isinstance(self.pixel_pitch, tuple):
+                dx = self.pixel_pitch[0]
+                dy = self.pixel_pitch[1]
+            else:
+                dx = dy = self.pixel_pitch
+        else:
+            if isinstance(pixel_pitch, float) or isinstance(pixel_pitch, int):
+                dx = dy = pixel_pitch
+            else:
+                dx = pixel_pitch[0]
+                dy = pixel_pitch[1]
+        if distance is None:
+            distance = 0  # ToDo: default distance??
+
+        wv = self.wavelength
+        if PROPAGATION_ALGORITHM.lower() == "angular spectrum" and float(distance) != 0.0:
+            propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
+        else:
+            propagated = field
+
+        return propagated
+
+    def angularSpectrum(self, field, z, wavelength, dx, dy):
+        """
+        Angular spectrum propagation supporting both positive and negative distances
+        """
+        M, N = field.shape
+        x = np.arange(0, N)
+        y = np.arange(0, M)
+        X, Y = np.meshgrid(x - (N / 2), y - (M / 2), indexing='xy')
+
+        dfx = 1 / (dx * M)
+        dfy = 1 / (dy * N)
+
+        # Calculate frequency components
+        fx = X * dfx
+        fy = Y * dfy
+
+        # Wave number
+        k = 2 * np.pi / wavelength
+
+        # Transfer function phase
+        kz = sqrt(k ** 2 - (2 * np.pi * fx) ** 2 - (2 * np.pi * fy) ** 2 + 0j)
+
+        # Handle evanescent waves
+        kz = np.real(kz) + 1j * np.abs(np.imag(kz))
+
+        # Fourier transform and apply propagator
+        field_spec = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(field)))
+        field_spec *= np.exp(1j * kz * z)
+
+        return np.fft.ifftshift(np.fft.ifft2(np.fft.ifftshift(field_spec)))
+
+    def holo2Field_propagation(self, holo, fx, fy, r, return_spectrum=False, propagation_distance=None,
+                               pixel_pitch=None):
+        """ Calculate the wave field from a given positive real valued hologram
+        image based on the given spectral position of the first diffraction order
+        relative to the zero order. A circular mask with the given radius is
+        applied to the Fourier spectrum in order to extract the first order
+        spectrum. """
+
+        # Positive, real valued hologram
+        if len(holo.shape) != 2:
+            raise RuntimeError("2D hologram image required!")
+        if np.min(holo) < 0:
+            raise RuntimeError("Real positive hologram image required!")
+        if holo.shape[0] % 2 != 0 or holo.shape[1] % 2 != 0:
+            raise RuntimeError("Hologram image with even dimensions required!")
+        # if holo.dtype != float
+        # holo = holo.astype(np.float64)
+        if propagation_distance is None:
+            raise ValueError("Propagation distance has to be set!")
+
+        # Spatial spectrum of the hologram
+        spectrum = self.getSpectrum(holo)
+
+        # Roll the given first order coordinates to the centre of the spectrum
+        spectrum_rolled = self.rollImage(spectrum, fx, fy)
+
+        # Propagate spectrum
+        spectrum_propagated = self.propagate(field=spectrum_rolled, distance=propagation_distance,
+                                             pixel_pitch=pixel_pitch)
+
+        # Apply circular aperture with radius r
+        spectrum_masked = self.circularMask(spectrum_propagated, r)
+
+        # Calculate and return the wave field from the first order spectrum
+        field = self.getField(spectrum_masked)
+
+        if return_spectrum:
+            return field, spectrum, spectrum_rolled, spectrum_propagated, spectrum_masked
+        else:
+            return field
 
     def holo2Field(self, holo, fx, fy, r, return_spectrum=False):
         """ Calculate the wave field from a given positive real valued hologram
@@ -68,6 +176,7 @@ class Holo_Dummy(DHMPlotter):
 
         # Calculate and return the wave field from the first order spectrum
         field = self.getField(spectrum_masked)
+
         if return_spectrum:
             return field, spectrum, spectrum_rolled, spectrum_masked
         else:
@@ -173,28 +282,31 @@ class Hologram(Holo_Dummy):
         self.finished_reconstruction = False  # flag for full reconstruction with propagation and unwrapping
 
         # ToDo : delete obsolote variables ! - compare holo_dummy
-        self.reconstructed_field = None     # field after numerical reconstruction - before propagation
-        self.int_reconstructed = None       # intensity after numerical reconstruction - before propagation
-        self.phase_reconstructed = None     # phase after numerical reconstruction - before propagation
+        self.reconstructed_field = None  # field after numerical reconstruction - before propagation
+        self.int_reconstructed = None  # intensity after numerical reconstruction - before propagation
+        self.phase_reconstructed = None  # phase after numerical reconstruction - before propagation
 
         # Attributes, which will only be set with a full reconstruction
-        self.propagated_field = None        # field after propagation and numerical reconstruction
-        self.propagated_intensity = None    # intensity after propagation and numerical reconstruction
-        self.propagated_phase = None        # phase after propagation and numerical reconstruction
+        self.propagated_field = None  # field after propagation and numerical reconstruction
+        self.propagated_intensity = None  # intensity after propagation and numerical reconstruction
+        self.propagated_phase = None  # phase after propagation and numerical reconstruction
 
-        self.phase_unwrapped = None         # phase of the propagated phase after unwrapping
+        self.phase_unwrapped = None  # phase of the propagated phase after unwrapping
         # self.height_profile = None          # height profile of the unwrapped phase - to be done in future
 
     @property
     def shape(self):
         return self.data.shape
 
-    def run(self):
-        self.calc_field()
+    def run(self, prop_dist=None):
+        if prop_dist is None:
+            self.calc_field(prop_dist=prop_dist)
+        else:
+            self.calc_field(propagate=True, prop_dist=prop_dist)
 
-    def reconstruct(self, force=False):
+    def reconstruct(self, force=False, propagate=False, prop_dist=None):
         if self.reconstructed_field is None or force is True:
-            self.calc_field()
+            self.calc_field(propagate=propagate, prop_dist=prop_dist)
             return self.reconstructed_field
         else:
             return self.reconstructed_field
@@ -207,7 +319,10 @@ class Hologram(Holo_Dummy):
         self.phase_reconstructed = self.phase(re_field)
         self.int_reconstructed = self.intensity(re_field)
         self.propagated_field = propagated_field
-        self.propagated_intensity = self.intensity(propagated_field)
+        if propagated_field is None:
+            self.finished_reconstruction = False
+        else:
+            self.propagated_intensity = self.intensity(propagated_field)
         self.propagated_phase = self.phase(propagated_field)
         self.phase_unwrapped = phase_unwrapped
         # self.height_profile = height_profile
@@ -222,13 +337,23 @@ class Hologram(Holo_Dummy):
         self.first_diffraction_order_pos = [fx, fy]
         self.calc_radius_mask()
 
-    def calc_field(self):
+    def calc_field(self, propagate=False, prop_dist=None):
         """
         Calculate the field of the hologram. Only use this function if you want to use the hologram of the object itself.
         """
-        (self.reconstructed_field, self.spectrum_not_shifted, self.spectrum_shifted,
-         self.spectrum_masked) = self.holo2Field(holo=self.data, fx=self.first_diffraction_order_pos[0],
-                   fy=self.first_diffraction_order_pos[1], r=self.radius_mask, return_spectrum=True)
+        if propagate:
+            (self.reconstructed_field, self.spectrum_not_shifted, self.spectrum_shifted, self.spectrum_propagated,
+             self.spectrum_masked) = self.holo2Field_propagation(holo=self.data, fx=self.first_diffraction_order_pos[0],
+                                                                 fy=self.first_diffraction_order_pos[1],
+                                                                 r=self.radius_mask, return_spectrum=True,
+                                                                 propagation_distance=prop_dist,
+                                                                 pixel_pitch=self.pixel_pitch)
+        else:
+            (self.reconstructed_field, self.spectrum_not_shifted, self.spectrum_shifted,
+             self.spectrum_masked) = self.holo2Field(holo=self.data, fx=self.first_diffraction_order_pos[0],
+                                                     fy=self.first_diffraction_order_pos[1], r=self.radius_mask,
+                                                     return_spectrum=True)
+
         self.reconstructed_phase = self.phase(self.reconstructed_field)
         self.reconstructed_intensity = self.intensity(self.reconstructed_field)
         self.finished_reconstruction = False  # Reset the finished reconstruction flag
@@ -246,10 +371,6 @@ class Hologram(Holo_Dummy):
 
 class ReferenceHologram(Hologram):
     def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter):
-        super().__init__(data=data, dhm_parameter=dhm_parameter, first_diffraction_order_pos=first_diffraction_order_pos)
+        super().__init__(data=data, dhm_parameter=dhm_parameter,
+                         first_diffraction_order_pos=first_diffraction_order_pos)
         self.calc_radius_mask()
-
-
-
-
-

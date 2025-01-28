@@ -1,0 +1,9 @@
+{
+  "name": "SZ 2080 transparent",
+  "chemicalStructure": "",
+  "refractiveIndex": 1.5,
+  "substrateName": "",
+  "substrateThickness": "convert into number",
+  "substrateThicknessUm": "convert into number",
+  "_comment": "In the Future the refractive index measurement should be implemented in here and then calculated of of it."
+}

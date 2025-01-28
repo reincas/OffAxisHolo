@@ -1,0 +1,17 @@
+{
+  "description": "Plan ApoChromat NA 1.4",
+  "name": "Zeiss 63X",
+  "dcRadius": 304,
+  "magnification": 63.0,
+  "numericalAperture": 1.4,
+  "xPixelSizeUm": 0.0869,
+  "yPixelSizeUm": 0.0869,
+  "wavelengthUm": 0.6749,
+  "propagationDistance": 1.1e-7,
+  "pixelPitch": [
+    0.0869e-6,
+    0.0869e-6
+  ],
+  "wavelength": 0.6749e-6,
+  "refractive index": 1.5
+}

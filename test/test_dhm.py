@@ -96,7 +96,7 @@ Sr = reconstruct.circularMask(Sr, r)
 
 # Reconstructed field with back propagation to image plane
 pc = po * ftl / fmo
-Fr = reconstruct.getField(Sr)
+Fr = reconstruct.get_field(Sr)
 Fr = simulate.propagate(Fr, pc, -ds)
 
 

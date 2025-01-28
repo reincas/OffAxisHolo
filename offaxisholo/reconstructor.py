@@ -48,8 +48,7 @@ class HologramReconstructor(DHMPlotter):
         self.height_profile = None  # final height profile of the Hologram (reconstructed field)
 
     def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, prop_dist=None,
-            propagate=True,
-            compensate=True) -> np.ndarray | tuple[Any, Any]:
+            propagate=True, compensate=True, mode="print") -> np.ndarray | tuple[Any, Any]:
         """
         Full reconstruction:
 
@@ -72,7 +71,7 @@ class HologramReconstructor(DHMPlotter):
             prop_dist = self.propagation_distance
 
         # Reconstruction of Hologram
-        holo_field = hologram.reconstruct()
+        holo_field = hologram.reconstruct(propagate=False, force=True)
         return_field = holo_field
 
         # Propagation of the electrical field to the focal plane
@@ -88,27 +87,53 @@ class HologramReconstructor(DHMPlotter):
             else:
                 raise NotImplementedError("No Background image found.")
 
-            return_field = self.compensate(original=return_field, reference=background_field)
-
+            return_field = self.compensate(original=return_field, reference=background_field, tmp=prop_dist)
+            # ToDo: recalculated field is not correct (while printing)
+            # ToDo: saving the field as np.array has to be reworked! field is not correct
+            if mode.lower() == "print":
+                self.phase_map = self.phase_unwrapping(self.phase_compensated)
+                self.intensity_reconstructed = self.intensity_compensated_db
+            elif mode.lower() == "developed":
+                self.phase_map = self.phase_unwrapping(self.phase(return_field))
+                self.intensity_reconstructed = self.intensity(return_field)
         # Filtering
         # ToDo: Filtering needs rework or postprocessor needs rework
         # return_field = self.processor.filter(return_field)
 
-        self.phase_map = self.phase_unwrapping(self.phase(return_field))
-        self.intensity_reconstructed = self.intensity(return_field)
         # save necessary fields in hologram
-        hologram.set_full_reconstruction(re_field=return_field,
-                                         propagated_field=self.field_propagated if propagate else None,
-                                         phase_unwrapped=self.phase_map)
+        # hologram.set_full_reconstruction(re_field=return_field,
+        #      propagated_field=self.field_propagated if propagate else None, # field propagated is atm commented and therefore None
+        #      phase_unwrapped=self.phase_map)
 
-        self.height_profile = self.phase_to_height(return_field)
+        self.height_profile = self.phase_to_height(self.phase_map)
         self.field_reconstructed = return_field
+
+        # temporary plotting
+        # path_base = r"C:\Users\hanne\Desktop\tmp\img_reconstruction"
+        # folder = "spektrum"
+        # eval_path = os.path.join(path_base, folder)
+        # os.makedirs(eval_path, exist_ok=True)
+        # self.plotImage(self.intensity(hologram.spectrum_not_shifted, mode="db"), title="1. Spektrum", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(hologram.spectrum_not_shifted), title="1. Spektrum - phase", save=True, save_path=eval_path)
+        # self.plotImage(self.intensity(hologram.spectrum_shifted, mode="db"), title="2. Rolled spectrum", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(hologram.spectrum_shifted), title="2. Rolled spectrum - phase", save=True, save_path=eval_path)
+        # self.plotImage(self.intensity(hologram.spectrum_masked, mode="db"), title="3. Masked spektrum", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(hologram.spectrum_masked), title="3. Masked spektrum - phase", save=True, save_path=eval_path)
+        # self.plotImage(self.intensity(hologram.reconstructed_field, mode="db"), title="4.1 Reconstructed intensity", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(hologram.reconstructed_field), title="4.1 Reconstructed phase", save=True, save_path=eval_path)
+        # path_base = r"C:\Users\hanne\Desktop\tmp\img_reconstruction"
+        # folder = f"{prop_dist}"
+        # eval_path = os.path.join(path_base, folder)
+        # os.makedirs(eval_path, exist_ok=True)
+        # self.plotImage(self.phase_map, title="Phase Unwrapped", save=True, save_path=eval_path)
+        # self.plotImage(self.height_profile, title="Height Profile", save=True, save_path=eval_path, cmap="coolwarm")
+        # self.plot_height(self.height_profile, title=f"Height profile 3d", save=True, save_path=eval_path)
         return return_field
 
     def propagate(self, field, distance, pixel_pitch: list[float] = None):
         PROPAGATION_ALGORITHM = "Angular Spectrum"  # todo: follow up implementation of different algorithms
 
-        if distance == 0 or distance is None:
+        if float(distance) == 0.0 or distance is None:
             return field
         if pixel_pitch is None:
             if isinstance(self.pixel_pitch, list) or isinstance(self.pixel_pitch, tuple):
@@ -125,14 +150,52 @@ class HologramReconstructor(DHMPlotter):
         if distance is None:
             distance = self.propagation_distance
         wv = self.wavelength
-        if PROPAGATION_ALGORITHM.lower() == "angular spectrum" and int(distance) != 0:
+        if PROPAGATION_ALGORITHM.lower() == "angular spectrum" and float(distance) != 0.0:
             propagated = self.angularSpectrum(field=field, z=distance, wavelength=wv, dx=dx, dy=dy)
         else:
             propagated = field
 
+        # temporary plotting
+        # path_base = r"C:\Users\hanne\Desktop\tmp\img_reconstruction"
+        # folder = f"{distance}"
+        # eval_path = os.path.join(path_base, folder)
+        # os.makedirs(eval_path, exist_ok=True)
+        # self.plotImage(self.intensity(propagated, mode="db"), title=f"2. Propagated field (d={distance} m)", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(propagated), title=f"2. Propagated field (d={distance} m) - phase", save=True, save_path=eval_path)
         return propagated
 
     def angularSpectrum(self, field, z, wavelength, dx, dy):
+        """
+        Angular spectrum propagation supporting both positive and negative distances
+        """
+        M, N = field.shape
+        x = np.arange(0, N)
+        y = np.arange(0, M)
+        X, Y = np.meshgrid(x - (N / 2), y - (M / 2), indexing='xy')
+
+        dfx = 1 / (dx * M)
+        dfy = 1 / (dy * N)
+
+        # Calculate frequency components
+        fx = X * dfx
+        fy = Y * dfy
+
+        # Wave number
+        k = 2 * np.pi / wavelength
+
+        # Transfer function phase
+        kz = sqrt(k ** 2 - (2 * np.pi * fx) ** 2 - (2 * np.pi * fy) ** 2 + 0j)
+
+        # Handle evanescent waves
+        kz = np.real(kz) + 1j * np.abs(np.imag(kz))
+
+        # Fourier transform and apply propagator
+        field_spec = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(field)))
+        field_spec *= np.exp(1j * kz * z)
+
+        return np.fft.ifftshift(np.fft.ifft2(np.fft.ifftshift(field_spec)))
+
+    def angularSpectrum_old(self, field, z, wavelength, dx, dy):
         '''
         # Function to diffract a complex field using the angular spectrum approximation
         # Inputs:
@@ -175,11 +238,10 @@ class HologramReconstructor(DHMPlotter):
         quantitative phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
         https://doi.org/10.1364/AO.42.001938
         """
-        # ToDo change compensate, so it takes the e-field and calculate the correct compensation and returns a field
         compensated = original - reference
         return compensated
 
-    def compensate(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    def compensate(self, original: np.ndarray, reference: np.ndarray, tmp=None) -> np.ndarray:
         """
         Compensation of spherical phase aberrations are possible by capturing a background image with the same imaging
         system and subtraction of the background from the image with the specimen in it.
@@ -194,11 +256,31 @@ class HologramReconstructor(DHMPlotter):
                                                                                                      mode="linear")
         self.intensity_compensated_db = self.intensity(original, mode="db") - self.intensity(reference, mode="db")
         self.field_compensated = self.calculate_efield(intensity=self.intensity_compensated_linear,
+                                                       intensity_is_db=False,
                                                        phase=self.phase_compensated)
-        self.plotImage(self.phase_compensated)
-        self.plotImage(self.phase(self.field_compensated))
-        self.plotImage(self.intensity_compensated_linear)
-        self.plotImage(self.intensity_compensated_db)
+        # temporay reconstruction
+        # path = r"C:\Users\hanne\Desktop\tmp\img_reconstruction"
+        # eval_path = os.path.join(path, str(tmp), "compensate")
+        # os.makedirs(eval_path, exist_ok=True)
+        # self.plotImage(self.phase(original), title="Phase of original field", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(reference), title="Phase of background field", save=True, save_path=eval_path)
+        # self.plotImage(self.phase_compensated, title="Phase compensated", save=True, save_path=eval_path)
+        # self.plotImage(self.phase(self.field_compensated), title="phase of field compensated (calculated)", save=True, save_path=eval_path)
+        # self.plotImage(self.intensity_compensated_linear, title="intensity linear", save=True, save_path=eval_path)
+        # self.plotImage(self.intensity_compensated_db, title="intensity db", save=True, save_path=eval_path)
+        # #
+        # phase1 = self.phase_unwrapping(self.phase_compensated)
+        # phase2 = self.phase_unwrapping(self.phase(self.field_compensated))
+        # test = phase1-phase2
+        #
+        # phase_original = self.phase_unwrapping(self.phase(original))
+        # phase_reference = self.phase_unwrapping(self.phase(reference))
+        # self.plotImage(phase_original, title="Unwrapped phase - original phase", save=True, save_path=eval_path)
+        # self.plotImage(phase_reference, title="Unwrapped phase - reference phase", save=True, save_path=eval_path)
+        # self.plotImage(phase_original-phase_reference, title="compensated phase after unwrapping", save=True, save_path=eval_path)
+        # self.plotImage(phase1, title="Unwrapped phase - phase comp", save=True, save_path=eval_path)
+        # self.plotImage(phase2, title="Unwrapped phase - phase(field)", save=True, save_path=eval_path)
+        # self.plotImage(test, title="Difference Unwrapped phase", save=True, save_path=eval_path)
         return self.field_compensated
 
     def phase_unwrapping(self, phase_wrapped):

@@ -13,7 +13,7 @@ class DHMPlotter:
     def set_save_path(self, path):
         self.img_save_path = path
         # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
-        #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure class
+        #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure_dhm class
 
     def intensity(self, complex_field, mode='linear'):
         """
@@ -84,8 +84,8 @@ class DHMPlotter:
         if np.any(np.isnan(intensity)) or np.any(np.isnan(phase)):
             raise ValueError("Input arrays contain NaN values")
 
-        if np.any(np.isinf(intensity)) or np.any(np.isinf(phase)):
-            raise ValueError("Input arrays contain infinite values")
+        # if np.any(np.isinf(intensity)) or np.any(np.isinf(phase)):
+        #     raise ValueError("Input arrays contain infinite values")
 
         if intensity_is_db:
             intensity = 10 ** (intensity / 10)
@@ -96,16 +96,61 @@ class DHMPlotter:
 
         return efield
 
-    def plotImage(self, img, title=None, save=False, cmap='viridis'):
+    def intensity_stable(self, complex_field, mode='linear'):
+        """Calculate intensity with numerical stability"""
+        # Use log(abs()) instead of abs()^2 for better numerical stability
+        intensity = np.log(np.abs(complex_field))
+        intensity = np.exp(2 * intensity)  # Equivalent to abs()^2 but more stable
+
+        eps = 1e-12
+        if mode.lower() == 'db':
+            intensity = 10 * np.log10(intensity + eps)
+        return intensity
+
+    def calculate_efield_stable(self, intensity, phase, intensity_is_db=False):
+        """Calculate E-field with numerical stability"""
+        # Handle NaN and Inf before calculations
+        intensity = np.nan_to_num(intensity, nan=0.0, posinf=1e6, neginf=-1e6)
+        phase = np.nan_to_num(phase, nan=0.0, posinf=np.pi, neginf=-np.pi)
+
+        if intensity_is_db:
+            intensity = np.clip(intensity, -100, 100)  # Prevent extreme values
+            intensity = 10 ** (intensity / 10)
+
+        amplitude = np.sqrt(np.abs(intensity)) * np.sign(intensity)
+        return amplitude * np.exp(1j * phase)
+
+    def compensate_stable(self, original, reference):
+        """Compensate with scaling to prevent overflow
+        ToDo: Remove stable versions
+        """
+        scale = max(np.max(np.abs(original)), np.max(np.abs(reference)))
+        original_scaled = original / scale
+        reference_scaled = reference / scale
+
+        self.phase_compensated = self.phase(original_scaled) - self.phase(reference_scaled)
+        self.intensity_compensated_linear = self.intensity(original_scaled, mode="linear") - \
+                                            self.intensity(reference_scaled, mode="linear")
+        self.intensity_compensated_db = self.intensity(original_scaled, mode="db") - \
+                                        self.intensity(reference_scaled, mode="db")
+
+        return self.calculate_efield(intensity=self.intensity_compensated_linear,
+                                     intensity_is_db=False,
+                                     phase=self.phase_compensated)
+
+    def plotImage(self, img, title=None, save=False, save_path=None, cmap='viridis'):
+        if save_path is None:
+            save_path = self.img_save_path
         if save:
             if title is not None:
                 name = title.replace(" ", "_") + '.png'
-                save_path = os.path.join(self.img_save_path, name)
+                save_path = os.path.join(save_path, name)
                 plt.imsave(save_path, img, cmap=cmap)
             else:
-                save_path = os.path.join(self.img_save_path, f"picture{self.var_4_saving}.png")
+                save_path = os.path.join(save_path, f"picture{self.var_4_saving}.png")
                 plt.imsave(save_path, img, cmap=cmap)
                 self.var_4_saving += 1
+            plt.close()
         else:
             if title == None:
                 plt.imshow(img, cmap=cmap)
@@ -115,7 +160,7 @@ class DHMPlotter:
             plt.show()  # show image
         return
 
-    def plot_height(self, height_profile, title=None, save=False, legend_bar=True, cmap='coolwarm'):
+    def plot_height(self, height_profile, title=None, save=False, save_path=None, legend_bar=True, cmap='coolwarm', pixel_pitch=None):
         """
         Plotting of the reconstructed height profile. Make sure the dimensions of the height profile matches the
         dimensions of the hologram.
@@ -125,10 +170,25 @@ class DHMPlotter:
         save:            Boolean if it should be saved. If False then it will be shown.
         legend_bar:      Boolean if the color bar should be shown.
         """
+        if save_path is None:
+            save_path = self.img_save_path
         fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
         # Using linspace to generate exactly 1024 points in each direction
-        X = np.linspace(0, (self.hologram.shape[1] - 1) * self.pixel_pitch[1], self.hologram.shape[1])
-        Y = np.linspace(0, (self.hologram.shape[0] - 1) * self.pixel_pitch[0], self.hologram.shape[0])
+        if pixel_pitch is None:
+            if isinstance(self.pixel_pitch, float):
+                x_px_sz = y_px_sz = self.pixel_pitch
+            else:
+                x_px_sz = self.pixel_pitch[0]
+                y_px_sz = self.pixel_pitch[1]
+        else:
+            if isinstance(self.pixel_pitch, float):
+                x_px_sz = y_px_sz = pixel_pitch
+            else:
+                x_px_sz = pixel_pitch[0]
+                y_px_sz = pixel_pitch[1]
+
+        X = np.linspace(0, (self.hologram.shape[1] - 1) * y_px_sz, self.hologram.shape[1])
+        Y = np.linspace(0, (self.hologram.shape[0] - 1) * x_px_sz, self.hologram.shape[0])
         # Creating the meshgrid
         X, Y = np.meshgrid(X, Y)
         # Plot the surface.
@@ -144,10 +204,10 @@ class DHMPlotter:
         if save:
             if title is not None:
                 name = title.replace(" ", "_") + '.png'
-                save_path = os.path.join(self.img_save_path, name)
+                save_path = os.path.join(save_path, name)
                 plt.savefig(fname=save_path, dpi=400)  # transparent=True)
             else:
-                save_path = os.path.join(self.img_save_path, f"3D_plot_{self.var_4_saving}.png")
+                save_path = os.path.join(save_path, f"3D_plot_{self.var_4_saving}.png")
                 plt.savefig(fname=save_path, dpi=400)  # transparent=True)
                 self.var_4_saving += 1
         else:
@@ -162,7 +222,7 @@ class DHMPlotter:
             name = "field_reconstructed"
         INFORMATION_FILE = name + "_information.txt"
         INFORMATION_PATH = os.path.join(path, INFORMATION_FILE)
-        SAVE_NAME = os.path.join(path, name+".npy")
+        SAVE_NAME = os.path.join(path, name + ".npy")
 
         if data is None:
             data = self.field_reconstructed
@@ -177,7 +237,6 @@ class DHMPlotter:
         with open(INFORMATION_PATH, 'w', encoding='utf-8') as file:
             file.write(json.dumps(information, sort_keys=True, indent=4))
         save(SAVE_NAME, data)
-
 
 # _____________________________________________________________________________________
 # OLD IMPLEMENTATIONS

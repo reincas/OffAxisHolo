@@ -1,0 +1,17 @@
+{
+  "description": "Plan ApoChromat NA 0.8",
+  "name": "Zeiss 20X",
+  "dcRadius": 304,
+  "magnification": 20.0,
+  "numericalAperture": 0.8,
+  "xPixelSizeUm": 0.2759657864,
+  "yPixelSizeUm": 0.2759657864,
+  "wavelengthUm": 0.6749,
+  "propagationDistance": 0,
+  "pixelPitch": [
+    0.276e-6,
+    0.276e-6
+  ],
+  "wavelength": 0.6749e-6,
+  "refractiveIndex": 1.5
+}

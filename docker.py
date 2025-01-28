@@ -107,7 +107,7 @@ class DockerBase:
             reconstructor.plot_height(height_profile=reconstructor.height_profile,
                                       title=f"Height profile with refractive index of {reconstructor.n_resin}",
                                       save=save_img)
-                                      # cmap=cmap will not be changed because of better visibility of coolwarm.
+            # cmap=cmap will not be changed because of better visibility of coolwarm.
         # Images of the reconstructed background image
         if reconstructor.background.reconstructed_field is not None:
             reconstructor.plotImage(img=reconstructor.phase(reconstructor.background.reconstructed_field),
@@ -173,10 +173,10 @@ class DockerSciDataContainer(DockerBase):
             background = ReferenceHologram(data=background_hologram,
                                            first_diffraction_order_pos=pos,
                                            dhm_parameter=params)
-            # Reconstruction of complete structure with aberration compensation
+            # Reconstruction of complete structure_dhm with aberration compensation
             reconstructor = HologramReconstructor(hologram=structure, reference=background)
         else:
-            # Reconstruction of complete structure without background aberration compensation
+            # Reconstruction of complete structure_dhm without background aberration compensation
             reconstructor = HologramReconstructor(hologram=structure)
 
         # reconstructor.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate)
@@ -191,13 +191,19 @@ class DockerSciDataContainer(DockerBase):
             reconstructor.save(path=save_path_plot, name=data_name)
 
     def reconstruct(self, structure_path, mode: str = "raw",
-                    save_data=False, save_path=None, save_name=None):
-        phase = None
+                    save_data=False, save_path=None, save_name=None,
+                    propagate=True, prop_dist=None,
+                    return_reconstructor=False):
         if structure_path.endswith(".zdc"):
             data_container = StructureContainer(file=structure_path)
         else:
             path = structure_path + ".zdc"
             data_container = Container(file=path)
+
+        if mode.lower() == "raw":
+            compensate = False
+        elif mode.lower() == "compensate":
+            compensate = True
 
         params = data_container.dhm_params
         background_hologram = data_container.background_hologram
@@ -211,12 +217,11 @@ class DockerSciDataContainer(DockerBase):
 
         if mode == "raw":
             structure.run()
-            phase = structure.reconstructed_phase
             field = structure.reconstructed_field
         elif mode == "compensate":
             reconstructor = HologramReconstructor(hologram=structure, reference=background)
-            reconstructor.run()
-            phase = structure.phase(reconstructor.field_reconstructed)
+            reconstructor.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate, mode="print")
+            # ToDo : zweimal mode als parameter welches etwas unterschiedliches bedeutet
             field = reconstructor.field_reconstructed
 
         if save_data:
@@ -224,7 +229,13 @@ class DockerSciDataContainer(DockerBase):
                 raise IOError("No save path provided")
             structure.save(path=save_path, data=field, name=save_name)
 
-        return phase
+        if return_reconstructor:
+            if compensate:
+                return reconstructor
+            else:
+                return structure
+        else:
+            return field
 
 
 class DockerImageFile(DockerBase):
@@ -247,8 +258,12 @@ class DockerImageFile(DockerBase):
         # ToDo implement here: evaluate from Reconstructor
         pass
 
+    # ToDo: make a reconstructor maker
     def reconstruct(self, img_path, background_img_path=None, objective="Zeiss 63x", img_type="tif",
-                    save_data=False, save_path=None, save_name=None):
+                    save_data=False, save_path=None, save_name=None,
+                    compensate=True,
+                    propagate=True, prop_dist=None,
+                    return_reconstructor=False):
         """
         :param img_path:    path of the image
         :param background_img_path:     path of the background image if available
@@ -288,19 +303,23 @@ class DockerImageFile(DockerBase):
                                            first_diffraction_order_pos=structure.first_diffraction_order_pos,
                                            dhm_parameter=dhm_params)
             reconstruction = HologramReconstructor(hologram=structure, reference=background)
-            field = reconstruction.run()
-            phase = reconstruction.phase_compensated
+            field = reconstruction.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate,
+                                       mode="developed")
         else:
             structure.run()
             field = structure.reconstructed_field
-            phase = structure.reconstructed_phase
 
         if save_data:
             if save_path is None:
                 raise IOError("No save path provided")
             structure.save(path=save_path, data=field, name=save_name)
-
-        return phase
+        if return_reconstructor:
+            if background_img_path is not None:
+                return reconstruction
+            else:
+                return structure
+        else:
+            return field
 
 
 if __name__ == "__main__":

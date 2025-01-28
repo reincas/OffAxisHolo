@@ -2,8 +2,8 @@ import numpy as np
 from .reconstructor import HologramReconstructor
 
 """
-Manages the compilation of multiple holograms into a 3D structure, facilitating layer-by-layer reconstruction.
-This documentation structure provides a clear and detailed overview of each class's purpose, attributes, and methods. It
+Manages the compilation of multiple holograms into a 3D structure_dhm, facilitating layer-by-layer reconstruction.
+This documentation structure_dhm provides a clear and detailed overview of each class's purpose, attributes, and methods. It
 serves as a guide for both users and developers to understand and effectively use the code for hologram reconstruction.
 """
 class Structure3D:
@@ -11,14 +11,14 @@ class Structure3D:
         self.layers = []
 
     def add_layer(self, hologram: HologramReconstructor):
-        """Add a reconstructed hologram as a layer to the 3D structure."""
+        """Add a reconstructed hologram as a layer to the 3D structure_dhm."""
         # reconstructed_layer = hologram.reconstruct()
         # self.layers.append(reconstructed_layer)
         print("Reconstruction")
 
     def reconstruct_3d_structure(self) -> np.ndarray:
-        """Reconstruct the 3D structure from all layers."""
-        # Implement the logic to combine layers into a 3D structure
+        """Reconstruct the 3D structure_dhm from all layers."""
+        # Implement the logic to combine layers into a 3D structure_dhm
         return np.dstack(self.layers)
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ class HologramTomographic:
         pass
 
     def _get_hologram_layer_list(self):
-        # returns a list of the holograms for the investigated structure
+        # returns a list of the holograms for the investigated structure_dhm
         # with fnmatch and glob
         pass
 
@@ -74,7 +74,7 @@ class HologramTomographic:
         # all the informations are dozen of times available. - make it one
         # add additional information regarding the structures
         # how many layers were printed?
-        # what kind of structure
+        # what kind of structure_dhm
         # where
         # maximal dimension of those structures
         pass
