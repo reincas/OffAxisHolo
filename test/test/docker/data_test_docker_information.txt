@@ -1,0 +1,11 @@
+{
+    "Description": "Reconstructed field of a DHM image.",
+    "Pixel size": [
+        8.69e-08,
+        8.69e-08
+    ],
+    "Propagation distance": 0.0,
+    "Refractive index": 1.5,
+    "Wavelength": 6.749e-07,
+    "format": "complex128"
+}

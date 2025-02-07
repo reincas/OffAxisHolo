@@ -5,7 +5,7 @@ import os
 import json
 
 if __name__ == "__main__":
-    from OffAxisHolo.offaxisholo.reconstruction import HologramProcessor
+    from OffAxisHolo.offaxisholo.reconstruction import HologramProcessor, Hologram, ReferenceHologram
     from OffAxisHolo.offaxisholo import get_logger, DataLoader
 else:
     from .reconstruction import HologramProcessor, Hologram, ReferenceHologram
@@ -24,21 +24,33 @@ from tkinter import messagebox, filedialog
 
 
 class DockerBase:
+    holo: Hologram
+    background: ReferenceHologram
+    processor: HologramProcessor
+
     def __init__(self, data_path, save_path, *,
-                 data_type=None,
+                 data_type: Literal["zdc", "png", "tif"] = None,
                  dhm_dictionary=None, dhm_preset="Zeiss 63x",
                  material_dictionary=None, material_preset="SZ2080",
                  compensation_method: Literal["Background", "ZernikePolynomial", "None"] = "Background",
                  background_data_available: bool = None,
                  background_data_preset: Literal[""] = None,
                  background_data_path=None,
-                 using_layer_data=False
+                 using_layer_data=False,
+                 logger=None
                  ):
         os.makedirs(save_path, exist_ok=True)
         self.save_path = save_path
         self.data_path = data_path
 
-        self.logger = get_logger(logfile=f"{save_path}/console.log")
+        self.structure_zdc_container = False
+        self.using_layer_data = using_layer_data  # no layer data available if not a structureContainer
+        self.background_data_preset = background_data_preset  # initialization
+
+        if logger is None:
+            self.logger = get_logger(logfile=f"{save_path}/console.log")
+        else:
+            self.logger = logger
 
         if data_type is None:
             file, file_extension = os.path.splitext(self.data_path)
@@ -48,7 +60,6 @@ class DockerBase:
 
         if self.data_type == "zdc":
             self.using_layer_data = using_layer_data
-            self.structure_zdc_container = False
             self.check_structure_zdc()
 
         if compensation_method == "Background" and not self.structure_zdc_container:
@@ -59,13 +70,11 @@ class DockerBase:
             #   4. No Data path, no preset and no selected data -> Question if compensation is desired
             #                                                   -> no compensation
 
-            self.using_layer_data = False  # no layer data available if not a structureContainer
-            self.background_data_preset = None  # initialization
             self.compensation = True  # compensation mode is background so a compensation should be done
             if background_data_path is not None:
                 self.background_data_path = background_data_path
                 self.background_data_available = True
-                return
+                # return #todo return is wrong
 
             if background_data_available is None and background_data_path is None:
                 if background_data_preset is not None:
@@ -102,6 +111,10 @@ class DockerBase:
                     if zernike_compensation:
                         compensation_method = "ZernikePolynomial"
 
+        elif compensation_method == "Background" and self.structure_zdc_container:
+            self.background_data_available = True
+            self.compensation = True
+
         elif compensation_method == "ZernikePolynomial":
             self.compensation = True
             raise NotImplementedError("Zernike Polynomial is not yet implemented.")
@@ -117,27 +130,36 @@ class DockerBase:
         if dhm_dictionary is None:
             self.dhm_dictionary = {}
             if dhm_preset == "Zeiss 63x":
-                with open('DHM_preset/Zeiss_63x.json', 'r') as file:
+                with open(os.path.join(os.path.dirname(__file__), 'DHM_preset/Zeiss_63x.json'), 'r') as file:
                     self.dhm_dictionary = json.load(file)
             elif dhm_preset == "Zeiss 20x":
-                with open('DHM_preset/Zeiss_20x.json', 'r') as file:
+                with open(os.path.join(os.path.dirname(__file__), 'DHM_preset/Zeiss_20x.json'), 'r') as file:
                     self.dhm_dictionary = json.load(file)
             else:
                 self.logger.warning(f"No preset {dhm_preset}")
                 raise NotImplementedError(f"No preset {dhm_preset} implemented.")
+            self.logger.info(f"DHM Preset {dhm_preset} loaded.")
         else:
             self.dhm_dictionary = dhm_dictionary
 
         if material_dictionary is None:
             self.material_dictionary = {}
             if material_preset == "SZ2080":
-                with open('Background_preset/SZ2080.json', 'r') as file:
+                with open(os.path.join(os.path.dirname(__file__), 'Background_preset/SZ2080.json'), 'r') as file:
                     self.material_dictionary = json.load(file)
             else:
                 self.logger.warning(f"No preset {material_preset}")
                 raise NotImplementedError(f"No preset {material_preset} implemented.")
+            self.logger.info(f"Material Preset {material_preset} loaded.")
         else:
             self.material_dictionary = material_dictionary
+
+    @property
+    def pixel_pitch(self):
+        try:
+            return self.processor.pixel_pitch
+        except AttributeError:
+            raise NotImplementedError("Pixel pitch not accessible.")
 
     def set_visualization_options(self, visualization_options, *kwargs):
         # visualization options should be a dictionary or i will use the kwargs - not sure yet.
@@ -168,7 +190,7 @@ class DockerBase:
                 kwargs.get("propagation_distance") or
                 kwargs.get("prop_dist") or
                 kwargs.get("prop_distance") or
-                None
+                self.dhm_dictionary['propagationDistance']
         )
         propagation_method = (
                 kwargs.get("propagation_method") or
@@ -192,7 +214,7 @@ class DockerBase:
         compensation_method = (
             kwargs.get("compensation_method") or
             kwargs.get("compensationMethod") or
-            self.compensation_method if not "None" else None
+            self.compensation_method if self.compensation_method != "None" else None
         )
         refractive_index = (
                 kwargs.get("refractive_index") or
@@ -202,10 +224,10 @@ class DockerBase:
                 None
         )
         filter_list = (
-            kwargs.get("list_filter") or
-            kwargs.get("list_filters") or
-            kwargs.get("filter_list") or
-            None
+                kwargs.get("list_filter") or
+                kwargs.get("list_filters") or
+                kwargs.get("filter_list") or
+                None
         )
         filtering = (
             kwargs.get("filtering") or
@@ -214,7 +236,7 @@ class DockerBase:
         )
         propagate = (
             kwargs.get("propagation") or
-            True if propagation_distance is not None and propagation_distance is not 0.0 else False
+            True if propagation_distance is not None and propagation_distance != 0.0 else False
         )
 
         # Acquire Data
@@ -223,28 +245,28 @@ class DockerBase:
         if self.using_layer_data:
             raise NotImplementedError("Reconstruction of layered data is not yet implemented.")
 
-        holo = Hologram(data=data,
-                        dhm_parameter=self.dhm_dictionary,
-                        logger=self.logger)
-        background = ReferenceHologram(data=background_data,
-                                       first_diffraction_order_pos=holo.first_diffraction_order_pos,
-                                       dhm_parameter=self.dhm_dictionary,
-                                       logger=self.logger)
+        self.holo = Hologram(data=data,
+                             dhm_parameter=self.dhm_dictionary,
+                             logger=self.logger)
+        self.background = ReferenceHologram(data=background_data,
+                                            first_diffraction_order_pos=self.holo.first_diffraction_order_pos,
+                                            dhm_parameter=self.dhm_dictionary,
+                                            logger=self.logger)
 
-        processor = HologramProcessor(hologram=holo, reference=background,
-                                      dhm_parameter=self.dhm_dictionary,
-                                      material_parameter=self.material_dictionary)
+        self.processor = HologramProcessor(hologram=self.holo, reference=self.background,
+                                           dhm_parameter=self.dhm_dictionary,
+                                           material_parameter=self.material_dictionary)
 
-        processor.run(prop_dist=propagation_distance, propagation_method=propagation_method, propagate=propagate,
-                      compensation_mode=compensation_method, compensate=compensation,
-                      refractive_index=refractive_index,
-                      phase_unwrapping_method=phase_unwrapping_method,
-                      mode=mode_structure,
-                      filtering=filtering, filter_applied=filter_list
-                      )
+        self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method, propagate=propagate,
+                           compensation_mode=compensation_method, compensate=compensation,
+                           refractive_index=refractive_index,
+                           phase_unwrapping_method=phase_unwrapping_method,
+                           mode=mode_structure,
+                           filtering=filtering, filter_applied=filter_list
+                           )
 
-        self.do_savings(processor)
-        self.do_visualizations(processor)
+        self.do_savings(self.processor)
+        self.do_visualizations(self.processor)
 
     def get_data(self):
         # Preset used for background data + loaded data
@@ -270,7 +292,8 @@ class DockerBase:
         # All other cases are either a normal SciDataContainer or image data
         if self.compensation_method == "Background" and self.background_data_available:
             background = DataLoader(file_path=self.background_data_path,
-                                    logger=self.logger)
+                                    logger=self.logger,
+                                    loading_background=False)
             loader = DataLoader(file_path=self.data_path,
                                 file_type=self.data_type,
                                 logger=self.logger,

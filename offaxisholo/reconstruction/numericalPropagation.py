@@ -2,7 +2,7 @@ import numpy as np
 from numpy.lib.scimath import sqrt
 
 # ToDo: Implement fresnel propagation and maybe other algorithms as well
-
+#   - vortrag Photonics west - angularspectrum ohne fehler (zeiss, jena, karlsruhe etc)
 
 def angularSpectrum(field, z, wavelength, dx, dy):
     """

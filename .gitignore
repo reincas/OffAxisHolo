@@ -31,4 +31,5 @@ MANIFEST
 
 # Local
 attic/
-test/test/
+test/test/!/offaxisholo/reconstruction/plotter_class - Kopie.py
+*.png

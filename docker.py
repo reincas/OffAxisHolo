@@ -1,7 +1,7 @@
 import cv2
 from scidatacontainer import Container
 
-from OffAxisHolo.offaxisholo import Hologram, ReferenceHologram, HologramReconstructor
+from OffAxisHolo.offaxisholo.reconstruction import Hologram, ReferenceHologram, HologramProcessor
 from SciDataContainer_Handler import StructureContainer
 
 """
@@ -174,10 +174,10 @@ class DockerSciDataContainer(DockerBase):
                                            first_diffraction_order_pos=pos,
                                            dhm_parameter=params)
             # Reconstruction of complete structure_dhm with aberration compensation
-            reconstructor = HologramReconstructor(hologram=structure, reference=background)
+            reconstructor = HologramProcessor(hologram=structure, reference=background)
         else:
             # Reconstruction of complete structure_dhm without background aberration compensation
-            reconstructor = HologramReconstructor(hologram=structure)
+            reconstructor = HologramProcessor(hologram=structure)
 
         # reconstructor.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate)
         reconstructor.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate)
@@ -219,7 +219,7 @@ class DockerSciDataContainer(DockerBase):
             structure.run()
             field = structure.reconstructed_field
         elif mode == "compensate":
-            reconstructor = HologramReconstructor(hologram=structure, reference=background)
+            reconstructor = HologramProcessor(hologram=structure, reference=background)
             reconstructor.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate, mode="print")
             # ToDo : zweimal mode als parameter welches etwas unterschiedliches bedeutet
             field = reconstructor.field_reconstructed
@@ -302,7 +302,7 @@ class DockerImageFile(DockerBase):
             background = ReferenceHologram(data=back_img,
                                            first_diffraction_order_pos=structure.first_diffraction_order_pos,
                                            dhm_parameter=dhm_params)
-            reconstruction = HologramReconstructor(hologram=structure, reference=background)
+            reconstruction = HologramProcessor(hologram=structure, reference=background)
             field = reconstruction.run(propagate=propagate, prop_dist=prop_dist, compensate=compensate,
                                        mode="developed")
         else:

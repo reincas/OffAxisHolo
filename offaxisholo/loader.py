@@ -35,10 +35,10 @@ class DataLoader:
         self.file_type = file_type
 
         # Set default values for optional parameters
-        self.loading_background = kwargs.get('loading_background', None)
-        self.loading_layer_data = kwargs.get('loading_layer_data', None)
+        self.loading_background = kwargs.get('loading_background', False)
+        self.loading_layer_data = kwargs.get('loading_layer_data', False)
         self.structure_container = kwargs.get('structure_container', False)
-        self.convert_to_grayscale = kwargs.get('convert_to_grayscale', None)
+        self.convert_to_grayscale = kwargs.get('convert_to_grayscale', True)
 
         self._validate_kwargs()
 
@@ -53,19 +53,19 @@ class DataLoader:
                 self.dhm_params = StructureContainer.dhm_params
                 if self.loading_background:
                     if self.logger:
-                        self.logger.INFO("Loading background image from Container...")
+                        self.logger.info("Loading background image from Container...")
                     self.background_data = data_container.background_hologram
                 if self.loading_layer_data:
                     # ToDo implement it in StructureContainer as a property
                     if self.logger:
-                        self.logger.INFO("Loading layer data from Container...")
+                        self.logger.info("Loading layer data from Container...")
                     data = [data_container[f"meas/dhm/raw/layer_{i}.png"].data for i in
                             range(data_container.number_of_layer)]
                     # todo check if final layer == complete structure otherwise append the final structure!
                     # data = data_container.data_layered  # to be implemented
                 else:
                     # loading of completed print
-                    self.logger.INFO("Loading hologram data from Container...")
+                    self.logger.info("Loading hologram data from Container...")
                     data = data_container.complete_hologram
             else:
                 if self.loading_background or self.loading_layer_data:
@@ -79,20 +79,20 @@ class DataLoader:
 
         elif file_type == "png" or file_type == "tif" or file_type == "tiff":
             if self.logger:
-                self.logger.INFO("Loading image ...")
+                self.logger.info("Loading image ...")
             data = self.load_image()
         else:
             raise ValueError(f"Unsupported file type {file_type}")
         if self.logger:
-            self.logger.INFO("Data loaded.")
+            self.logger.info("Data loaded.")
         self.data_loaded = data
 
     def _validate_file_type(self, file_type):
         file_name, file_extension = os.path.splitext(self.path)
         try:
-            match = file_type == file_extension
+            match = file_type == file_extension[1:]
             if not match:
-                raise AttributeError(f"File type {file_type} does not ending of file in path: {self.path}.")
+                raise AttributeError(f"File type {file_type} does not match ending of file in path: {self.path}.")
         except Exception as e:
             print(f"An Error occurred while validating file type: {e}")
 
@@ -121,7 +121,7 @@ class DataLoader:
         data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
         if getattr(self, 'convert_to_grayscale', False):
             # Convert to grayscale
-            self.logger.INFO("Converting image to grayscale...")
+            self.logger.info("Converting image to grayscale...")
             data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
         return data
 

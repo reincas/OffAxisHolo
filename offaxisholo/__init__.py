@@ -15,8 +15,9 @@ from scidatacontainer import Container
 import logging
 from shutil import rmtree
 import numpy as np
-from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
-from .reconstruction import DHMPlotter
+# from .docker import DockerBase as Docker
+# from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
+# from .reconstruction import DHMPlotter
 from .loader import DataLoader
 
 LOGFMT = logging.Formatter(fmt="%(asctime)s / %(levelname)s / %(message)s",

@@ -24,6 +24,7 @@ class Hologram(HologramCore):
     first_diffraction_order_pos: Tuple[float, float] | Tuple[int, int] = None
     finished_reconstruction: bool = False  # flag for successful completed reconstruction
     required_dhm_keys = {'dcRadius', 'name'}  # required parameters for this class
+            # PROBLEM: #todo dcRadius is also called 'DC Radius' and name == obejctive name
 
     def __init__(self, data: np.ndarray, dhm_parameter, first_diffraction_order_pos=None, logger=None):
         self.data = data
@@ -101,7 +102,7 @@ class Hologram(HologramCore):
         spectrum. """
         if holo is None:
             holo = self.data
-        if fx and fy is None:
+        if (fx and fy) is None:
             fx = self.first_diffraction_order_pos[0]
             fy = self.first_diffraction_order_pos[1]
         if r is None:

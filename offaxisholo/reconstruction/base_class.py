@@ -16,7 +16,7 @@ class HologramCore:
         spectrum = np.fft.fftshift(FT)
         return spectrum
 
-    def intensity(self, complex_field, mode='linear'):
+    def intensity(self, complex_field, mode='db'):
         """
         Calculate intensity from complex field
 

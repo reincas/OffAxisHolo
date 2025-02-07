@@ -1,12 +1,16 @@
 import warnings
 from typing import Any, Literal
 import numpy as np
+import os
 
+from .plotter_class import DHMPlotter
 from .phaseUnwrapping import phase_unwrapping_fast2d, phase_unwrapping_numpy, phase_unwrapping_kamui_normal
 from .numericalPropagation import angularSpectrum
 
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
+
+from .. import get_logger
 
 """
 Coordinates the entire reconstruction process, ensuring that all necessary steps (FFT, filtering, compensation) are 
@@ -22,7 +26,7 @@ properly executed.
 
 class HologramProcessor(HologramCore):
     hologram: Hologram
-    referenceHologram: ReferenceHologram = None
+    background: ReferenceHologram = None
     required_dhm_keys = {'propagationDistance', 'name', 'pixelPitch', 'wavelength'}
     refractive_index_default = 1.5  # default value for refractive index
     available_filters = []  # todo implement filter in the py file and add it here
@@ -48,9 +52,12 @@ class HologramProcessor(HologramCore):
 
     def __init__(self, hologram: Hologram, reference: ReferenceHologram = None,
                  dhm_parameter: dict = None, material_parameter: dict = None,
-                 logger=None):
+                 logger=None, saving_path=None):
         if logger is not None:
             super().__init__(logger)
+        else:
+            super().__init__()
+            self.logger = get_logger()
         self.hologram = hologram
         self.params = dhm_parameter if dhm_parameter is not None else {}
         self.params.update({"MaterialDictionary": material_parameter} if material_parameter is not None else {})
@@ -69,19 +76,37 @@ class HologramProcessor(HologramCore):
             self.background_available = False
 
         self._validate_input()
+        self.plotter = DHMPlotter(img_path=saving_path)
+
+    def plot_reconstruction(self, show_plot=False, save_single=False, cmap="gray", title=None,
+                            mode: Literal["short", "full"] = "short"):
+        if not self.plotter.img_save_path:
+            show_plot = True
+
+        if mode.lower() == "short":
+            self.plotter.plot_reconstruction_short(self, show_plot=show_plot, save_single=save_single, cmap=cmap,
+                                                   save_title=title)
+        elif mode.lower() == "full":
+            self.plotter.plot_full_reconstruction_process(self, show_plot=show_plot, save_single=save_single, cmap=cmap,
+                                                          save_title=title)
+        else:
+            raise ValueError("Plotting mode can only be 'short' reconstruction or 'full' reconstruction.")
+
+    @property
+    def pixel_pitch(self):
+        return self.params['pixelPitch']
 
     def _validate_input(self):
-        if self.logger:
-            self.logger.DEBUG(f"Validating input for Reconstruction process")  # ToDo name ändern.
+        self.logger.debug(f"Validating input for Reconstruction process")  # ToDo name ändern.
         assert isinstance(self.hologram, Hologram), "Hologram must be of type Hologram."
-        assert isinstance(self.referenceHologram, ReferenceHologram), "ReferenceHologram must be of type Hologram"
+        assert isinstance(self.background, ReferenceHologram), "ReferenceHologram must be of type Hologram"
         assert all(key in self.params for key in self.required_dhm_keys), \
             f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
 
     def run(self, hologram: Hologram = None, background_hologram: ReferenceHologram = None, *,
             prop_dist=None, propagate=True,
             compensate=True, compensation_mode: Literal["Background", "ZernikePolynomial"] = "Background",
-            filtering=False, filter_applied: list = None,  # todo think of a better name
+            filtering=False, filter_applied: list = None,  # todo think of a better name for the list
             refractive_index=None,
             mode="print",
             phase_unwrapping_method="Fast 2D",
@@ -128,9 +153,10 @@ class HologramProcessor(HologramCore):
 
         # Propagation of the electrical field to the focal plane
         if propagate:
-            self.logger.INFO(f"Starting propagation of reconstructed field with {propagation_method} method.")
+            self.logger.info(f"Starting propagation of reconstructed field with {propagation_method} method.")
             self.field_propagated = self.propagate(field=holo_field, distance=prop_dist,
                                                    propagation_method=propagation_method)
+            # todo if propagate field propagated cannot be accessed
 
         # Future ToDo: Aberration compensation using zernike polynom or other numerical methods
         # Aberration Compensation of Optics with Background image
