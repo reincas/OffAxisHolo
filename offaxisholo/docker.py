@@ -185,6 +185,50 @@ class DockerBase:
         # should be the saving of the numpy arrays in dependence on what should be saved!
         pass
 
+    def plot_complete_reconstruction(self, path=None, cmap="gray"):
+        if path is None:
+            save_path = self.save_path,
+        else:
+            save_path = path
+
+        self.processor.plotter.set_save_path(path=save_path)
+        self.processor.plot_reconstruction(mode="full", save_single=True, cmap=cmap)
+
+    def save_all_data(self, path=None):
+        if path is None:
+            save_path = self.save_path,
+        else:
+            save_path = path
+
+        # save holo data
+        np.save(os.path.join(save_path, "hologram_original_data"), self.holo.data)  # original data
+        np.save(os.path.join(save_path, "hologram_Reconstructed_field"),
+                self.holo.reconstructed_field)  # reconstructed field data
+        np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
+
+        # save processed data
+        np.save(os.path.join(save_path, "processor_field_propagated"), self.processor.field_propagated)
+        np.save(os.path.join(save_path, "processor_field_compensated"), self.processor.field_compensated)
+        np.save(os.path.join(save_path, "processor_reconstructed_field"), self.processor.field_reconstructed)
+        np.save(os.path.join(save_path, "processor_intensity"), self.processor.intensity_reconstructed)
+        np.save(os.path.join(save_path, "processor_phase_wrapped"), self.processor.phase_compensated)
+        np.save(os.path.join(save_path, "processor_phase_unwrapped"), self.processor.phase_map)
+
+        information_saved_fields = {
+            "hologram_original_data": "Captured hologram of the printed object.",
+            "hologram_Reconstructed_field": "Reconstructed field of the object. Only spatial filtering.",
+            "hologram_background": "Captured background hologram. Used for aberration compensation.",
+            "processor_field_propagated": "Field after propagation. Before aberration compensation.",
+            "processor_field_compensated": "Recombined field of the compensated intensity and phase",
+            "processor_reconstructed_field": "final reconstructed electromagnetic field",
+            "processor_intensity": "Final intensity. If filtering was done, this data is after filtering.",
+            "processor_phase_wrapped": "Final wrapped phase",
+            "processor_phase_unwrapped": "Final unwrapped phase",
+        }
+        with open(os.path.join(save_path, 'reconstruction_dictionary.json'), 'w', encoding='utf8') as json_file:
+            json.dump(self.processor.reconstruction_dict.update({"Information_saved_arrays": information_saved_fields}),
+                      json_file)
+
     def run_reconstruction(self, **kwargs):
         propagation_distance = (
                 kwargs.get("propagation_distance") or
@@ -265,8 +309,8 @@ class DockerBase:
                            filtering=filtering, filter_applied=filter_list
                            )
 
-        self.do_savings(self.processor)
-        self.do_visualizations(self.processor)
+        # self.do_savings(self.processor)
+        # self.do_visualizations(self.processor)
 
     def get_data(self):
         # Preset used for background data + loaded data

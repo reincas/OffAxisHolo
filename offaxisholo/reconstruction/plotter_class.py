@@ -206,7 +206,7 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
-    def plot_full_reconstruction_process(self, holo_class, show_plot=False, save_single=False, cmap='gray',
+    def plot_full_reconstruction_process_old(self, holo_class, show_plot=False, save_single=False, cmap='gray',
                                          save_title=None):
         # check if reconstruction is already done
         if not self.check_reonstruction_flag(holo_class):
@@ -260,3 +260,119 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
+    def plot_full_reconstruction_process(self, holo_class, show_plot=False, save_single=False, cmap='gray',
+                                         save_title=None):
+        # check if reconstruction is already done
+        # todo: implement this
+        # if not self.check_reconstruction_flag(holo_class):
+        #     holo_class.run()
+
+        # Define plot configurations for easier iteration
+        plot_configs = [
+            # Row 0
+            {
+                'data': holo_class.hologram.data,
+                'title': "Original hologram Image",
+                'transform': None
+            },
+            {
+                'data': holo_class.intensity(holo_class.hologram.spectrum),
+                'title': "Spectrum of captured hologram",
+                'transform': None
+            },
+            {
+                'data': holo_class.hologram.reconstructed_intensity,
+                'title': "Reconstructed Intensity",
+                'transform': None
+            },
+            {
+                'data': holo_class.intensity(holo_class.field_propagated),
+                'title': "Intensity after propagation",
+                'transform': None
+            },
+            {
+                'data': holo_class.intensity_compensated_db,
+                'title': "Intensity after compensation",
+                'transform': None
+            },
+            {
+                'data': holo_class.intensity_reconstructed,
+                'title': "Final intensity image",
+                'transform': None
+            },
+            # Row 1
+            {
+                'data': holo_class.background.data,
+                'title': "Background hologram",
+                'transform': None
+            },
+            {
+                'data': holo_class.intensity(holo_class.hologram.spectrum_masked),
+                'title': "Shifted and masked spectrum",
+                'transform': None
+            },
+            {
+                'data': holo_class.hologram.reconstructed_phase,
+                'title': "Reconstructed phase",
+                'transform': None
+            },
+            {
+                'data': holo_class.phase(holo_class.field_propagated),
+                'title': "Phase after propagation",
+                'transform': None
+            },
+            {
+                'data': holo_class.phase_compensated,
+                'title': "Phase after compensation and unwrapping",
+                'transform': None
+            },
+            {
+                'data': holo_class.phase_map,
+                'title': "Final phase image",
+                'transform': None
+            }
+        ]
+
+        # Create combined figure
+        fig, axs = plt.subplots(2, 6, figsize=(16, 9))
+        fig.suptitle('Hologram Reconstruction', fontsize=16)
+
+        # Plot and optionally save individual images
+        for idx, config in enumerate(plot_configs):
+            row = idx // 6
+            col = idx % 6
+
+            # Plot in combined figure
+            axs[row, col].imshow(config['data'], cmap=cmap)
+            axs[row, col].set_title(config['title'].replace(" ", "\n"))
+
+            # Save individual plot if requested
+            if save_single and self.img_save_path is not None:
+                fig_single, ax_single = plt.subplots(figsize=(8, 6))
+                ax_single.imshow(config['data'], cmap=cmap)
+                ax_single.set_title(config['title'])
+
+                # Create filename
+                base_name = config['title'].lower().replace(" ", "_")
+                if save_title:
+                    file_name = f"{base_name}_{save_title}.png"
+                else:
+                    file_name = f"{base_name}.png"
+
+                save_path = os.path.join(self.img_save_path, file_name)
+                fig_single.savefig(save_path, dpi=600, bbox_inches='tight')
+                plt.close(fig_single)
+
+        # Save combined figure if path is specified
+        if self.img_save_path is not None:
+            if save_title is not None:
+                name = f"Complete_hologram_reconstruction_{save_title}"
+            else:
+                name = "Complete_hologram_reconstruction"
+            save_path = os.path.join(self.img_save_path, f"{name}.png")
+            fig.savefig(save_path, dpi=600, bbox_inches='tight')
+
+        if show_plot:
+            plt.show()
+        else:
+            plt.close(fig)

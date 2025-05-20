@@ -2,8 +2,10 @@ import warnings
 from typing import Optional
 import os
 from scidatacontainer import Container
-from SciDataContainer_Handler import StructureContainer
+# from SciDataContainer_Handler import StructureContainer
 import cv2
+
+from SciDataContainer_Handler import StructureContainer
 
 
 class DataLoader:
@@ -50,7 +52,7 @@ class DataLoader:
         if file_type == "zdc":
             if self.structure_container:  # specific type of container
                 data_container = StructureContainer(file=self.path)
-                self.dhm_params = StructureContainer.dhm_params
+                self.dhm_params = data_container.dhm_params
                 if self.loading_background:
                     if self.logger:
                         self.logger.info("Loading background image from Container...")
