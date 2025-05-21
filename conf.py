@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Off-axis Digital Holographic Microscope'
-copyright = '2024, Hannes Robben and Reinhard Caspary'
+copyright = '2025, Hannes Robben and Reinhard Caspary'
 author = 'Hannes Robben and Reinhard Caspary'
 release = '00.00.0000'
 

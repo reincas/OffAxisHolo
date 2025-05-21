@@ -7,9 +7,6 @@ import numpy as np
 from numpy import save
 
 
-# ToDo - rework single image and height plotting
-
-
 class DHMPlotter:
     def __init__(self, img_path):
         self.img_save_path = img_path

@@ -6,10 +6,6 @@ from scipy.ndimage import maximum_filter
 
 from .base_class import HologramCore
 
-# ToDo:
-#   - deal with the set full reconstruction -- is it necessary?
-
-
 class Hologram(HologramCore):
     data: np.array  # original Hologram data
     # all possible data arrays

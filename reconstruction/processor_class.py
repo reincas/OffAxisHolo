@@ -18,12 +18,6 @@ properly executed.
 """
 
 
-# ToDo
-#   - implement the DHMPlotter as an object of this class.
-#   - IMPLEMENT ALL THE FILTERING ETC (see run, init and filter.py)
-#       to be added: gaussian, median, mean, hm2f, butterworth
-
-
 class HologramProcessor(HologramCore):
     hologram: Hologram
     background: ReferenceHologram = None

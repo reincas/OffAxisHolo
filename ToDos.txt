@@ -1,0 +1,31 @@
+ToDo
+
+- further development of data loader
+    - controlling if existing loading is sufficient
+    - implement np.ndarray dataloading (old todo)
+    - implement zdc compare in dataloader as in docker.py (old todo)
+- implementation of SciDataContainer (StructureContainer) in this lib
+    - if structure container is used: DHM Parameter ändern, da die innerhalb des containers abgespeichert wurden
+    - aktuell nicht möglich, da bei der Erzeugung der Metadaten irgendwo im prozess ein fehler vorliegt
+- Remove refractive index from DHM preset and check relevance - change it to substrate if necessary
+- development docker and processor
+    - implement the DHMPlotter as an object of this class.
+    - implement set_dhm_dict and set_material_dict
+    - delete filters , it won't be used here but in the imageprocessing lib
+- mode "print" for e-field calculation is not good. has to be changed!  (old todo)
+- Rework Plotting
+    - rework single image and height plotting (todo from script)
+    - use plotting of visualization script
+    - explore opportunity to not use matplotlib but to export it directly as a png or tif to be able to just use the
+        picture as datapoints (like the captured hologram)
+- Rework logger
+- Implement Propagation algorithm from SPIE Photonics west
+    - Implement fresnel propagation and maybe other algorithms as well
+    - vortrag Photonics west - angularspectrum ohne fehler (zeiss, jena, karlsruhe etc)
+
+- hologram class
+    - deal with the set full reconstruction -- is it necessary?
+
+
+
+------- COMPLETE WITH AN EXTENDED DOCUMENTATION OF THIS LIBRARY AND USAGE OF DOCKER -------
