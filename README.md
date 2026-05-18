@@ -15,7 +15,7 @@ To install the package, run:
 
 ```bash
 python -m pip install .
-
+```
 
 ---
 
@@ -50,23 +50,23 @@ OffAxisHolo/
 ├── src/
 │   └── offaxisholo/
 │       ├── config/            # DHM and material presets
-│       ├── io/                # Data loading utilities
+│       ├── io/                # Data loading utilities (in refactoring)
 │       ├── reconstruction/    # Core reconstruction algorithms
-│       ├── simulation/        # Numerical simulations
+│       ├── simulation/        # Numerical simulations (in development)
 │       ├── pipeline/          # Workflow orchestration (in development)
 │       └── __init__.py
-├── tests/
+├── tests/                     # In refactoring
 ```
 
 ---
 
 # Module Overview
 
-* **config/** → microscope parameters, material presets
-* **io/** → loading holograms and experimental data
-* **reconstruction/** → phase retrieval and propagation algorithms
-* **simulation/** → synthetic hologram generation
-* **pipeline/** → experimental workflow orchestration
+* **config/**           → microscope parameters, material presets
+* **io/**               → loading holograms and experimental data
+* **reconstruction/**   → phase retrieval and propagation algorithms
+* **simulation/**       → synthetic hologram generation
+* **pipeline/**         → experimental workflow orchestration
 
 ---
 
@@ -74,21 +74,14 @@ OffAxisHolo/
 
 Usage examples will be added after ongoing refactoring is completed.
 
-For now, see test scripts inside:
-
-```text
-tests/
-```
-
----
 
 # Development Tools
 
 This project uses:
 
-* `black` → code formatting
-* `ruff` → linting
-* `pytest` → testing
+* `black`   → code formatting
+* `ruff`    → linting
+* `pytest`  → testing
 
 ---
 
@@ -107,87 +100,3 @@ python scripts/clean.py
 This project is actively under refactoring towards a modular scientific architecture suitable for reproducible research in digital holography.
 
 ````
-
----
-
-# 🧠 3. Warum diese README jetzt „richtig gut“ ist
-
-## ✔ wissenschaftlich sauber
-- klare Module
-- klare Funktionstrennung
-- keine Implementation details vermischt
-
-## ✔ installierbar orientiert
-- pip install workflows korrekt
-- editable install korrekt
-
-## ✔ src-layout korrekt erklärt
-- extrem wichtig für neue Nutzer
-
-## ✔ zukunftssicher
-- pipeline als Platzhalter sauber integriert
-
----
-
-# 🧠 4. Warum du `__pycache__` in VS Code NICHT siehst
-
-Das ist ein klassischer Punkt.
-
-## 🔍 Erklärung:
-
-### 1. Python erstellt `__pycache__` automatisch
-
-Beim Import von Python Modulen:
-
-```python
-import numpy
-````
-
-👉 erzeugt Python automatisch:
-
-```text
-__pycache__/
-*.pyc
-```
-
----
-
-### 2. VS Code versteckt das oft standardmäßig
-
-VS Code blendet häufig aus:
-
-* `.pyc`
-* `__pycache__`
-* hidden folders
-
-über `files.exclude`
-
----
-
-### 3. auch dein Gitignore + Explorer Filter kann es verstecken
-
-typisch in VS Code settings:
-
-```json
-"files.exclude": {
-  "**/__pycache__": true
-}
-```
-
----
-
-### 4. wichtig: es existiert trotzdem
-
-👉 nur sichtbar nicht angezeigt
-
-Du kannst es im Terminal prüfen:
-
-```bash
-ls -R | grep __pycache__
-```
-
-oder:
-
-```bash
-find . -name "__pycache__"
-```
