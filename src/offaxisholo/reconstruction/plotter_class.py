@@ -15,8 +15,9 @@ class DHMPlotter:
     def set_save_path(self, path):
         self.img_save_path = path
         # print("wait")
-        # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
-        #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure_dhm class
+        # ToDo: Maybe do it in a more general fashion. One folder for saving all the
+        # things (maybe) and automatically determine a subfolder /img/ for the images
+        #   - maybe done in the future for the complete structure_dhm class
 
     def plotImage_old(
         self, img, title=None, save=False, save_path=None, cmap="viridis"
@@ -34,7 +35,7 @@ class DHMPlotter:
                 self.var_4_saving += 1
             plt.close()
         else:
-            if title == None:
+            if title is None:
                 plt.imshow(img, cmap=cmap)
             else:
                 plt.imshow(img, cmap=cmap)
@@ -53,11 +54,12 @@ class DHMPlotter:
         pixel_pitch=None,
     ):
         """
-        Plotting of the reconstructed height profile. Make sure the dimensions of the height profile matches the
-        dimensions of the hologram.
+        Plotting of the reconstructed height profile. Make sure the dimensions of the
+        height profile matches the dimensions of the hologram.
 
         height_profile:  Height profile of the image
-        title:           Title of the image. If save then this will also be the name of the saved image.
+        title:           Title of the image. If save then this will also be the name of
+                         the saved image.
         save:            Boolean if it should be saved. If False then it will be shown.
         legend_bar:      Boolean if the color bar should be shown.
         """
@@ -135,7 +137,8 @@ class DHMPlotter:
         save(SAVE_NAME, data)
 
     def check_reonstruction_flag(self, holo_class):
-        # todo implement a query and check in hologram and processor implementation of reconstruction_flag
+        # todo implement a query and check in hologram and processor implementation of
+        # reconstruction_flag
         # true for finished, false for not reconstructed
         pass
 
@@ -194,9 +197,11 @@ class DHMPlotter:
 
             # todo implement this with a for loop
             # if save_single:
-            #     extent = axs[0,0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+            #     extent = axs[0,0].get_window_extent().transformed(
+            #                           fig.dpi_scale_trans.inverted())
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
-            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
+            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))
+            #                # 10% extent in x and y direction
 
     def save_individual_plot(
         self,
@@ -304,9 +309,11 @@ class DHMPlotter:
 
             # todo implement this with a for loop
             # if save_single:
-            #     extent = axs[0,0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+            #     extent = axs[0,0].get_window_extent().transformed(
+            #                   fig.dpi_scale_trans.inverted())
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
-            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
+            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))
+            #                        # 10% extent in x and y direction
 
     def plot_full_reconstruction_process_old(
         self,
@@ -368,9 +375,11 @@ class DHMPlotter:
 
             # todo implement this with a for loop - iteration over axes
             # if save_single:
-            #     extent = axs[0,0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+            #     extent = axs[0,0].get_window_extent().transformed(
+            #           fig.dpi_scale_trans.inverted())
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
-            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
+            #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))
+            #                    # 10% extent in x and y direction
 
     def plot_full_reconstruction_process(
         self,

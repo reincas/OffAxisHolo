@@ -62,9 +62,10 @@ class Hologram(HologramCore):
         assert isinstance(
             self.params, dict
         )  # dhm parameter has to be given as dictionary
-        assert all(
-            key in self.params for key in self.required_dhm_keys
-        ), f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
+        assert all(key in self.params for key in self.required_dhm_keys), (
+            f"Missing required parameter(s): "
+            f"{self.required_dhm_keys - self.params.keys()}"
+        )
         if self.logger:
             self.logger.DEBUG("Input successfully validated")
 
@@ -86,7 +87,8 @@ class Hologram(HologramCore):
                     f"Reconstruction completed in {(t2 - t1).total_seconds()} seconds"
                 )
             self.logger.DEBUG(
-                f"Reconstruction of Hologram captured with {self.params['name']} (DC radius {self.params['dcRadius']}) successful."
+                f"Reconstruction of Hologram captured with {self.params['name']} "
+                f"(DC radius {self.params['dcRadius']}) successful."
             )
         return self.reconstructed_field
 
@@ -238,7 +240,8 @@ class Hologram(HologramCore):
 
     def calc_field(self):
         """
-        Calculate the field of the hologram. Only use this function if you want to use the hologram of the object itself.
+        Calculate the field of the hologram. Only use this function if you want to use
+        the hologram of the object itself.
         """
         (
             self.reconstructed_field,

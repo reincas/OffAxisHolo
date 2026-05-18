@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .... import get_logger
+from .. import get_logger
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
 from .numericalPropagation import angularSpectrum
@@ -14,8 +14,8 @@ from .phaseUnwrapping import (
 from .plotter_class import DHMPlotter
 
 """
-Coordinates the entire reconstruction process, ensuring that all necessary steps (FFT, filtering, compensation) are 
-properly executed.
+Coordinates the entire reconstruction process, ensuring that all necessary steps 
+(FFT, filtering, compensation) are properly executed.
 """
 
 
@@ -40,8 +40,10 @@ class HologramProcessor(HologramCore):
     field_filtered = None  # field after filtering (not yet implemented)
 
     # finished fields
-    intensity_reconstructed = None  # intensity distribution of reconstructed field (same as compensated if no filtering is done
-    field_reconstructed = None  # final reconstructed electromagnetic field (compensated intensity + phase)
+    intensity_reconstructed = None  # intensity distribution of reconstructed field
+    # (same as compensated if no filtering is done
+    field_reconstructed = None  # final reconstructed electromagnetic field
+    # (compensated intensity + phase)
     phase_map = None  # unwrapped phase map of the compensated, propagated hologram
     height_profile = None  # final height profile of the Hologram (reconstructed field)
 
@@ -75,7 +77,8 @@ class HologramProcessor(HologramCore):
             )
         except Exception as e:
             self.logger.error(
-                f"Error {e} occurred while trying to access 'refractiveIndex' of the material."
+                f"Error {e} occurred while trying to access "
+                f"'refractiveIndex' of the material."
             )
             raise e
 
@@ -119,7 +122,8 @@ class HologramProcessor(HologramCore):
             )
         else:
             raise ValueError(
-                "Plotting mode can only be 'short' reconstruction or 'full' reconstruction."
+                "Plotting mode can only be 'short' reconstruction or "
+                "'full' reconstruction."
             )
 
     @property
@@ -131,11 +135,14 @@ class HologramProcessor(HologramCore):
             "Validating input for Reconstruction process"
         )  # ToDo name ändern.
         assert isinstance(self.hologram, Hologram), "Hologram must be of type Hologram."
-        # todo what to do if there is not background and no compensation should be done? - hotfix 13.01.26 comment
-        # assert isinstance(self.background, ReferenceHologram), "ReferenceHologram must be of type Hologram"
+        # todo what to do if there is not background and no compensation should be done?
+        #        - hotfix 13.01.26 comment
+        # assert isinstance(self.background, ReferenceHologram),
+        #       "ReferenceHologram must be of type Hologram"
         assert all(
             key in self.params for key in self.required_dhm_keys
-        ), f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
+        ), f"Missing required parameter(s): \
+                {self.required_dhm_keys - self.params.keys()}"
 
     def run(
         self,
@@ -153,7 +160,8 @@ class HologramProcessor(HologramCore):
         phase_unwrapping_method="Fast 2D",
         propagation_method="angularSpectrum",
     ) -> np.ndarray | tuple[Any, Any]:
-        # ToDo: check if all e-fields are available even if propagate or compensation = False
+        # ToDo: check if all e-fields are available even if
+        #       propagate or compensation = False
         """
         Full reconstruction:
 
@@ -163,7 +171,8 @@ class HologramProcessor(HologramCore):
         Compensation for Aberrations (intensity and phase independent)
                 -- if no compensation -> set compensate = False
         Phase unwrapping
-                -- different methods are available. Default - Fast 2D phase unwrapping using non-continuous path
+                -- different methods are available.
+                    Default - Fast 2D phase unwrapping using non-continuous path
         Filtering (not yet implemented)
         """
         self.logger.info("Starting hologram processing ...")
@@ -198,7 +207,8 @@ class HologramProcessor(HologramCore):
         # Propagation of the electrical field to the focal plane
         if propagate:
             self.logger.info(
-                f"Starting propagation of reconstructed field with {propagation_method} method."
+                f"Starting propagation of reconstructed field "
+                f"with {propagation_method} method."
             )
             self.field_propagated = self.propagate(
                 field=holo_field,
@@ -209,7 +219,8 @@ class HologramProcessor(HologramCore):
         else:
             self.field_propagated = holo_field
 
-        # Future ToDo: Aberration compensation using zernike polynom or other numerical methods
+        # Future ToDo: Aberration compensation using zernike polynom or
+        #               other numerical methods
         # Aberration Compensation of Optics with Background image
         if compensate:
             if compensation_mode == "Background":
@@ -237,7 +248,8 @@ class HologramProcessor(HologramCore):
                     self.intensity_reconstructed = self.intensity_compensated_db
             elif compensation_mode == "ZernikePolynomial":
                 self.logger.warning("ZernikePolynomial not implemented yet.")
-                # self.logger.info(f"Starting compensation with the zernike polynomials...") # todo future
+                # self.logger.info(f"Starting compensation with the zernike
+                #  polynomials...") # todo future
                 raise NotImplementedError("ZernikePolynomial not yet implemented.")
             else:
                 raise NotImplementedError(
@@ -256,7 +268,9 @@ class HologramProcessor(HologramCore):
         if filtering:
             if filter_applied is None:
                 warnings.warn(
-                    "No filter selected! Please select filter using the variable 'filter_applied'."
+                    "No filter selected! "
+                    "Please select filter using the variable 'filter_applied'.",
+                    stacklevel=2,
                 )
                 self.logger.info("No filter applied.")
                 return
@@ -281,7 +295,7 @@ class HologramProcessor(HologramCore):
 
         self.logger.info(
             f"Converting unwrapped phase to height map using refractive index=\
-                        {refractive_index if not None else self.refractive_index_default}."
+                {refractive_index if not None else self.refractive_index_default}."
         )
         self.height_profile = self.phase_to_height(
             self.phase_map, n_resin=refractive_index
@@ -344,12 +358,14 @@ class HologramProcessor(HologramCore):
         self, original: np.ndarray, reference: np.ndarray
     ) -> np.ndarray:
         """
-        Compensation of spherical phase aberrations are possible by capturing a background image with the same imaging
-        system and subtraction of the background from the image with the specimen in it.
+        Compensation of spherical phase aberrations are possible by capturing a
+        background image with the same imaging system and subtraction of the background
+        from the image with the specimen in it.
         Research done by:
-        Pietro Ferraro, Sergio De Nicola, Andrea Finizio, Giuseppe Coppola, Simonetta Grilli, Carlo Magro, and Giovanni
-        Pierattini, "Compensation of the inherent wave front curvature in digital holographic coherent microscopy for
-        quantitative phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
+        Pietro Ferraro, Sergio De Nicola, Andrea Finizio, Giuseppe Coppola, Simonetta
+        Grilli, Carlo Magro, and Giovanni Pierattini, "Compensation of the inherent
+        wave front curvature in digital holographic coherent microscopy for quantitative
+        phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
         https://doi.org/10.1364/AO.42.001938
         """
         compensated = original - reference
@@ -357,11 +373,13 @@ class HologramProcessor(HologramCore):
 
     def compensate(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """
-        Compensation of spherical phase aberrations are possible by capturing a background image with the same imaging
-        system and subtraction of the background from the image with the specimen in it.
+        Compensation of spherical phase aberrations are possible by capturing a
+        background image with the same imaging system and subtraction of the background
+        from the image with the specimen in it.
         Research done by:
-        Pietro Ferraro, Sergio De Nicola, Andrea Finizio, Giuseppe Coppola, Simonetta Grilli, Carlo Magro, and Giovanni
-        Pierattini, "Compensation of the inherent wave front curvature in digital holographic coherent microscopy for
+        Pietro Ferraro, Sergio De Nicola, Andrea Finizio, Giuseppe Coppola, Simonetta
+        Grilli, Carlo Magro, and Giovanni Pierattini, "Compensation of the inherent
+        wave front curvature in digital holographic coherent microscopy for
         quantitative phase-contrast imaging," Appl. Opt. 42, 1938-1946 (2003)
         https://doi.org/10.1364/AO.42.001938
         """
@@ -402,10 +420,11 @@ class HologramProcessor(HologramCore):
 
     def phase_to_height(self, phase, n_resin=None):
         """
-        Height reconstruction based on the theoretical investigation by Nguyen et al. (2016)
-        Thanh Nguyen, George Nehmetallah, Christopher Raub, Scott Mathews, and Rola Aylo, "Accurate quantitative phase
-        digital holographic microscopy with single- and multiple-wavelength telecentric and nontelecentric
-        configurations,"
+        Height reconstruction based on the theoretical investigation by Nguyen et al.
+        (2016)
+        Thanh Nguyen, George Nehmetallah, Christopher Raub, Scott Mathews, and Rola
+        Aylo, "Accurate quantitative phase digital holographic microscopy with single-
+        and multiple-wavelength telecentric and nontelecentric configurations,"
         Appl. Opt. 55, 5666-5683 (2016)
         http://dx.doi.org/10.1364/AO.55.005666
         """

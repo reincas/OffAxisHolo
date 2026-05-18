@@ -12,7 +12,6 @@ from offaxisholo import Zernike
 
 
 class TestZernike(unittest.TestCase):
-
     def test_zernike(self):
 
         debug = False

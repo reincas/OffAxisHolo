@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from OffAxisHolo.src.pipeline.reconstruction_pipeline import DockerImageFile
+from src.offaxisholo.pipeline.reconstruction_pipeline import DockerImageFile
 
 container_path = (
     r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method\rawdata"

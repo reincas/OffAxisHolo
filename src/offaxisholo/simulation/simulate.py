@@ -119,7 +119,7 @@ def propagate(Fin, pin, z):
     # Spectral pitch
     N = Fin.shape[0]
     ps = 1.0 / (N * pin)
-    fy, fx = field.mesh(N, ps)
+    fy, fx = mesh(N, ps)
 
     # Propagation using the ASM
     Fs = np.fft.fft2(Fin)

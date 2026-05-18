@@ -29,3 +29,7 @@ ToDo
 
 
 ------- COMPLETE WITH AN EXTENDED DOCUMENTATION OF THIS LIBRARY AND USAGE OF DOCKER -------
+
+
+
+NEW THING - LATEXIFY_PY FOR latex export of python functions

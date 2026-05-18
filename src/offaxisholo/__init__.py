@@ -20,7 +20,11 @@ from scidatacontainer import Container
 # from .docker import DockerBase as Docker
 # from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
 # from .reconstruction import DHMPlotter
-from .src.offaxisholo.loader import DataLoader
+from src.offaxisholo.io.loader import DataLoader
+
+__all__ = [
+    "DataLoader",
+]
 
 LOGFMT = logging.Formatter(
     fmt="%(asctime)s / %(levelname)s / %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
@@ -81,7 +85,7 @@ def get_hologram(path, filename=None, img_container=False) -> np.ndarray:
             try:
                 dc = Container(file=path)
             except FileNotFoundError:
-                raise FileNotFoundError(f"No file at {path} found.")
+                raise FileNotFoundError(f"No file at {path} found.") from None
     else:
         path = os.path.join(path, filename)
         try:
@@ -105,4 +109,4 @@ def get_datafiles(root, subdir=False, ending=".dat") -> list:
     try:
         return glob.glob(path)
     except Exception as e:
-        raise FileNotFoundError(f"No directory {root}. Exception {e}")
+        raise FileNotFoundError(f"No directory {root}. Exception {e}") from e

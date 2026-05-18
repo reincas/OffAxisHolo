@@ -6,14 +6,14 @@ import numpy as np
 from scidatacontainer import Container
 
 if __name__ == "__main__":
-    from OffAxisHolo import DataLoader, get_logger
-    from OffAxisHolo.reconstruction import (
+    from src.offaxisholo import DataLoader, get_logger
+    from src.offaxisholo.reconstruction import (
         Hologram,
         HologramProcessor,
         ReferenceHologram,
     )
 else:
-    from .... import get_logger
+    from .. import get_logger
     from ..io.loader import DataLoader
     from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
 from tkinter import filedialog, messagebox
@@ -85,8 +85,9 @@ class ReconstructionPipeline:
             #   1. Data path is given
             #   2. No Data path, but a preset was selected
             #   3. No Data path is given but path is selected using filedialog
-            #   4. No Data path, no preset and no selected data -> Question if compensation is desired
-            #                                                   -> no compensation
+            #   4. No Data path, no preset and no selected data
+            #               -> Question if compensation is desired
+            #               -> no compensation
 
             self.compensation = (
                 True  # compensation mode is background so a compensation should be done
@@ -129,7 +130,8 @@ class ReconstructionPipeline:
                             )
                             if no_compensation:
                                 self.logger.info(
-                                    "Use 'compensation_method'=False if no compensation is required."
+                                    "Use 'compensation_method'=False if no compensation"
+                                    " is required."
                                 )
                                 self.compensation = False
                                 compensation_method = "None"
@@ -138,8 +140,8 @@ class ReconstructionPipeline:
                     # ask for other compensation method
                     zernike_compensation = messagebox.askyesno(
                         title="Compensation Method",
-                        message="Do you want to use Zernike Polynomials as \
-                                                                        compensation method?",
+                        message="Do you want to use Zernike Polynomials as"
+                        " compensation method?",
                     )
                     if zernike_compensation:
                         compensation_method = "ZernikePolynomial"
@@ -208,12 +210,14 @@ class ReconstructionPipeline:
     def pixel_pitch(self):
         try:
             return self.processor.pixel_pitch
-        except AttributeError:
-            raise NotImplementedError("Pixel pitch not accessible.")
+        except AttributeError as err:
+            raise NotImplementedError("Pixel pitch not accessible.") from err
 
     def set_visualization_options(self, visualization_options, *kwargs):
-        # visualization options should be a dictionary or i will use the kwargs - not sure yet.
-        # This is intended to ensure that visualizations of the respective process steps or reconstruction steps are
+        # visualization options should be a dictionary or i will use the kwargs
+        #       - not sure yet.
+        # This is intended to ensure that visualizations of the respective process
+        # steps or reconstruction steps are
         # automatically created and saved.
         # todo create an overview for the different options!
         pass
@@ -232,7 +236,8 @@ class ReconstructionPipeline:
 
     def do_savings(self, processor):
         # todo implement it!
-        # should be the saving of the numpy arrays in dependence on what should be saved!
+        # should be the saving of the numpy arrays in dependence on what should be
+        # saved!
         pass
 
     def plot_4_publications(self, path=None, cmap="gray"):
@@ -297,8 +302,10 @@ class ReconstructionPipeline:
 
         information_saved_fields = {
             "hologram_original_data": "Captured hologram of the printed object.",
-            "hologram_background": "Captured background hologram. Used for aberration compensation.",
-            "processor_intensity": "Final intensity. If filtering was done, this data is after filtering.",
+            "hologram_background": "Captured background hologram. Used for aberration"
+            " compensation.",
+            "processor_intensity": "Final intensity. If filtering was done, this data "
+            "is after filtering.",
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
         with open(
@@ -362,12 +369,18 @@ class ReconstructionPipeline:
 
         information_saved_fields = {
             "hologram_original_data": "Captured hologram of the printed object.",
-            "hologram_Reconstructed_field": "Reconstructed field of the object. Only spatial filtering.",
-            "hologram_background": "Captured background hologram. Used for aberration compensation.",
-            "processor_field_propagated": "Field after propagation. Before aberration compensation.",
-            "processor_field_compensated": "Recombined field of the compensated intensity and phase",
-            "processor_reconstructed_field": "final reconstructed electromagnetic field",
-            "processor_intensity": "Final intensity. If filtering was done, this data is after filtering.",
+            "hologram_Reconstructed_field": "Reconstructed field of the object. "
+            "Only spatial filtering.",
+            "hologram_background": "Captured background hologram. "
+            "Used for aberration compensation.",
+            "processor_field_propagated": "Field after propagation. "
+            "Before aberration compensation.",
+            "processor_field_compensated": "Recombined field of the compensated"
+            " intensity and phase",
+            "processor_reconstructed_field": "final reconstructed electromagnetic "
+            "field",
+            "processor_intensity": "Final intensity. If filtering was done, this "
+            "data is after filtering.",
             "processor_phase_wrapped": "Final wrapped phase",
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
@@ -508,7 +521,7 @@ class ReconstructionPipeline:
             data=data, dhm_parameter=self.dhm_dictionary, logger=self.logger
         )
 
-        if compensation == False or compensation_method is None:
+        if not compensation or compensation_method is None:
             # do reconstruction without background
 
             self.processor = HologramProcessor(
@@ -619,8 +632,14 @@ class ReconstructionPipeline:
 
 
 if __name__ == "__main__":
-    test_path = r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method\rawdata\DHM_Print\structures\DOE1_ABZ_Zeiss 63x.zdc"
-    test_eval = r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method\visualization\Test_Docker"
+    test_path = (
+        r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method"
+        r"\rawdata\DHM_Print\structures\DOE1_ABZ_Zeiss 63x.zdc"
+    )
+    test_eval = (
+        r"C:\Users\hanne\Documents\Projekte Offline PC"
+        r"\DHM as a QPI method\visualization\Test_Docker"
+    )
 
     test_zdc = Container(file=test_path)
 

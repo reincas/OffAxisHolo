@@ -10,8 +10,9 @@ from skimage.restoration import unwrap_phase
 def phase_unwrapping_fast2d(phase_wrapped):
     """
     This phase unwrapping algorithm is based on:
-    Miguel Arevallilo Herráez, David R. Burton, Michael J. Lalor, and Munther A. Gdeisat, "Fast two-dimensional
-    phase-unwrapping algorithm based on sorting by reliability following a noncontinuous path,"
+    Miguel Arevallilo Herráez, David R. Burton, Michael J. Lalor, and Munther A.
+    Gdeisat, "Fast two-dimensional phase-unwrapping algorithm based on sorting by
+    reliability following a noncontinuous path,"
     Appl. Opt. 41, 7437-7444 (2002)
     https://doi.org/10.1364/AO.41.007437
     """
@@ -42,7 +43,8 @@ def phase_unwrapping_wrap_around(phase_wrapped, plot=True, path=None):
     return image_unwrapped_wrap_around
 
 
-# NOTE: Kamui is not compatible with numpy 2.xx -> not necessary as i always try to use the fast 2d unwrapping algorithm
+# NOTE: Kamui is not compatible with numpy 2.xx -> not necessary as i always try to
+#       use the fast 2d unwrapping algorithm
 '''
 def phase_unwrapping_kamui_normal(phase_wrapped, plot=True, path=None):
     """
@@ -93,8 +95,10 @@ def phase_unwrapping_kamui_graph(phase_wrapped, plot=True, path=None):
 
 def phase_unwrapping_numpy(phase_wrapped, plot=True, path=None):
     """
-    Harris, C. R., Millman, K. J., van der Walt, S. J., Gommers, R., Virtanen, P., Cournapeau, D., … Oliphant, T. E.
-    (2020). Array programming with NumPy. Nature, 585, 357–362. https://doi.org/10.1038/s41586-020-2649-2
+    Harris, C. R., Millman, K. J., van der Walt, S. J., Gommers, R., Virtanen, P.,
+    Cournapeau, D., … Oliphant, T. E. (2020). Array programming with NumPy. Nature,
+    585, 357–362.
+    https://doi.org/10.1038/s41586-020-2649-2
     """
     img_unwrapped = np.unwrap(phase_wrapped)
     if plot:

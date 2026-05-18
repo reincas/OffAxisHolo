@@ -8,17 +8,24 @@ from SciDataContainer_Handler import StructureContainer
 
 
 class DataLoader:
-    def __init__(self, file_path, file_type: Optional = None, logger=None, **kwargs):
+    def __init__(
+        self, file_path, file_type: Optional[str] = None, logger=None, **kwargs
+    ):
         """
         file_path: absolute path to file
         file_type: extension of file
         logger: logging object
         ----
         Keyword arguments:
-            structure_container: Specific SciDataContainer class for 2PP printing.
-            loading_background: Additionally loads the background image. Only available with file type "zdc"
-            loading_layer_data: Only available with file type "zdc". Loads data for each layer.
-            convert_to_grayscale: Only for image types(png, tif). Converts image to grayscale image.
+            structure_container:
+                    Specific SciDataContainer class for 2PP printing.
+            loading_background:
+                    Additionally loads the background image. Only available with
+                    file type "zdc"
+            loading_layer_data:
+                    Only available with file type "zdc". Loads data for each layer.
+            convert_to_grayscale:
+                    Only for image types(png, tif). Converts image to grayscale image.
         ----
         get_data returns the loaded data
         """
@@ -64,7 +71,8 @@ class DataLoader:
                         data_container[f"meas/dhm/raw/layer_{i}.png"].data
                         for i in range(data_container.number_of_layer)
                     ]
-                    # todo check if final layer == complete structure otherwise append the final structure!
+                    # todo check if final layer == complete structure otherwise append
+                    # the final structure!
                     # data = data_container.data_layered  # to be implemented
                 else:
                     # loading of completed print
@@ -73,12 +81,15 @@ class DataLoader:
             else:
                 if self.loading_background or self.loading_layer_data:
                     self.logger.warning(
-                        "Background images and layered data can only be loaded with specific structure\
-                     container. Set the kwarg 'structure_container' = True to access the features."
+                        "Background images and layered data can only be loaded "
+                        "with specific structure container. Set the kwarg "
+                        "'structure_container' = True to access the features."
                     )
                     # warnings.warn(
-                    #     f"Background images and layered data can only be loaded with specific structure container."
-                    #     f"Set the kwarg 'structure_container' = True to access the features.")
+                    #     f"Background images and layered data can only be loaded with
+                    #     f"specific structure container."
+                    #     f"Set the kwarg 'structure_container' = True to access the"
+                    #     f" features.")
 
                 data = self.load_scidatacontainer()
 
@@ -98,7 +109,8 @@ class DataLoader:
             match = file_type == file_extension[1:]
             if not match:
                 raise AttributeError(
-                    f"File type {file_type} does not match ending of file in path: {self.path}."
+                    f"File type {file_type} does not match ending of file in path: "
+                    "{self.path}."
                 )
         except Exception as e:
             print(f"An Error occurred while validating file type: {e}")
@@ -127,8 +139,9 @@ class DataLoader:
         layer_data = []
         # get total number of layer
         num_layer = 0  # ToDo get it from zdc json file with layer number
-        for i in range(num_layer):
-            # layer_data = [data for data_name in scidatacontainer_zdc]  # todo implement this
+        for _i in range(num_layer):
+            # layer_data = [data for data_name in scidatacontainer_zdc]
+            # todo implement this
             pass
         return layer_data
 
@@ -156,8 +169,8 @@ class DataLoader:
                 return [self.data_loaded, self.background_data]
             else:
                 return self.data_loaded
-        except Exception:
-            raise ValueError(f"Error while loading data from {self.path}")
+        except Exception as err:
+            raise ValueError(f"Error while loading data from {self.path}") from err
 
     def get_dhm_params(self):
         if not self.structure_container:
@@ -167,4 +180,6 @@ class DataLoader:
         try:
             return self.dhm_params
         except Exception as e:
-            raise ValueError(f"Error {e} while loading DHM parameters from {self.path}")
+            raise ValueError(
+                f"Error {e} while loading DHM parameters from {{self.path}}"
+            ) from e
