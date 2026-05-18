@@ -1,10 +1,10 @@
 import os
 from typing import Optional
 
-# from SciDataContainer_Handler import StructureContainer
 import cv2
 from scidatacontainer import Container
-from SciDataContainer_Handler import StructureContainer
+
+from .structure import StructureContainer
 
 
 class DataLoader:
