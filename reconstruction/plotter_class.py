@@ -14,6 +14,7 @@ class DHMPlotter:
 
     def set_save_path(self, path):
         self.img_save_path = path
+        # print("wait")
         # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
         #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure_dhm class
 
@@ -169,22 +170,64 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
-    def plot_reconstruction_short(self, holo_class, show_plot=False, save_single=False, cmap='gray', save_title=None):
-        # check if reconstruction is already done
-        if not self.check_reonstruction_flag(holo_class):
-            holo_class.run()
+    def save_individual_plot(self, data, filename, cmap='gray', figsize=(8, 6), dpi=300, title=None, save=False,
+                             show=False):
+        """Speichert einen einzelnen Plot."""
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.imshow(data, cmap=cmap)
+        if title is not None:
+            ax.set_title(title)
+        plt.tight_layout()
+        if save:
+            plt.savefig(filename, dpi=dpi, bbox_inches='tight')
+        if show:
+            plt.show()
+        plt.close(fig)
 
-        # plotting
-        fig, axs = plt.subplots(2, 2, figsize=(16, 9))
-        fig.suptitle('Hologram Reconstruction', fontsize=16)
-        axs[0, 0].imshow(holo_class.hologram.data, cmap=cmap)
-        axs[0, 0].set_title("Original Hologram Image")
-        axs[1, 0].imshow(holo_class.background.data, cmap=cmap)
-        axs[1, 0].set_title("Background hologram")
-        axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
-        axs[0, 1].set_title("Reconstructed and unwrapped phase image")
-        axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap=cmap)
-        axs[1, 1].set_title("Reconstructed intensity image")
+    def plot_reconstruction_short(self, holo_class, show_plot=False, save_single=False, cmap='gray', save_title=None,
+                                  compensation=True):
+        # check if reconstruction is already done
+        # todo 13.01 - not done until now -> hotfix commented
+        # if not self.check_reonstruction_flag(holo_class):
+        #     holo_class.run()
+
+        if compensation:
+            # plotting
+            fig, axs = plt.subplots(2, 2, figsize=(16, 9))
+            fig.suptitle('Hologram Reconstruction', fontsize=16)
+            axs[0, 0].imshow(holo_class.hologram.data, cmap='gray')
+            axs[0, 0].set_title("Original Hologram Image")
+            axs[1, 0].imshow(holo_class.background.data, cmap='gray')
+            axs[1, 0].set_title("Background hologram")
+            axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
+            axs[0, 1].set_title("Reconstructed and unwrapped phase image")
+            axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap=cmap)
+            axs[1, 1].set_title("Reconstructed intensity image")
+        else:
+            fig, axs = plt.subplots(2, 2, figsize=(16, 9))
+            fig.suptitle('Hologram Reconstruction', fontsize=16)
+            axs[0, 0].imshow(holo_class.hologram.data, cmap='gray')
+            axs[0, 0].set_title("Original Hologram Image")
+            axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
+            axs[0, 1].set_title("Reconstructed and unwrapped phase image")
+            axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap='gray')
+            axs[1, 1].set_title("Reconstructed intensity image")
+
+        if save_single:
+            # Einzelne Plots
+            self.save_individual_plot(holo_class.hologram.data,
+                                      os.path.join(self.img_save_path, "hologram_original.png"),
+                                      cmap='gray', save=True, show=show_plot)  # title="Original Hologram Image"
+            self.save_individual_plot(holo_class.phase_map, os.path.join(self.img_save_path, "phase_map.png"),
+                                      cmap=cmap, save=True,
+                                      show=show_plot)  # title="Reconstructed and unwrapped phase image"
+            self.save_individual_plot(holo_class.intensity_reconstructed,
+                                      os.path.join(self.img_save_path, "intensity_reconstructed.png"),
+                                      cmap='gray', save=True, show=show_plot)  # title="Reconstructed intensity image"
+            if compensation:
+                self.save_individual_plot(holo_class.background.data,
+                                          os.path.join(self.img_save_path, "hologram_background.png"),
+                                          cmap='gray', save=True, show=show_plot)  # title="Background hologram"
 
         if show_plot:
             plt.show()
@@ -204,7 +247,7 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
     def plot_full_reconstruction_process_old(self, holo_class, show_plot=False, save_single=False, cmap='gray',
-                                         save_title=None):
+                                             save_title=None):
         # check if reconstruction is already done
         if not self.check_reonstruction_flag(holo_class):
             holo_class.run()

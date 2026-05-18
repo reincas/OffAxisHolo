@@ -5,38 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="38bf9839-92e8-4907-bdc5-686d17c67caa" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/test/test_filedialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace (SFConflict hannes.robben@phoenixd.uni-hannover.de 2024-11-22-13-03-08).xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/all_in_one_24.12/Reconstruction_backend.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/DHM_DUMMY.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/Filter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/offaxisholo/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/hologram_class.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/phase_unwrapping_functions.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/phase_unwrapping_test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/plotter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/postprocessor.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/reconstructor.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/Background_preset/READ_ME.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/Background_preset/SZ2080.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/DHM_preset/READ_ME.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/DHM_preset/Zeiss_20x.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/DHM_preset/Zeiss_63x.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/docker.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/loader.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/base_class.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/filters.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/hologram_class.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/numericalPropagation.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/phaseUnwrapping.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/plotter_class.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/refactoring/reconstruction/processor_class.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/simulate.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/offaxisholo/structure.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker.py" beforeDir="false" afterPath="$PROJECT_DIR$/docker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reconstruction/plotter_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/reconstruction/plotter_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reconstruction/processor_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/reconstruction/processor_class.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,8 +55,11 @@
     "Python.test_propagation.executor": "Debug",
     "Python.test_unwrap.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "ai.playground.ignore.import.keys.banner.in.settings": "true",
     "git-widget-placeholder": "Holo__HR",
-    "last_opened_file_path": "C:/Users/hanne/Documents/Seafile/Nanoproduction_Hannes/Code/NanoFactorySystem",
+    "last_opened_file_path": "C:/Users/hanne/Documents/Seafile/phoenixd-robben/Code/OffAxisHolo",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -118,6 +94,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Auswertung/create_Plot.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
@@ -136,8 +113,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-1d06a55b98c1-91d5c284f522-JavaScript-PY-241.15989.155" />
-        <option value="bundled-python-sdk-babbdf50b680-7c6932dee5e4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.15989.155" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.29346.142" />
+        <option value="bundled-python-sdk-f2b7a9f6281b-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.142" />
       </set>
     </attachedChunks>
   </component>
@@ -169,6 +146,8 @@
       <workItem from="1738059773878" duration="18000" />
       <workItem from="1738059813574" duration="8000" />
       <workItem from="1738059871672" duration="10538000" />
+      <workItem from="1767785195125" duration="742000" />
+      <workItem from="1776260563772" duration="174000" />
     </task>
     <servers />
   </component>

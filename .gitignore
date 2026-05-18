@@ -33,3 +33,9 @@ MANIFEST
 attic/
 test/test/!/offaxisholo/reconstruction/plotter_class - Kopie.py
 *.png
+
+.idea/
+.venv/
+__pycache__/
+.pytest_cache/
+.vscode/

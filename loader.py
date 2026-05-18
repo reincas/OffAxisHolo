@@ -119,12 +119,22 @@ class DataLoader:
             pass
         return layer_data
 
+    # ERROR because there are images with one channel -> already grayscale
+    # def load_image(self):
+    #     data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
+    #     if getattr(self, 'convert_to_grayscale', False):
+    #         # Convert to grayscale
+    #         self.logger.info("Converting image to grayscale...")
+    #         data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
+    #     return data
+
     def load_image(self):
-        data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
         if getattr(self, 'convert_to_grayscale', False):
-            # Convert to grayscale
-            self.logger.info("Converting image to grayscale...")
-            data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
+            self.logger.info("Loading image as grayscale...")
+            data = cv2.imread(self.path, cv2.IMREAD_GRAYSCALE)
+        else:
+            data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
+
         return data
 
     def get_data(self):

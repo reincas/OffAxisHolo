@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.restoration import unwrap_phase
-from kamui import unwrap_dimensional
+# from kamui import unwrap_dimensional
 
 def phase_unwrapping_fast2d(phase_wrapped):
     """
@@ -38,6 +38,8 @@ def phase_unwrapping_wrap_around(phase_wrapped, plot=True, path=None):
     return image_unwrapped_wrap_around
 
 
+# NOTE: Kamui is not compatible with numpy 2.xx -> not necessary as i always try to use the fast 2d unwrapping algorithm
+'''
 def phase_unwrapping_kamui_normal(phase_wrapped, plot=True, path=None):
     """
     https://github.com/yoyolicoris/kamui
@@ -81,6 +83,8 @@ def phase_unwrapping_kamui_graph(phase_wrapped, plot=True, path=None):
         else:
             plt.show()
     return img_unwrapped
+
+'''
 
 
 def phase_unwrapping_numpy(phase_wrapped, plot=True, path=None):

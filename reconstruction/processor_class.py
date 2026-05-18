@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 from .plotter_class import DHMPlotter
-from .phaseUnwrapping import phase_unwrapping_fast2d, phase_unwrapping_numpy, phase_unwrapping_kamui_normal
+from .phaseUnwrapping import phase_unwrapping_fast2d, phase_unwrapping_numpy # , phase_unwrapping_kamui_normal
 from .numericalPropagation import angularSpectrum
 
 from .base_class import HologramCore
@@ -73,13 +73,14 @@ class HologramProcessor(HologramCore):
         self.plotter = DHMPlotter(img_path=saving_path)
 
     def plot_reconstruction(self, show_plot=False, save_single=False, cmap="gray", title=None,
-                            mode: Literal["short", "full"] = "short"):
+                            mode: Literal["short", "full"] = "short",
+                            compensation=True):
         if not self.plotter.img_save_path:
             show_plot = True
 
         if mode.lower() == "short":
             self.plotter.plot_reconstruction_short(self, show_plot=show_plot, save_single=save_single, cmap=cmap,
-                                                   save_title=title)
+                                                   save_title=title, compensation=compensation)
         elif mode.lower() == "full":
             self.plotter.plot_full_reconstruction_process(self, show_plot=show_plot, save_single=save_single, cmap=cmap,
                                                           save_title=title)
@@ -93,7 +94,8 @@ class HologramProcessor(HologramCore):
     def _validate_input(self):
         self.logger.debug(f"Validating input for Reconstruction process")  # ToDo name ändern.
         assert isinstance(self.hologram, Hologram), "Hologram must be of type Hologram."
-        assert isinstance(self.background, ReferenceHologram), "ReferenceHologram must be of type Hologram"
+        # todo what to do if there is not background and no compensation should be done? - hotfix 13.01.26 comment
+        # assert isinstance(self.background, ReferenceHologram), "ReferenceHologram must be of type Hologram"
         assert all(key in self.params for key in self.required_dhm_keys), \
             f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
 
@@ -151,6 +153,8 @@ class HologramProcessor(HologramCore):
             self.field_propagated = self.propagate(field=holo_field, distance=prop_dist,
                                                    propagation_method=propagation_method)
             # todo if propagate field propagated cannot be accessed
+        else:
+            self.field_propagated = holo_field
 
         # Future ToDo: Aberration compensation using zernike polynom or other numerical methods
         # Aberration Compensation of Optics with Background image
@@ -176,6 +180,9 @@ class HologramProcessor(HologramCore):
                 raise NotImplementedError("ZernikePolynomial not yet implemented.")
             else:
                 raise NotImplementedError(f"Compensation method {compensation_mode} not implemented.")
+        else:
+            self.phase_map = self.phase_unwrapping(self.phase(self.field_propagated), method=phase_unwrapping_method)
+            self.intensity_reconstructed = self.intensity(self.field_propagated, mode="db")
 
         # Filtering
         # ToDo: Filtering needs implementation of algorithms
@@ -281,8 +288,8 @@ class HologramProcessor(HologramCore):
         """
         if method == "Fast 2D":
             phase_unwrapped = phase_unwrapping_fast2d(phase_wrapped)
-        elif method == "Kamui":
-            phase_unwrapped = phase_unwrapping_kamui_normal(phase_wrapped)
+        # elif method == "Kamui":
+        #     phase_unwrapped = phase_unwrapping_kamui_normal(phase_wrapped)
         elif method == "Numpy":
             phase_unwrapped = phase_unwrapping_numpy(phase_wrapped)
         else:

@@ -29,18 +29,26 @@ class DockerBase:
                  using_layer_data=False,
                  logger=None
                  ):
-        os.makedirs(save_path, exist_ok=True)
-        self.save_path = save_path
+        if save_path is not None:
+            os.makedirs(save_path, exist_ok=True)
+            self.save_path = save_path
+        else:
+            self.save_path = None
         self.data_path = data_path
 
         self.structure_zdc_container = False
         self.using_layer_data = using_layer_data  # no layer data available if not a structureContainer
         self.background_data_preset = background_data_preset  # initialization
 
-        if logger is None:
-            self.logger = get_logger(logfile=f"{save_path}/console.log")
-        else:
-            self.logger = logger
+        if background_data_available is None and background_data_path is None and compensation_method=="None":
+            self.background_data_available = False
+            self.background_data_path = None
+
+        if self.save_path is not None:
+            if logger is None:
+                self.logger = get_logger(logfile=f"{save_path}/console.log")
+            else:
+                self.logger = logger
 
         if data_type is None:
             file, file_extension = os.path.splitext(self.data_path)
@@ -175,17 +183,69 @@ class DockerBase:
         # should be the saving of the numpy arrays in dependence on what should be saved!
         pass
 
-    def plot_complete_reconstruction(self, path=None, cmap="gray"):
+    def plot_4_publications(self, path=None, cmap='gray'):
         if path is None:
+            if self.save_path is None:
+                raise FileNotFoundError("Save path has to be given!")
             save_path = self.save_path,
         else:
             save_path = path
 
         self.processor.plotter.set_save_path(path=save_path)
-        self.processor.plot_reconstruction(mode="full", save_single=True, cmap=cmap)
+        self.processor.plot_reconstruction(mode="short", save_single=True, cmap=cmap, compensation=self.compensation)
+
+    def plot_complete_reconstruction(self, path=None, cmap="gray"):
+        if path is None:
+            if self.save_path is None:
+                raise FileNotFoundError("Save path has to be given!")
+            save_path = self.save_path
+        else:
+            save_path = path
+
+        self.processor.plotter.set_save_path(path=save_path)
+        self.processor.plot_reconstruction(mode="full", save_single=True, cmap=cmap, compensation=self.compensation)
+
+    def save_data(self, path=None, mode="short"):
+        if path is None:
+            if self.save_path is None:
+                raise FileNotFoundError("Save path has to be given!")
+            save_path = self.save_path,
+        else:
+            save_path = path
+
+        if mode == "short":
+            # saving only minimum necessary information
+            self.save_necessary_data(save_path=save_path)
+        elif mode == "full" or mode == "all":
+            self.save_all_data(path=save_path)
+        else:
+            raise NotImplementedError(f"Mode {mode} not implemented. Data not saved.")
+
+    def save_necessary_data(self, save_path):
+        # save holo data
+        np.save(os.path.join(save_path, "hologram_original_data"), self.holo.data)  # original data
+        if self.background_data_available:
+            np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
+        np.save(os.path.join(save_path, "processor_intensity"), self.processor.intensity_reconstructed)
+        np.save(os.path.join(save_path, "processor_phase_unwrapped"), self.processor.phase_map)
+
+        information_saved_fields = {
+            "hologram_original_data": "Captured hologram of the printed object.",
+            "hologram_background": "Captured background hologram. Used for aberration compensation.",
+            "processor_intensity": "Final intensity. If filtering was done, this data is after filtering.",
+            "processor_phase_unwrapped": "Final unwrapped phase",
+        }
+        with open(os.path.join(save_path, 'reconstruction_dictionary.json'), 'w', encoding='utf8') as json_file:
+            json.dump(
+                self.processor.reconstruction_dict | {"Information_saved_arrays": information_saved_fields},
+                json_file,
+                indent=4
+            )
 
     def save_all_data(self, path=None):
         if path is None:
+            if self.save_path is None:
+                raise FileNotFoundError("Save path has to be given!")
             save_path = self.save_path,
         else:
             save_path = path
@@ -194,7 +254,8 @@ class DockerBase:
         np.save(os.path.join(save_path, "hologram_original_data"), self.holo.data)  # original data
         np.save(os.path.join(save_path, "hologram_Reconstructed_field"),
                 self.holo.reconstructed_field)  # reconstructed field data
-        np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
+        if self.background_data_available:
+            np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
 
         # save processed data
         np.save(os.path.join(save_path, "processor_field_propagated"), self.processor.field_propagated)
@@ -216,61 +277,101 @@ class DockerBase:
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
         with open(os.path.join(save_path, 'reconstruction_dictionary.json'), 'w', encoding='utf8') as json_file:
-            json.dump(self.processor.reconstruction_dict.update({"Information_saved_arrays": information_saved_fields}),
-                      json_file)
+            json.dump(
+                self.processor.reconstruction_dict | {"Information_saved_arrays": information_saved_fields},
+                json_file,
+                indent=4
+            )
 
     def run_reconstruction(self, **kwargs):
+        # propagation_distance: kwargs have priority, then default
         propagation_distance = (
-                kwargs.get("propagation_distance") or
-                kwargs.get("prop_dist") or
-                kwargs.get("prop_distance") or
-                self.dhm_dictionary['propagationDistance']
+            kwargs.get("propagation_distance")
+            if kwargs.get("propagation_distance") is not None
+            else kwargs.get("prop_dist")
+            if kwargs.get("prop_dist") is not None
+            else kwargs.get("prop_distance")
+            if kwargs.get("prop_distance") is not None
+            else self.dhm_dictionary['propagationDistance']
         )
+
+        # propagation_method: kwargs have priority, then default
         propagation_method = (
-                kwargs.get("propagation_method") or
-                kwargs.get("prop_method") or
-                "angularSpectrum"  # default method
+            kwargs.get("propagation_method")
+            if kwargs.get("propagation_method") is not None
+            else kwargs.get("prop_method")
+            if kwargs.get("prop_method") is not None
+            else "angularSpectrum"  # default method
         )
+
+        # phase_unwrapping_method: kwargs have priority, then default
         phase_unwrapping_method = (
-                kwargs.get("phase_unwrapping_method") or
-                kwargs.get("unwrap_method") or
-                "Fast 2D"
+            kwargs.get("phase_unwrapping_method")
+            if kwargs.get("phase_unwrapping_method") is not None
+            else kwargs.get("unwrap_method")
+            if kwargs.get("unwrap_method") is not None
+            else "Fast 2D"
         )
+
+        # mode_structure: kwargs have priority, then default
         mode_structure = (
-                kwargs.get("mode_structure") or
-                "print"
+            kwargs.get("mode_structure")
+            if kwargs.get("mode_structure") is not None
+            else "print"
         )
+
+        # compensation: kwargs have priority, then default
         compensation = (
-                kwargs.get("compensation") or
-                kwargs.get("do_compensation") or
-                self.compensation
+            kwargs.get("compensation")
+            if kwargs.get("compensation") is not None
+            else kwargs.get("do_compensation")
+            if kwargs.get("do_compensation") is not None
+            else self.compensation
         )
+
+        # compensation_method: kwargs have priority, then default (but None if ‘None’)
         compensation_method = (
-            kwargs.get("compensation_method") or
-            kwargs.get("compensationMethod") or
-            self.compensation_method if self.compensation_method != "None" else None
+            kwargs.get("compensation_method")
+            if kwargs.get("compensation_method") is not None
+            else kwargs.get("compensationMethod")
+            if kwargs.get("compensationMethod") is not None
+            else (None if self.compensation_method == "None" else self.compensation_method)
         )
+
+        # refractive_index: kwargs have priority, default is None
         refractive_index = (
-                kwargs.get("refractive_index") or
-                kwargs.get("refractiveIndex") or
-                kwargs.get("refractiveindex") or
-                kwargs.get("n_resin") or
-                None
+            kwargs.get("refractive_index")
+            if kwargs.get("refractive_index") is not None
+            else kwargs.get("refractiveIndex")
+            if kwargs.get("refractiveIndex") is not None
+            else kwargs.get("refractiveindex")
+            if kwargs.get("refractiveindex") is not None
+            else kwargs.get("n_resin")
         )
+
+        # filter_list: kwargs have priority, default is None
         filter_list = (
-                kwargs.get("list_filter") or
-                kwargs.get("list_filters") or
-                kwargs.get("filter_list") or
-                None
+            kwargs.get("list_filter")
+            if kwargs.get("list_filter") is not None
+            else kwargs.get("list_filters")
+            # if kwargs.get("list_filters") is not None
+            # else kwargs.get("filter_list")
         )
+
+        # filtering: based on filter_list or kwargs
         filtering = (
-            kwargs.get("filtering") or
-            kwargs.get("do_filtering") or
-            True if filter_list is not None and filter_list is not [] else False
+            kwargs.get("filtering")
+            if kwargs.get("filtering") is not None
+            else kwargs.get("do_filtering")
+            if kwargs.get("do_filtering") is not None
+            else (filter_list is not None and filter_list != [])
         )
+
+        # propagate: based on propagation_distance or kwargs
         propagate = (
-            kwargs.get("propagation") or
-            True if propagation_distance is not None and propagation_distance != 0.0 else False
+            kwargs.get("propagation")
+            if kwargs.get("propagation") is not None
+            else (propagation_distance is not None and propagation_distance != 0.0)
         )
 
         # Acquire Data
@@ -279,25 +380,43 @@ class DockerBase:
         if self.using_layer_data:
             raise NotImplementedError("Reconstruction of layered data is not yet implemented.")
 
+
         self.holo = Hologram(data=data,
                              dhm_parameter=self.dhm_dictionary,
                              logger=self.logger)
-        self.background = ReferenceHologram(data=background_data,
-                                            first_diffraction_order_pos=self.holo.first_diffraction_order_pos,
-                                            dhm_parameter=self.dhm_dictionary,
-                                            logger=self.logger)
 
-        self.processor = HologramProcessor(hologram=self.holo, reference=self.background,
-                                           dhm_parameter=self.dhm_dictionary,
-                                           material_parameter=self.material_dictionary)
+        if compensation == False or compensation_method is None:
+            # do reconstruction without background
 
-        self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method, propagate=propagate,
-                           compensation_mode=compensation_method, compensate=compensation,
-                           refractive_index=refractive_index,
-                           phase_unwrapping_method=phase_unwrapping_method,
-                           mode=mode_structure,
-                           filtering=filtering, filter_applied=filter_list
-                           )
+            self.processor = HologramProcessor(hologram=self.holo, reference=None,
+                                               dhm_parameter=self.dhm_dictionary,
+                                               material_parameter=self.material_dictionary)
+
+            self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method,
+                               propagate=propagate,
+                               compensation_mode=compensation_method, compensate=compensation,
+                               refractive_index=refractive_index,
+                               phase_unwrapping_method=phase_unwrapping_method,
+                               mode=mode_structure,
+                               filtering=filtering, filter_applied=filter_list
+                               )
+        else:
+            self.background = ReferenceHologram(data=background_data,
+                                                first_diffraction_order_pos=self.holo.first_diffraction_order_pos,
+                                                dhm_parameter=self.dhm_dictionary,
+                                                logger=self.logger)
+
+            self.processor = HologramProcessor(hologram=self.holo, reference=self.background,
+                                               dhm_parameter=self.dhm_dictionary,
+                                               material_parameter=self.material_dictionary)
+
+            self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method, propagate=propagate,
+                               compensation_mode=compensation_method, compensate=compensation,
+                               refractive_index=refractive_index,
+                               phase_unwrapping_method=phase_unwrapping_method,
+                               mode=mode_structure,
+                               filtering=filtering, filter_applied=filter_list
+                               )
 
         # self.do_savings(self.processor)
         # self.do_visualizations(self.processor)
@@ -333,6 +452,14 @@ class DockerBase:
                                 logger=self.logger,
                                 loading_background=False)
             return loader.get_data(), background.get_data()
+
+        elif self.compensation_method == "None":
+            background = []
+            loader = DataLoader(file_path=self.data_path,
+                                file_type=self.data_type,
+                                logger=self.logger,
+                                loading_background=False)
+            return [loader.get_data(), background]
 
     def check_structure_zdc(self):
         dc = Container(file=self.data_path)
