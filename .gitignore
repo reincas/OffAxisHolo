@@ -9,6 +9,7 @@ __pycache__/
 # C extensions
 # =========================
 *.so
+.ruff_cache/
 
 # =========================
 # Distribution / packaging
@@ -60,6 +61,7 @@ Thumbs.db
 attic/
 scripts/
 *.png
+.pre-commit-config.yaml
 
 OffAxisHolo_projectStructure_18052026.txt
 
