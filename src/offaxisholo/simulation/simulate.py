@@ -21,7 +21,7 @@ import numpy as np
 
 
 def mesh(N, pitch):
-    """ Return quadratic x and y position arrays with given pitch and origin
+    """Return quadratic x and y position arrays with given pitch and origin
     of the coordinate system at the array center."""
 
     y, x = np.indices((N, N), dtype=float)
@@ -33,15 +33,15 @@ def mesh(N, pitch):
 
 
 def norm(img):
-    """ Return given complex field with total magnitude normalized to a value
+    """Return given complex field with total magnitude normalized to a value
     of 1.0."""
 
     return img / np.sum(np.abs(img))
 
 
 def planar(N, theta, phi):
-    """ Return a planar wave field with magnitude 1.0 and tilted by a polar
-    angle theta and an azimutal angle phi as complex (N,N) array. """
+    """Return a planar wave field with magnitude 1.0 and tilted by a polar
+    angle theta and an azimutal angle phi as complex (N,N) array."""
 
     fx = np.sin(theta) * np.cos(phi)
     fy = np.sin(theta) * np.sin(phi)
@@ -51,9 +51,9 @@ def planar(N, theta, phi):
 
 
 def spherical(N, pitch, z, approx=False):
-    """ Return a spherical wave field with magnitude 1.0 at a distance z from
+    """Return a spherical wave field with magnitude 1.0 at a distance z from
     the center of the sphere as a complex (N,N) array. The center of the sphere
-    is located on the optical axis. """
+    is located on the optical axis."""
 
     # FIXME: Check the equation!
     y, x = mesh(N, pitch)
@@ -65,20 +65,21 @@ def spherical(N, pitch, z, approx=False):
 
 
 def aperture(N, r0, pitch, x0=0, y0=0):
-    """ Return (N,N) array with value 1.0 inside and 0.0 outside a circular
+    """Return (N,N) array with value 1.0 inside and 0.0 outside a circular
     aperture with radius r0 and offset (x0,y0) relative to the center of the
-    array. """
+    array."""
 
     y, x = mesh(N, pitch)
     r = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
     F = np.where(r <= r0, 1.0, 0.0)
     return F
 
+
 def lens(Fin, pin, f, d=None):
-    """ Transformation of a complex field Fin with given pixel pitch in the
+    """Transformation of a complex field Fin with given pixel pitch in the
     distance d from a lens with focal length f to the back focal plane. If
     d=None, the field Fin is located in the front focal plane. Return the
-    output field and its pixel pitch. """
+    output field and its pixel pitch."""
 
     assert len(Fin.shape) == 2
     assert Fin.shape[0] == Fin.shape[1]
@@ -103,10 +104,10 @@ def lens(Fin, pin, f, d=None):
 
 
 def propagate(Fin, pin, z):
-    """ Use the angular spectrum method to calculate the complex field at
+    """Use the angular spectrum method to calculate the complex field at
     the distance z from an input field at distance 0.0. Return the output
     field and its pixel pitch. Input and output pitch are identical for this
-    method. """
+    method."""
 
     assert len(Fin.shape) == 2
     assert Fin.shape[0] == Fin.shape[1]
@@ -132,13 +133,12 @@ def propagate(Fin, pin, z):
 
 
 class HoloMicroscope(object):
-    """ Simulation class for an off-axis digital holographic microscope. """
+    """Simulation class for an off-axis digital holographic microscope."""
 
     _params = None
 
     def __init__(self, **params):
-
-        """ Initialize the DHM. """
+        """Initialize the DHM."""
 
         # Initialize parameter dictionary
         self._params = {}
@@ -209,7 +209,9 @@ class HoloMicroscope(object):
     @illuminationField.setter
     def illuminationField(self, Fin):
 
-        assert Fin is not None or self.illuminationField is not None, "Unknown illumination field!"
+        assert (
+            Fin is not None or self.illuminationField is not None
+        ), "Unknown illumination field!"
         if Fin is None:
             return
         assert isinstance(Fin, np.ndarray), "Field array required!"
@@ -237,7 +239,9 @@ class HoloMicroscope(object):
     @property
     def numericalAperture(self):
 
-        assert self.objectiveFocalLength is not None, "Focal length of objective is required!"
+        assert (
+            self.objectiveFocalLength is not None
+        ), "Focal length of objective is required!"
         assert self.pupilRadius is not None, "Pupil radius of objective is required!"
         return self.pupilRadius / self.objectiveFocalLength
 
@@ -246,7 +250,9 @@ class HoloMicroscope(object):
 
         if na is None:
             return
-        assert self.objectiveFocalLength is not None, "Focal length of objective is required!"
+        assert (
+            self.objectiveFocalLength is not None
+        ), "Focal length of objective is required!"
         na = float(na)
         assert na > 0.0, "NA must be positive!"
         assert na < 1.0, "NA must be less than 1.0!"
@@ -367,10 +373,9 @@ class HoloMicroscope(object):
         self._params["referenceMagnitude"] = mr
 
     def hologram(self, Fo, po, fields=False):
-
-        """ Return hologram with pitch for given complex object transmission
+        """Return hologram with pitch for given complex object transmission
         array with pitch in wavelength units. Return also all fields and their
-        pitches if fields is True. """
+        pitches if fields is True."""
 
         assert isinstance(Fo, np.ndarray), "Object field array required!"
         assert np.issubdtype(Fo.dtype, np.number), "Numeric field array required!"

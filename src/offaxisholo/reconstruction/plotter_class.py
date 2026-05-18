@@ -2,8 +2,8 @@ import json
 import os
 from typing import Literal
 
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 from numpy import save
 
 
@@ -18,12 +18,14 @@ class DHMPlotter:
         # ToDo: Maybe do it in a more general fashion. One folder for saving all the things (maybe) and automatically
         #  determine a subfolder /img/ for the images - maybe done in the future for the complete structure_dhm class
 
-    def plotImage_old(self, img, title=None, save=False, save_path=None, cmap='viridis'):
+    def plotImage_old(
+        self, img, title=None, save=False, save_path=None, cmap="viridis"
+    ):
         if save_path is None:
             save_path = self.img_save_path
         if save:
             if title is not None:
-                name = title.replace(" ", "_") + '.png'
+                name = title.replace(" ", "_") + ".png"
                 save_path = os.path.join(save_path, name)
                 plt.imsave(save_path, img, cmap=cmap)
             else:
@@ -40,8 +42,16 @@ class DHMPlotter:
             plt.show()  # show image
         return
 
-    def plot_height_old(self, height_profile, title=None, save=False, save_path=None, legend_bar=True, cmap='coolwarm',
-                        pixel_pitch=None):
+    def plot_height_old(
+        self,
+        height_profile,
+        title=None,
+        save=False,
+        save_path=None,
+        legend_bar=True,
+        cmap="coolwarm",
+        pixel_pitch=None,
+    ):
         """
         Plotting of the reconstructed height profile. Make sure the dimensions of the height profile matches the
         dimensions of the hologram.
@@ -68,13 +78,18 @@ class DHMPlotter:
                 x_px_sz = pixel_pitch[0]
                 y_px_sz = pixel_pitch[1]
 
-        X = np.linspace(0, (self.hologram.shape[1] - 1) * y_px_sz, self.hologram.shape[1])
-        Y = np.linspace(0, (self.hologram.shape[0] - 1) * x_px_sz, self.hologram.shape[0])
+        X = np.linspace(
+            0, (self.hologram.shape[1] - 1) * y_px_sz, self.hologram.shape[1]
+        )
+        Y = np.linspace(
+            0, (self.hologram.shape[0] - 1) * x_px_sz, self.hologram.shape[0]
+        )
         # Creating the meshgrid
         X, Y = np.meshgrid(X, Y)
         # Plot the surface.
-        surf = ax.plot_surface(X, Y, height_profile, cmap=cmap,
-                               linewidth=0, antialiased=False)
+        surf = ax.plot_surface(
+            X, Y, height_profile, cmap=cmap, linewidth=0, antialiased=False
+        )
         if title is not None:
             plt.title(title)
 
@@ -84,7 +99,7 @@ class DHMPlotter:
 
         if save:
             if title is not None:
-                name = title.replace(" ", "_") + '.png'
+                name = title.replace(" ", "_") + ".png"
                 save_path = os.path.join(save_path, name)
                 plt.savefig(fname=save_path, dpi=400)  # transparent=True)
             else:
@@ -108,14 +123,14 @@ class DHMPlotter:
         if data is None:
             data = self.field_reconstructed
         information = {
-            "Description": f"Reconstructed field of a DHM image.",
+            "Description": "Reconstructed field of a DHM image.",
             "Wavelength": self.wavelength,
             "Pixel size": self.pixel_pitch,
             "Propagation distance": self.propagation_distance,
             "Refractive index": self.n_resin,
             "format": data.dtype.name,
         }
-        with open(INFORMATION_PATH, 'w', encoding='utf-8') as file:
+        with open(INFORMATION_PATH, "w", encoding="utf-8") as file:
             file.write(json.dumps(information, sort_keys=True, indent=4))
         save(SAVE_NAME, data)
 
@@ -124,8 +139,15 @@ class DHMPlotter:
         # true for finished, false for not reconstructed
         pass
 
-    def plot_spatial_filtering(self, holo_class, mode: Literal["Hologram", "Processor"] = "Processor",
-                               show_plot=False, save_single=False, cmap='gray', save_title=None):
+    def plot_spatial_filtering(
+        self,
+        holo_class,
+        mode: Literal["Hologram", "Processor"] = "Processor",
+        show_plot=False,
+        save_single=False,
+        cmap="gray",
+        save_title=None,
+    ):
         if mode == "Hologram":
             class_object = holo_class
         elif mode == "Processor":
@@ -139,14 +161,18 @@ class DHMPlotter:
 
         # plotting
         fig, axs = plt.subplots(2, 3, figsize=(16, 9))
-        fig.suptitle('Image Reconstruction Steps', fontsize=16)
+        fig.suptitle("Image Reconstruction Steps", fontsize=16)
         axs[0, 0].imshow(class_object.data, cmap=cmap)
         axs[0, 0].set_title("Original Hologram Image")
         axs[1, 0].imshow(class_object.intensity(class_object.spectrum), cmap=cmap)
         axs[1, 0].set_title("Spectrum of the captured hologram")
-        axs[0, 1].imshow(class_object.intensity(class_object.spectrum_shifted), cmap=cmap)
+        axs[0, 1].imshow(
+            class_object.intensity(class_object.spectrum_shifted), cmap=cmap
+        )
         axs[0, 1].set_title("Shifted spectrum")
-        axs[1, 1].imshow(class_object.intensity(class_object.spectrum_masked), cmap=cmap)
+        axs[1, 1].imshow(
+            class_object.intensity(class_object.spectrum_masked), cmap=cmap
+        )
         axs[1, 1].set_title("Masked spectrum")
         axs[0, 2].imshow(class_object.reconstructed_phase, cmap=cmap)
         axs[0, 2].set_title("Reconstructed phase image")
@@ -158,7 +184,9 @@ class DHMPlotter:
 
         if self.img_save_path is not None:
             if save_title is not None:
-                name = "Spatial Filtering" + save_title  # todo: ok like this or should it only be the savetitle
+                name = (
+                    "Spatial Filtering" + save_title
+                )  # todo: ok like this or should it only be the savetitle
             else:
                 name = "Spatial Filtering"
             save_path = os.path.join(self.img_save_path, f"{name}.png")
@@ -170,8 +198,17 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
-    def save_individual_plot(self, data, filename, cmap='gray', figsize=(8, 6), dpi=300, title=None, save=False,
-                             show=False):
+    def save_individual_plot(
+        self,
+        data,
+        filename,
+        cmap="gray",
+        figsize=(8, 6),
+        dpi=300,
+        title=None,
+        save=False,
+        show=False,
+    ):
         """Speichert einen einzelnen Plot."""
         fig, ax = plt.subplots(figsize=figsize)
         ax.imshow(data, cmap=cmap)
@@ -179,13 +216,20 @@ class DHMPlotter:
             ax.set_title(title)
         plt.tight_layout()
         if save:
-            plt.savefig(filename, dpi=dpi, bbox_inches='tight')
+            plt.savefig(filename, dpi=dpi, bbox_inches="tight")
         if show:
             plt.show()
         plt.close(fig)
 
-    def plot_reconstruction_short(self, holo_class, show_plot=False, save_single=False, cmap='gray', save_title=None,
-                                  compensation=True):
+    def plot_reconstruction_short(
+        self,
+        holo_class,
+        show_plot=False,
+        save_single=False,
+        cmap="gray",
+        save_title=None,
+        compensation=True,
+    ):
         # check if reconstruction is already done
         # todo 13.01 - not done until now -> hotfix commented
         # if not self.check_reonstruction_flag(holo_class):
@@ -194,10 +238,10 @@ class DHMPlotter:
         if compensation:
             # plotting
             fig, axs = plt.subplots(2, 2, figsize=(16, 9))
-            fig.suptitle('Hologram Reconstruction', fontsize=16)
-            axs[0, 0].imshow(holo_class.hologram.data, cmap='gray')
+            fig.suptitle("Hologram Reconstruction", fontsize=16)
+            axs[0, 0].imshow(holo_class.hologram.data, cmap="gray")
             axs[0, 0].set_title("Original Hologram Image")
-            axs[1, 0].imshow(holo_class.background.data, cmap='gray')
+            axs[1, 0].imshow(holo_class.background.data, cmap="gray")
             axs[1, 0].set_title("Background hologram")
             axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
             axs[0, 1].set_title("Reconstructed and unwrapped phase image")
@@ -205,36 +249,54 @@ class DHMPlotter:
             axs[1, 1].set_title("Reconstructed intensity image")
         else:
             fig, axs = plt.subplots(2, 2, figsize=(16, 9))
-            fig.suptitle('Hologram Reconstruction', fontsize=16)
-            axs[0, 0].imshow(holo_class.hologram.data, cmap='gray')
+            fig.suptitle("Hologram Reconstruction", fontsize=16)
+            axs[0, 0].imshow(holo_class.hologram.data, cmap="gray")
             axs[0, 0].set_title("Original Hologram Image")
             axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
             axs[0, 1].set_title("Reconstructed and unwrapped phase image")
-            axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap='gray')
+            axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap="gray")
             axs[1, 1].set_title("Reconstructed intensity image")
 
         if save_single:
             # Einzelne Plots
-            self.save_individual_plot(holo_class.hologram.data,
-                                      os.path.join(self.img_save_path, "hologram_original.png"),
-                                      cmap='gray', save=True, show=show_plot)  # title="Original Hologram Image"
-            self.save_individual_plot(holo_class.phase_map, os.path.join(self.img_save_path, "phase_map.png"),
-                                      cmap=cmap, save=True,
-                                      show=show_plot)  # title="Reconstructed and unwrapped phase image"
-            self.save_individual_plot(holo_class.intensity_reconstructed,
-                                      os.path.join(self.img_save_path, "intensity_reconstructed.png"),
-                                      cmap='gray', save=True, show=show_plot)  # title="Reconstructed intensity image"
+            self.save_individual_plot(
+                holo_class.hologram.data,
+                os.path.join(self.img_save_path, "hologram_original.png"),
+                cmap="gray",
+                save=True,
+                show=show_plot,
+            )  # title="Original Hologram Image"
+            self.save_individual_plot(
+                holo_class.phase_map,
+                os.path.join(self.img_save_path, "phase_map.png"),
+                cmap=cmap,
+                save=True,
+                show=show_plot,
+            )  # title="Reconstructed and unwrapped phase image"
+            self.save_individual_plot(
+                holo_class.intensity_reconstructed,
+                os.path.join(self.img_save_path, "intensity_reconstructed.png"),
+                cmap="gray",
+                save=True,
+                show=show_plot,
+            )  # title="Reconstructed intensity image"
             if compensation:
-                self.save_individual_plot(holo_class.background.data,
-                                          os.path.join(self.img_save_path, "hologram_background.png"),
-                                          cmap='gray', save=True, show=show_plot)  # title="Background hologram"
+                self.save_individual_plot(
+                    holo_class.background.data,
+                    os.path.join(self.img_save_path, "hologram_background.png"),
+                    cmap="gray",
+                    save=True,
+                    show=show_plot,
+                )  # title="Background hologram"
 
         if show_plot:
             plt.show()
 
         if self.img_save_path is not None:
             if save_title is not None:
-                name = "Hologram reconstruction" + save_title  # todo: ok like this or should it only be the savetitle
+                name = (
+                    "Hologram reconstruction" + save_title
+                )  # todo: ok like this or should it only be the savetitle
             else:
                 name = "Hologram reconstruction"
             save_path = os.path.join(self.img_save_path, f"{name}.png")
@@ -246,15 +308,21 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
-    def plot_full_reconstruction_process_old(self, holo_class, show_plot=False, save_single=False, cmap='gray',
-                                             save_title=None):
+    def plot_full_reconstruction_process_old(
+        self,
+        holo_class,
+        show_plot=False,
+        save_single=False,
+        cmap="gray",
+        save_title=None,
+    ):
         # check if reconstruction is already done
         if not self.check_reonstruction_flag(holo_class):
             holo_class.run()
 
         # plotting
         fig, axs = plt.subplots(2, 6, figsize=(16, 9))
-        fig.suptitle('Hologram Reconstruction', fontsize=16)
+        fig.suptitle("Hologram Reconstruction", fontsize=16)
         # Holo and Background
         axs[0, 0].imshow(holo_class.hologram.data, cmap=cmap)
         axs[0, 0].set_title("Original \nhologram Image")
@@ -263,7 +331,9 @@ class DHMPlotter:
         # Spectrum
         axs[0, 1].imshow(holo_class.intensity(holo_class.hologram.spectrum), cmap=cmap)
         axs[0, 1].set_title("Spectrum of \ncaptured hologram")
-        axs[1, 1].imshow(holo_class.intensity(holo_class.hologram.spectrum_masked), cmap=cmap)
+        axs[1, 1].imshow(
+            holo_class.intensity(holo_class.hologram.spectrum_masked), cmap=cmap
+        )
         axs[1, 1].set_title("Shifted and \nmasked spectrum")
         # Reconstruction after spatial filtering
         axs[0, 2].imshow(holo_class.hologram.reconstructed_intensity, cmap=cmap)
@@ -288,7 +358,9 @@ class DHMPlotter:
 
         if self.img_save_path is not None:
             if save_title is not None:
-                name = "Complete hologram reconstruction" + save_title  # todo: ok like this or should it only be the savetitle
+                name = (
+                    "Complete hologram reconstruction" + save_title
+                )  # todo: ok like this or should it only be the savetitle
             else:
                 name = "Complete hologram reconstruction"
             save_path = os.path.join(self.img_save_path, f"{name}.png")
@@ -300,8 +372,14 @@ class DHMPlotter:
             #     fig.savefig("ax1_figure.png", bbox_inches=extent)
             #     fig.savefig("ax1_figure.png", bbox_inches=extent.expanded(1.1,1.1))  # 10% extent in x and y direction
 
-    def plot_full_reconstruction_process(self, holo_class, show_plot=False, save_single=False, cmap='gray',
-                                         save_title=None):
+    def plot_full_reconstruction_process(
+        self,
+        holo_class,
+        show_plot=False,
+        save_single=False,
+        cmap="gray",
+        save_title=None,
+    ):
         # check if reconstruction is already done
         # todo: implement this
         # if not self.check_reconstruction_flag(holo_class):
@@ -311,71 +389,71 @@ class DHMPlotter:
         plot_configs = [
             # Row 0
             {
-                'data': holo_class.hologram.data,
-                'title': "Original hologram Image",
-                'transform': None
+                "data": holo_class.hologram.data,
+                "title": "Original hologram Image",
+                "transform": None,
             },
             {
-                'data': holo_class.intensity(holo_class.hologram.spectrum),
-                'title': "Spectrum of captured hologram",
-                'transform': None
+                "data": holo_class.intensity(holo_class.hologram.spectrum),
+                "title": "Spectrum of captured hologram",
+                "transform": None,
             },
             {
-                'data': holo_class.hologram.reconstructed_intensity,
-                'title': "Reconstructed Intensity",
-                'transform': None
+                "data": holo_class.hologram.reconstructed_intensity,
+                "title": "Reconstructed Intensity",
+                "transform": None,
             },
             {
-                'data': holo_class.intensity(holo_class.field_propagated),
-                'title': "Intensity after propagation",
-                'transform': None
+                "data": holo_class.intensity(holo_class.field_propagated),
+                "title": "Intensity after propagation",
+                "transform": None,
             },
             {
-                'data': holo_class.intensity_compensated_db,
-                'title': "Intensity after compensation",
-                'transform': None
+                "data": holo_class.intensity_compensated_db,
+                "title": "Intensity after compensation",
+                "transform": None,
             },
             {
-                'data': holo_class.intensity_reconstructed,
-                'title': "Final intensity image",
-                'transform': None
+                "data": holo_class.intensity_reconstructed,
+                "title": "Final intensity image",
+                "transform": None,
             },
             # Row 1
             {
-                'data': holo_class.background.data,
-                'title': "Background hologram",
-                'transform': None
+                "data": holo_class.background.data,
+                "title": "Background hologram",
+                "transform": None,
             },
             {
-                'data': holo_class.intensity(holo_class.hologram.spectrum_masked),
-                'title': "Shifted and masked spectrum",
-                'transform': None
+                "data": holo_class.intensity(holo_class.hologram.spectrum_masked),
+                "title": "Shifted and masked spectrum",
+                "transform": None,
             },
             {
-                'data': holo_class.hologram.reconstructed_phase,
-                'title': "Reconstructed phase",
-                'transform': None
+                "data": holo_class.hologram.reconstructed_phase,
+                "title": "Reconstructed phase",
+                "transform": None,
             },
             {
-                'data': holo_class.phase(holo_class.field_propagated),
-                'title': "Phase after propagation",
-                'transform': None
+                "data": holo_class.phase(holo_class.field_propagated),
+                "title": "Phase after propagation",
+                "transform": None,
             },
             {
-                'data': holo_class.phase_compensated,
-                'title': "Phase after compensation and unwrapping",
-                'transform': None
+                "data": holo_class.phase_compensated,
+                "title": "Phase after compensation and unwrapping",
+                "transform": None,
             },
             {
-                'data': holo_class.phase_map,
-                'title': "Final phase image",
-                'transform': None
-            }
+                "data": holo_class.phase_map,
+                "title": "Final phase image",
+                "transform": None,
+            },
         ]
 
         # Create combined figure
         fig, axs = plt.subplots(2, 6, figsize=(16, 9))
-        fig.suptitle('Hologram Reconstruction', fontsize=16)
+        fig.suptitle("Hologram Reconstruction", fontsize=16)
 
         # Plot and optionally save individual images
         for idx, config in enumerate(plot_configs):
@@ -383,24 +461,24 @@ class DHMPlotter:
             col = idx % 6
 
             # Plot in combined figure
-            axs[row, col].imshow(config['data'], cmap=cmap)
-            axs[row, col].set_title(config['title'].replace(" ", "\n"))
+            axs[row, col].imshow(config["data"], cmap=cmap)
+            axs[row, col].set_title(config["title"].replace(" ", "\n"))
 
             # Save individual plot if requested
             if save_single and self.img_save_path is not None:
                 fig_single, ax_single = plt.subplots(figsize=(8, 6))
-                ax_single.imshow(config['data'], cmap=cmap)
-                ax_single.set_title(config['title'])
+                ax_single.imshow(config["data"], cmap=cmap)
+                ax_single.set_title(config["title"])
 
                 # Create filename
-                base_name = config['title'].lower().replace(" ", "_")
+                base_name = config["title"].lower().replace(" ", "_")
                 if save_title:
                     file_name = f"{base_name}_{save_title}.png"
                 else:
                     file_name = f"{base_name}.png"
 
                 save_path = os.path.join(self.img_save_path, file_name)
-                fig_single.savefig(save_path, dpi=600, bbox_inches='tight')
+                fig_single.savefig(save_path, dpi=600, bbox_inches="tight")
                 plt.close(fig_single)
 
         # Save combined figure if path is specified
@@ -410,7 +488,7 @@ class DHMPlotter:
             else:
                 name = "Complete_hologram_reconstruction"
             save_path = os.path.join(self.img_save_path, f"{name}.png")
-            fig.savefig(save_path, dpi=600, bbox_inches='tight')
+            fig.savefig(save_path, dpi=600, bbox_inches="tight")
 
         if show_plot:
             plt.show()

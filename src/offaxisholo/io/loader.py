@@ -1,10 +1,9 @@
-import warnings
-from typing import Optional
 import os
-from scidatacontainer import Container
+from typing import Optional
+
 # from SciDataContainer_Handler import StructureContainer
 import cv2
-
+from scidatacontainer import Container
 from SciDataContainer_Handler import StructureContainer
 
 
@@ -37,10 +36,10 @@ class DataLoader:
         self.file_type = file_type
 
         # Set default values for optional parameters
-        self.loading_background = kwargs.get('loading_background', False)
-        self.loading_layer_data = kwargs.get('loading_layer_data', False)
-        self.structure_container = kwargs.get('structure_container', False)
-        self.convert_to_grayscale = kwargs.get('convert_to_grayscale', True)
+        self.loading_background = kwargs.get("loading_background", False)
+        self.loading_layer_data = kwargs.get("loading_layer_data", False)
+        self.structure_container = kwargs.get("structure_container", False)
+        self.convert_to_grayscale = kwargs.get("convert_to_grayscale", True)
 
         self._validate_kwargs()
 
@@ -61,8 +60,10 @@ class DataLoader:
                     # ToDo implement it in StructureContainer as a property
                     if self.logger:
                         self.logger.info("Loading layer data from Container...")
-                    data = [data_container[f"meas/dhm/raw/layer_{i}.png"].data for i in
-                            range(data_container.number_of_layer)]
+                    data = [
+                        data_container[f"meas/dhm/raw/layer_{i}.png"].data
+                        for i in range(data_container.number_of_layer)
+                    ]
                     # todo check if final layer == complete structure otherwise append the final structure!
                     # data = data_container.data_layered  # to be implemented
                 else:
@@ -71,8 +72,10 @@ class DataLoader:
                     data = data_container.complete_hologram
             else:
                 if self.loading_background or self.loading_layer_data:
-                    self.logger.warning(f"Background images and layered data can only be loaded with specific structure\
-                     container. Set the kwarg 'structure_container' = True to access the features.")
+                    self.logger.warning(
+                        "Background images and layered data can only be loaded with specific structure\
+                     container. Set the kwarg 'structure_container' = True to access the features."
+                    )
                     # warnings.warn(
                     #     f"Background images and layered data can only be loaded with specific structure container."
                     #     f"Set the kwarg 'structure_container' = True to access the features.")
@@ -94,19 +97,29 @@ class DataLoader:
         try:
             match = file_type == file_extension[1:]
             if not match:
-                raise AttributeError(f"File type {file_type} does not match ending of file in path: {self.path}.")
+                raise AttributeError(
+                    f"File type {file_type} does not match ending of file in path: {self.path}."
+                )
         except Exception as e:
             print(f"An Error occurred while validating file type: {e}")
 
     def _validate_kwargs(self):
-        assert isinstance(self.structure_container, bool), "Keyword 'structure container' has to be a boolean"
-        assert isinstance(self.loading_background, bool), "Keyword 'loading_background' has to be a boolean"
-        assert isinstance(self.loading_layer_data, bool), "Keyword 'loading_layer_data' has to be a boolean"
-        assert isinstance(self.convert_to_grayscale, bool), "Keyword 'convert_to_grayscale' has to be a boolean"
+        assert isinstance(
+            self.structure_container, bool
+        ), "Keyword 'structure container' has to be a boolean"
+        assert isinstance(
+            self.loading_background, bool
+        ), "Keyword 'loading_background' has to be a boolean"
+        assert isinstance(
+            self.loading_layer_data, bool
+        ), "Keyword 'loading_layer_data' has to be a boolean"
+        assert isinstance(
+            self.convert_to_grayscale, bool
+        ), "Keyword 'convert_to_grayscale' has to be a boolean"
 
     def load_scidatacontainer(self):
         dc = Container(file=self.path)
-        data = dc._items['meas/image.png']
+        data = dc._items["meas/image.png"]
         return data.data
 
     def load_scidatacontainer_layers(self):  # todo: to be removed
@@ -129,7 +142,7 @@ class DataLoader:
     #     return data
 
     def load_image(self):
-        if getattr(self, 'convert_to_grayscale', False):
+        if getattr(self, "convert_to_grayscale", False):
             self.logger.info("Loading image as grayscale...")
             data = cv2.imread(self.path, cv2.IMREAD_GRAYSCALE)
         else:
@@ -143,12 +156,14 @@ class DataLoader:
                 return [self.data_loaded, self.background_data]
             else:
                 return self.data_loaded
-        except Exception as e:
+        except Exception:
             raise ValueError(f"Error while loading data from {self.path}")
 
     def get_dhm_params(self):
         if not self.structure_container:
-            raise AttributeError(f"DHM Parameter only available with specific structure container.")
+            raise AttributeError(
+                "DHM Parameter only available with specific structure container."
+            )
         try:
             return self.dhm_params
         except Exception as e:

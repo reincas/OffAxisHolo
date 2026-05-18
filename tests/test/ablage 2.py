@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.fft import fft2, ifft2, fftshift, ifftshift
-
+from scipy.fft import fft2, fftshift, ifft2, ifftshift
 
 """
 Let me help create a proper reconstruction pipeline for digital holographic microscopy that correctly handles the intensity and phase calculations.
@@ -210,9 +209,9 @@ class HologramReconstructor:
 
         # Apply mask to isolate first order
         if mask_radius is not None and center_coords is not None:
-            mask = self._create_circular_mask(spectrum.shape,
-                                              center_coords,
-                                              mask_radius)
+            mask = self._create_circular_mask(
+                spectrum.shape, center_coords, mask_radius
+            )
             spectrum = spectrum * mask
 
         # Center the first order
@@ -224,7 +223,7 @@ class HologramReconstructor:
 
         return complex_field
 
-    def calculate_intensity(self, complex_field, mode='linear'):
+    def calculate_intensity(self, complex_field, mode="linear"):
         """
         Calculate intensity from complex field
 
@@ -244,7 +243,7 @@ class HologramReconstructor:
         # Calculate absolute square
         intensity = np.abs(complex_field) ** 2
 
-        if mode.lower() == 'db':
+        if mode.lower() == "db":
             # Convert to dB scale (10 log10 for intensity)
             intensity = 10 * np.log10(intensity + self.epsilon)
 
@@ -275,7 +274,7 @@ class HologramReconstructor:
 
     def _create_circular_mask(self, shape, center, radius):
         """Create circular mask for filtering"""
-        y, x = np.ogrid[:shape[0], :shape[1]]
+        y, x = np.ogrid[: shape[0], : shape[1]]
         dist_from_center = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
         mask = dist_from_center <= radius
         return mask.astype(float)
@@ -299,13 +298,11 @@ def example_reconstruction():
 
     # Reconstruct hologram
     complex_field = reconstructor.reconstruct_hologram(
-        sample_hologram,
-        mask_radius=50,
-        center_coords=(300, 300)
+        sample_hologram, mask_radius=50, center_coords=(300, 300)
     )
 
     # Calculate intensity and phase
-    intensity = reconstructor.calculate_intensity(complex_field, mode='linear')
+    intensity = reconstructor.calculate_intensity(complex_field, mode="linear")
     phase = reconstructor.calculate_phase(complex_field, unwrap=True)
 
     return intensity, phase

@@ -7,7 +7,7 @@ class HologramCore:
             self.logger = logger
 
     def get_field(self, spectrum) -> np.ndarray:
-        """ Return complex field from centered spectrum. """
+        """Return complex field from centered spectrum."""
         field = np.fft.ifft2(np.fft.fftshift(spectrum))
         return field
 
@@ -16,7 +16,7 @@ class HologramCore:
         spectrum = np.fft.fftshift(FT)
         return spectrum
 
-    def intensity(self, complex_field, mode='db'):
+    def intensity(self, complex_field, mode="db"):
         """
         Calculate intensity from complex field
 
@@ -37,7 +37,7 @@ class HologramCore:
         intensity = np.abs(complex_field) ** 2
         eps = 1e-12
 
-        if mode.lower() == 'db':
+        if mode.lower() == "db":
             # Convert to dB scale (10 log10 for intensity)
             intensity = 10 * np.log10(intensity + eps)
         return intensity
@@ -97,14 +97,14 @@ class HologramCore:
 
         return efield
 
-    def intensity_stable(self, complex_field, mode='linear'):
+    def intensity_stable(self, complex_field, mode="linear"):
         """Calculate intensity with numerical stability"""
         # Use log(abs()) instead of abs()^2 for better numerical stability
         intensity = np.log(np.abs(complex_field))
         intensity = np.exp(2 * intensity)  # Equivalent to abs()^2 but more stable
 
         eps = 1e-12
-        if mode.lower() == 'db':
+        if mode.lower() == "db":
             intensity = 10 * np.log10(intensity + eps)
         return intensity
 
@@ -129,12 +129,18 @@ class HologramCore:
         original_scaled = original / scale
         reference_scaled = reference / scale
 
-        self.phase_compensated = self.phase(original_scaled) - self.phase(reference_scaled)
-        self.intensity_compensated_linear = self.intensity(original_scaled, mode="linear") - \
-                                            self.intensity(reference_scaled, mode="linear")
-        self.intensity_compensated_db = self.intensity(original_scaled, mode="db") - \
-                                        self.intensity(reference_scaled, mode="db")
+        self.phase_compensated = self.phase(original_scaled) - self.phase(
+            reference_scaled
+        )
+        self.intensity_compensated_linear = self.intensity(
+            original_scaled, mode="linear"
+        ) - self.intensity(reference_scaled, mode="linear")
+        self.intensity_compensated_db = self.intensity(
+            original_scaled, mode="db"
+        ) - self.intensity(reference_scaled, mode="db")
 
-        return self.calculate_efield(intensity=self.intensity_compensated_linear,
-                                     intensity_is_db=False,
-                                     phase=self.phase_compensated)
+        return self.calculate_efield(
+            intensity=self.intensity_compensated_linear,
+            intensity_is_db=False,
+            phase=self.phase_compensated,
+        )

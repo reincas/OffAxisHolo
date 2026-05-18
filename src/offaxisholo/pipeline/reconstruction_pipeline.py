@@ -1,34 +1,48 @@
+import json
+import os
 from typing import Literal
+
 import numpy as np
 from scidatacontainer import Container
-import os
-import json
 
 if __name__ == "__main__":
-    from OffAxisHolo.reconstruction import HologramProcessor, Hologram, ReferenceHologram
-    from OffAxisHolo import get_logger, DataLoader
+    from OffAxisHolo import DataLoader, get_logger
+    from OffAxisHolo.reconstruction import (
+        Hologram,
+        HologramProcessor,
+        ReferenceHologram,
+    )
 else:
-    from ..reconstruction import HologramProcessor, Hologram, ReferenceHologram
-    from ..io.loader import DataLoader
     from .... import get_logger
-from tkinter import messagebox, filedialog
+    from ..io.loader import DataLoader
+    from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
+from tkinter import filedialog, messagebox
+
 
 class ReconstructionPipeline:
     holo: Hologram
     background: ReferenceHologram
     processor: HologramProcessor
 
-    def __init__(self, data_path, save_path, *,
-                 data_type: Literal["zdc", "png", "tif"] = None,
-                 dhm_dictionary=None, dhm_preset="Zeiss 63x",
-                 material_dictionary=None, material_preset="SZ2080",
-                 compensation_method: Literal["Background", "ZernikePolynomial", "None"] = "Background",
-                 background_data_available: bool = None,
-                 background_data_preset: Literal[""] = None,
-                 background_data_path=None,
-                 using_layer_data=False,
-                 logger=None
-                 ):
+    def __init__(
+        self,
+        data_path,
+        save_path,
+        *,
+        data_type: Literal["zdc", "png", "tif"] = None,
+        dhm_dictionary=None,
+        dhm_preset="Zeiss 63x",
+        material_dictionary=None,
+        material_preset="SZ2080",
+        compensation_method: Literal[
+            "Background", "ZernikePolynomial", "None"
+        ] = "Background",
+        background_data_available: bool = None,
+        background_data_preset: Literal[""] = None,
+        background_data_path=None,
+        using_layer_data=False,
+        logger=None,
+    ):
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
             self.save_path = save_path
@@ -37,10 +51,16 @@ class ReconstructionPipeline:
         self.data_path = data_path
 
         self.structure_zdc_container = False
-        self.using_layer_data = using_layer_data  # no layer data available if not a structureContainer
+        self.using_layer_data = (
+            using_layer_data  # no layer data available if not a structureContainer
+        )
         self.background_data_preset = background_data_preset  # initialization
 
-        if background_data_available is None and background_data_path is None and compensation_method=="None":
+        if (
+            background_data_available is None
+            and background_data_path is None
+            and compensation_method == "None"
+        ):
             self.background_data_available = False
             self.background_data_path = None
 
@@ -68,7 +88,9 @@ class ReconstructionPipeline:
             #   4. No Data path, no preset and no selected data -> Question if compensation is desired
             #                                                   -> no compensation
 
-            self.compensation = True  # compensation mode is background so a compensation should be done
+            self.compensation = (
+                True  # compensation mode is background so a compensation should be done
+            )
             if background_data_path is not None:
                 self.background_data_path = background_data_path
                 self.background_data_available = True
@@ -82,30 +104,43 @@ class ReconstructionPipeline:
                     print("Not yet implemented")
                     return
 
-                response = messagebox.askyesno(title="Background data", message="Is Background data available?")
+                response = messagebox.askyesno(
+                    title="Background data", message="Is Background data available?"
+                )
                 if response:
                     # background data is available - get background path
                     no_compensation = False
                     while not no_compensation:  # loop for falsely pressed cancel
-                        path = filedialog.askopenfile(mode='r', filetypes=[('Image Files', ['*.tif', '*.png']),
-                                                                           ('DataContainer', '*.zdc')])
+                        path = filedialog.askopenfile(
+                            mode="r",
+                            filetypes=[
+                                ("Image Files", ["*.tif", "*.png"]),
+                                ("DataContainer", "*.zdc"),
+                            ],
+                        )
                         if path is not None:
                             self.background_data_available = True
                             self.background_data_path = path.name
                         else:
-                            no_compensation = messagebox.askyesno(title="Aberration compensation",
-                                                                  message="Reconstruct Hologram without aberration \
-                                                                    compensation?")
+                            no_compensation = messagebox.askyesno(
+                                title="Aberration compensation",
+                                message="Reconstruct Hologram without aberration \
+                                                                    compensation?",
+                            )
                             if no_compensation:
-                                self.logger.info("Use 'compensation_method'=False if no compensation is required.")
+                                self.logger.info(
+                                    "Use 'compensation_method'=False if no compensation is required."
+                                )
                                 self.compensation = False
                                 compensation_method = "None"
                                 return
                 else:
                     # ask for other compensation method
-                    zernike_compensation = messagebox.askyesno(title="Compensation Method",
-                                                               message="Do you want to use Zernike Polynomials as \
-                                                                        compensation method?")
+                    zernike_compensation = messagebox.askyesno(
+                        title="Compensation Method",
+                        message="Do you want to use Zernike Polynomials as \
+                                                                        compensation method?",
+                    )
                     if zernike_compensation:
                         compensation_method = "ZernikePolynomial"
 
@@ -121,17 +156,29 @@ class ReconstructionPipeline:
             self.compensation = False
 
         else:
-            raise NotImplementedError(f"No compensation method {compensation_method} available.")
+            raise NotImplementedError(
+                f"No compensation method {compensation_method} available."
+            )
 
         self.compensation_method = compensation_method
 
         if dhm_dictionary is None:
             self.dhm_dictionary = {}
             if dhm_preset == "Zeiss 63x":
-                with open(os.path.join(os.path.dirname(__file__), 'DHM_preset/Zeiss_63x.json'), 'r') as file:
+                with open(
+                    os.path.join(
+                        os.path.dirname(__file__), "DHM_preset/Zeiss_63x.json"
+                    ),
+                    "r",
+                ) as file:
                     self.dhm_dictionary = json.load(file)
             elif dhm_preset == "Zeiss 20x":
-                with open(os.path.join(os.path.dirname(__file__), 'DHM_preset/Zeiss_20x.json'), 'r') as file:
+                with open(
+                    os.path.join(
+                        os.path.dirname(__file__), "DHM_preset/Zeiss_20x.json"
+                    ),
+                    "r",
+                ) as file:
                     self.dhm_dictionary = json.load(file)
             else:
                 self.logger.warning(f"No preset {dhm_preset}")
@@ -143,7 +190,12 @@ class ReconstructionPipeline:
         if material_dictionary is None:
             self.material_dictionary = {}
             if material_preset == "SZ2080":
-                with open(os.path.join(os.path.dirname(__file__), 'Background_preset/SZ2080.json'), 'r') as file:
+                with open(
+                    os.path.join(
+                        os.path.dirname(__file__), "Background_preset/SZ2080.json"
+                    ),
+                    "r",
+                ) as file:
                     self.material_dictionary = json.load(file)
             else:
                 self.logger.warning(f"No preset {material_preset}")
@@ -183,16 +235,18 @@ class ReconstructionPipeline:
         # should be the saving of the numpy arrays in dependence on what should be saved!
         pass
 
-    def plot_4_publications(self, path=None, cmap='gray'):
+    def plot_4_publications(self, path=None, cmap="gray"):
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = self.save_path,
+            save_path = (self.save_path,)
         else:
             save_path = path
 
         self.processor.plotter.set_save_path(path=save_path)
-        self.processor.plot_reconstruction(mode="short", save_single=True, cmap=cmap, compensation=self.compensation)
+        self.processor.plot_reconstruction(
+            mode="short", save_single=True, cmap=cmap, compensation=self.compensation
+        )
 
     def plot_complete_reconstruction(self, path=None, cmap="gray"):
         if path is None:
@@ -203,13 +257,15 @@ class ReconstructionPipeline:
             save_path = path
 
         self.processor.plotter.set_save_path(path=save_path)
-        self.processor.plot_reconstruction(mode="full", save_single=True, cmap=cmap, compensation=self.compensation)
+        self.processor.plot_reconstruction(
+            mode="full", save_single=True, cmap=cmap, compensation=self.compensation
+        )
 
     def save_data(self, path=None, mode="short"):
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = self.save_path,
+            save_path = (self.save_path,)
         else:
             save_path = path
 
@@ -223,11 +279,21 @@ class ReconstructionPipeline:
 
     def save_necessary_data(self, save_path):
         # save holo data
-        np.save(os.path.join(save_path, "hologram_original_data"), self.holo.data)  # original data
+        np.save(
+            os.path.join(save_path, "hologram_original_data"), self.holo.data
+        )  # original data
         if self.background_data_available:
-            np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
-        np.save(os.path.join(save_path, "processor_intensity"), self.processor.intensity_reconstructed)
-        np.save(os.path.join(save_path, "processor_phase_unwrapped"), self.processor.phase_map)
+            np.save(
+                os.path.join(save_path, "hologram_background"), self.background.data
+            )  # background data
+        np.save(
+            os.path.join(save_path, "processor_intensity"),
+            self.processor.intensity_reconstructed,
+        )
+        np.save(
+            os.path.join(save_path, "processor_phase_unwrapped"),
+            self.processor.phase_map,
+        )
 
         information_saved_fields = {
             "hologram_original_data": "Captured hologram of the printed object.",
@@ -235,35 +301,64 @@ class ReconstructionPipeline:
             "processor_intensity": "Final intensity. If filtering was done, this data is after filtering.",
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
-        with open(os.path.join(save_path, 'reconstruction_dictionary.json'), 'w', encoding='utf8') as json_file:
+        with open(
+            os.path.join(save_path, "reconstruction_dictionary.json"),
+            "w",
+            encoding="utf8",
+        ) as json_file:
             json.dump(
-                self.processor.reconstruction_dict | {"Information_saved_arrays": information_saved_fields},
+                self.processor.reconstruction_dict
+                | {"Information_saved_arrays": information_saved_fields},
                 json_file,
-                indent=4
+                indent=4,
             )
 
     def save_all_data(self, path=None):
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = self.save_path,
+            save_path = (self.save_path,)
         else:
             save_path = path
 
         # save holo data
-        np.save(os.path.join(save_path, "hologram_original_data"), self.holo.data)  # original data
-        np.save(os.path.join(save_path, "hologram_Reconstructed_field"),
-                self.holo.reconstructed_field)  # reconstructed field data
+        np.save(
+            os.path.join(save_path, "hologram_original_data"), self.holo.data
+        )  # original data
+        np.save(
+            os.path.join(save_path, "hologram_Reconstructed_field"),
+            self.holo.reconstructed_field,
+        )  # reconstructed field data
         if self.background_data_available:
-            np.save(os.path.join(save_path, "hologram_background"), self.background.data)  # background data
+            np.save(
+                os.path.join(save_path, "hologram_background"), self.background.data
+            )  # background data
 
         # save processed data
-        np.save(os.path.join(save_path, "processor_field_propagated"), self.processor.field_propagated)
-        np.save(os.path.join(save_path, "processor_field_compensated"), self.processor.field_compensated)
-        np.save(os.path.join(save_path, "processor_reconstructed_field"), self.processor.field_reconstructed)
-        np.save(os.path.join(save_path, "processor_intensity"), self.processor.intensity_reconstructed)
-        np.save(os.path.join(save_path, "processor_phase_wrapped"), self.processor.phase_compensated)
-        np.save(os.path.join(save_path, "processor_phase_unwrapped"), self.processor.phase_map)
+        np.save(
+            os.path.join(save_path, "processor_field_propagated"),
+            self.processor.field_propagated,
+        )
+        np.save(
+            os.path.join(save_path, "processor_field_compensated"),
+            self.processor.field_compensated,
+        )
+        np.save(
+            os.path.join(save_path, "processor_reconstructed_field"),
+            self.processor.field_reconstructed,
+        )
+        np.save(
+            os.path.join(save_path, "processor_intensity"),
+            self.processor.intensity_reconstructed,
+        )
+        np.save(
+            os.path.join(save_path, "processor_phase_wrapped"),
+            self.processor.phase_compensated,
+        )
+        np.save(
+            os.path.join(save_path, "processor_phase_unwrapped"),
+            self.processor.phase_map,
+        )
 
         information_saved_fields = {
             "hologram_original_data": "Captured hologram of the printed object.",
@@ -276,11 +371,16 @@ class ReconstructionPipeline:
             "processor_phase_wrapped": "Final wrapped phase",
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
-        with open(os.path.join(save_path, 'reconstruction_dictionary.json'), 'w', encoding='utf8') as json_file:
+        with open(
+            os.path.join(save_path, "reconstruction_dictionary.json"),
+            "w",
+            encoding="utf8",
+        ) as json_file:
             json.dump(
-                self.processor.reconstruction_dict | {"Information_saved_arrays": information_saved_fields},
+                self.processor.reconstruction_dict
+                | {"Information_saved_arrays": information_saved_fields},
                 json_file,
-                indent=4
+                indent=4,
             )
 
     def run_reconstruction(self, **kwargs):
@@ -288,29 +388,37 @@ class ReconstructionPipeline:
         propagation_distance = (
             kwargs.get("propagation_distance")
             if kwargs.get("propagation_distance") is not None
-            else kwargs.get("prop_dist")
-            if kwargs.get("prop_dist") is not None
-            else kwargs.get("prop_distance")
-            if kwargs.get("prop_distance") is not None
-            else self.dhm_dictionary['propagationDistance']
+            else (
+                kwargs.get("prop_dist")
+                if kwargs.get("prop_dist") is not None
+                else (
+                    kwargs.get("prop_distance")
+                    if kwargs.get("prop_distance") is not None
+                    else self.dhm_dictionary["propagationDistance"]
+                )
+            )
         )
 
         # propagation_method: kwargs have priority, then default
         propagation_method = (
             kwargs.get("propagation_method")
             if kwargs.get("propagation_method") is not None
-            else kwargs.get("prop_method")
-            if kwargs.get("prop_method") is not None
-            else "angularSpectrum"  # default method
+            else (
+                kwargs.get("prop_method")
+                if kwargs.get("prop_method") is not None
+                else "angularSpectrum"
+            )  # default method
         )
 
         # phase_unwrapping_method: kwargs have priority, then default
         phase_unwrapping_method = (
             kwargs.get("phase_unwrapping_method")
             if kwargs.get("phase_unwrapping_method") is not None
-            else kwargs.get("unwrap_method")
-            if kwargs.get("unwrap_method") is not None
-            else "Fast 2D"
+            else (
+                kwargs.get("unwrap_method")
+                if kwargs.get("unwrap_method") is not None
+                else "Fast 2D"
+            )
         )
 
         # mode_structure: kwargs have priority, then default
@@ -324,29 +432,41 @@ class ReconstructionPipeline:
         compensation = (
             kwargs.get("compensation")
             if kwargs.get("compensation") is not None
-            else kwargs.get("do_compensation")
-            if kwargs.get("do_compensation") is not None
-            else self.compensation
+            else (
+                kwargs.get("do_compensation")
+                if kwargs.get("do_compensation") is not None
+                else self.compensation
+            )
         )
 
         # compensation_method: kwargs have priority, then default (but None if ‘None’)
         compensation_method = (
             kwargs.get("compensation_method")
             if kwargs.get("compensation_method") is not None
-            else kwargs.get("compensationMethod")
-            if kwargs.get("compensationMethod") is not None
-            else (None if self.compensation_method == "None" else self.compensation_method)
+            else (
+                kwargs.get("compensationMethod")
+                if kwargs.get("compensationMethod") is not None
+                else (
+                    None
+                    if self.compensation_method == "None"
+                    else self.compensation_method
+                )
+            )
         )
 
         # refractive_index: kwargs have priority, default is None
         refractive_index = (
             kwargs.get("refractive_index")
             if kwargs.get("refractive_index") is not None
-            else kwargs.get("refractiveIndex")
-            if kwargs.get("refractiveIndex") is not None
-            else kwargs.get("refractiveindex")
-            if kwargs.get("refractiveindex") is not None
-            else kwargs.get("n_resin")
+            else (
+                kwargs.get("refractiveIndex")
+                if kwargs.get("refractiveIndex") is not None
+                else (
+                    kwargs.get("refractiveindex")
+                    if kwargs.get("refractiveindex") is not None
+                    else kwargs.get("n_resin")
+                )
+            )
         )
 
         # filter_list: kwargs have priority, default is None
@@ -362,9 +482,11 @@ class ReconstructionPipeline:
         filtering = (
             kwargs.get("filtering")
             if kwargs.get("filtering") is not None
-            else kwargs.get("do_filtering")
-            if kwargs.get("do_filtering") is not None
-            else (filter_list is not None and filter_list != [])
+            else (
+                kwargs.get("do_filtering")
+                if kwargs.get("do_filtering") is not None
+                else (filter_list is not None and filter_list != [])
+            )
         )
 
         # propagate: based on propagation_distance or kwargs
@@ -378,45 +500,63 @@ class ReconstructionPipeline:
         data, background_data = self.get_data()
 
         if self.using_layer_data:
-            raise NotImplementedError("Reconstruction of layered data is not yet implemented.")
+            raise NotImplementedError(
+                "Reconstruction of layered data is not yet implemented."
+            )
 
-
-        self.holo = Hologram(data=data,
-                             dhm_parameter=self.dhm_dictionary,
-                             logger=self.logger)
+        self.holo = Hologram(
+            data=data, dhm_parameter=self.dhm_dictionary, logger=self.logger
+        )
 
         if compensation == False or compensation_method is None:
             # do reconstruction without background
 
-            self.processor = HologramProcessor(hologram=self.holo, reference=None,
-                                               dhm_parameter=self.dhm_dictionary,
-                                               material_parameter=self.material_dictionary)
+            self.processor = HologramProcessor(
+                hologram=self.holo,
+                reference=None,
+                dhm_parameter=self.dhm_dictionary,
+                material_parameter=self.material_dictionary,
+            )
 
-            self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method,
-                               propagate=propagate,
-                               compensation_mode=compensation_method, compensate=compensation,
-                               refractive_index=refractive_index,
-                               phase_unwrapping_method=phase_unwrapping_method,
-                               mode=mode_structure,
-                               filtering=filtering, filter_applied=filter_list
-                               )
+            self.processor.run(
+                prop_dist=propagation_distance,
+                propagation_method=propagation_method,
+                propagate=propagate,
+                compensation_mode=compensation_method,
+                compensate=compensation,
+                refractive_index=refractive_index,
+                phase_unwrapping_method=phase_unwrapping_method,
+                mode=mode_structure,
+                filtering=filtering,
+                filter_applied=filter_list,
+            )
         else:
-            self.background = ReferenceHologram(data=background_data,
-                                                first_diffraction_order_pos=self.holo.first_diffraction_order_pos,
-                                                dhm_parameter=self.dhm_dictionary,
-                                                logger=self.logger)
+            self.background = ReferenceHologram(
+                data=background_data,
+                first_diffraction_order_pos=self.holo.first_diffraction_order_pos,
+                dhm_parameter=self.dhm_dictionary,
+                logger=self.logger,
+            )
 
-            self.processor = HologramProcessor(hologram=self.holo, reference=self.background,
-                                               dhm_parameter=self.dhm_dictionary,
-                                               material_parameter=self.material_dictionary)
+            self.processor = HologramProcessor(
+                hologram=self.holo,
+                reference=self.background,
+                dhm_parameter=self.dhm_dictionary,
+                material_parameter=self.material_dictionary,
+            )
 
-            self.processor.run(prop_dist=propagation_distance, propagation_method=propagation_method, propagate=propagate,
-                               compensation_mode=compensation_method, compensate=compensation,
-                               refractive_index=refractive_index,
-                               phase_unwrapping_method=phase_unwrapping_method,
-                               mode=mode_structure,
-                               filtering=filtering, filter_applied=filter_list
-                               )
+            self.processor.run(
+                prop_dist=propagation_distance,
+                propagation_method=propagation_method,
+                propagate=propagate,
+                compensation_mode=compensation_method,
+                compensate=compensation,
+                refractive_index=refractive_index,
+                phase_unwrapping_method=phase_unwrapping_method,
+                mode=mode_structure,
+                filtering=filtering,
+                filter_applied=filter_list,
+            )
 
         # self.do_savings(self.processor)
         # self.do_visualizations(self.processor)
@@ -424,46 +564,56 @@ class ReconstructionPipeline:
     def get_data(self):
         # Preset used for background data + loaded data
         if self.background_data_preset is not None:
-            loader = DataLoader(file_path=self.data_path,
-                                file_type=self.data_type,
-                                logger=self.logger,
-                                loading_background=False,
-                                structure_container=self.structure_zdc_container,
-                                loading_layer_data=self.using_layer_data)
+            loader = DataLoader(
+                file_path=self.data_path,
+                file_type=self.data_type,
+                logger=self.logger,
+                loading_background=False,
+                structure_container=self.structure_zdc_container,
+                loading_layer_data=self.using_layer_data,
+            )
             return loader.get_data(), self.background_data_preset
 
         # Background image in Container + data of hologram or layered data
         if self.structure_zdc_container:
-            loader = DataLoader(file_path=self.data_path,
-                                file_type=self.data_type,
-                                logger=self.logger,
-                                loading_background=self.background_data_available,
-                                structure_container=self.structure_zdc_container,
-                                loading_layer_data=self.using_layer_data)
+            loader = DataLoader(
+                file_path=self.data_path,
+                file_type=self.data_type,
+                logger=self.logger,
+                loading_background=self.background_data_available,
+                structure_container=self.structure_zdc_container,
+                loading_layer_data=self.using_layer_data,
+            )
             return loader.get_data()  # equal to [data, background_data]
 
         # All other cases are either a normal SciDataContainer or image data
         if self.compensation_method == "Background" and self.background_data_available:
-            background = DataLoader(file_path=self.background_data_path,
-                                    logger=self.logger,
-                                    loading_background=False)
-            loader = DataLoader(file_path=self.data_path,
-                                file_type=self.data_type,
-                                logger=self.logger,
-                                loading_background=False)
+            background = DataLoader(
+                file_path=self.background_data_path,
+                logger=self.logger,
+                loading_background=False,
+            )
+            loader = DataLoader(
+                file_path=self.data_path,
+                file_type=self.data_type,
+                logger=self.logger,
+                loading_background=False,
+            )
             return loader.get_data(), background.get_data()
 
         elif self.compensation_method == "None":
             background = []
-            loader = DataLoader(file_path=self.data_path,
-                                file_type=self.data_type,
-                                logger=self.logger,
-                                loading_background=False)
+            loader = DataLoader(
+                file_path=self.data_path,
+                file_type=self.data_type,
+                logger=self.logger,
+                loading_background=False,
+            )
             return [loader.get_data(), background]
 
     def check_structure_zdc(self):
         dc = Container(file=self.data_path)
-        if dc.content['containerType']['name'] == "StructureContainer":
+        if dc.content["containerType"]["name"] == "StructureContainer":
             self.structure_zdc_container = True
             self.background_data_available = True
 

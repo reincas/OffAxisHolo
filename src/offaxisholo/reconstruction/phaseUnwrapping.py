@@ -1,8 +1,11 @@
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from skimage.restoration import unwrap_phase
+
 # from kamui import unwrap_dimensional
+
 
 def phase_unwrapping_fast2d(phase_wrapped):
     """
@@ -14,6 +17,7 @@ def phase_unwrapping_fast2d(phase_wrapped):
     """
     phase_unwrapped = unwrap_phase(phase_wrapped)
     return phase_unwrapped
+
 
 def phase_unwrapping_wrap_around(phase_wrapped, plot=True, path=None):
     """
@@ -28,9 +32,9 @@ def phase_unwrapping_wrap_around(phase_wrapped, plot=True, path=None):
         fig, ax = plt.subplots(1, 2, sharex=True, sharey=True)
         ax1, ax2 = ax.ravel()
         fig.colorbar(ax2.imshow(image_unwrapped_wrap_around), ax=ax2)
-        ax2.set_title('Unwrapped phase with wrap around')
+        ax2.set_title("Unwrapped phase with wrap around")
         if path is not None:
-            path = os.path.join(path, 'phase_unwrapped_wrap_around.png')
+            path = os.path.join(path, "phase_unwrapped_wrap_around.png")
             plt.savefig(path)
             plt.close()
         else:
@@ -97,10 +101,10 @@ def phase_unwrapping_numpy(phase_wrapped, plot=True, path=None):
         fig, ax = plt.subplots(1, 1, sharex=True, sharey=True)
         # ax1 = ax.ravel()
         fig.colorbar(ax.imshow(img_unwrapped), ax=ax)
-        title = 'Unwrapped phase with numpy-unwrap'
+        title = "Unwrapped phase with numpy-unwrap"
         ax.set_title(title)
         if path is not None:
-            path = os.path.join(path, 'phase_unwrapped_numpy.png')
+            path = os.path.join(path, "phase_unwrapped_numpy.png")
             plt.savefig(path)
             plt.close()
         else:

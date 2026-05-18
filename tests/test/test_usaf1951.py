@@ -5,8 +5,10 @@
 ##########################################################################
 
 from pathlib import Path
+
 import matplotlib.pyplot as plt
-from offaxisholo import image, mkdir, chart_usaf
+
+from offaxisholo import chart_usaf, image, mkdir
 
 h, w = 1024, 1024
 pitch = 0.276

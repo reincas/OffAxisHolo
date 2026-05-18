@@ -1,10 +1,12 @@
-from typing import Tuple
 from datetime import datetime
-import numpy as np
+from typing import Tuple
+
 import cv2 as cv
+import numpy as np
 from scipy.ndimage import maximum_filter
 
 from .base_class import HologramCore
+
 
 class Hologram(HologramCore):
     data: np.array  # original Hologram data
@@ -18,11 +20,19 @@ class Hologram(HologramCore):
     # other variables
     logger = None
     first_diffraction_order_pos: Tuple[float, float] | Tuple[int, int] = None
-    finished_reconstruction: bool = False  # flag for successful completed reconstruction
-    required_dhm_keys = {'dcRadius', 'name'}  # required parameters for this class
-            # PROBLEM: #todo dcRadius is also called 'DC Radius' and name == obejctive name
+    finished_reconstruction: bool = (
+        False  # flag for successful completed reconstruction
+    )
+    required_dhm_keys = {"dcRadius", "name"}  # required parameters for this class
+    # PROBLEM: #todo dcRadius is also called 'DC Radius' and name == obejctive name
 
-    def __init__(self, data: np.ndarray, dhm_parameter, first_diffraction_order_pos=None, logger=None):
+    def __init__(
+        self,
+        data: np.ndarray,
+        dhm_parameter,
+        first_diffraction_order_pos=None,
+        logger=None,
+    ):
         self.data = data
         self.params = dhm_parameter
         self.first_diffraction_order_pos = first_diffraction_order_pos
@@ -43,13 +53,18 @@ class Hologram(HologramCore):
         if self.logger:
             self.logger.DEBUG("Validating input")
         if len(self.data.shape) != 2:
-            raise Exception(f"An Error occurred. 2D Hologram image required! Check data.")
+            raise Exception(
+                "An Error occurred. 2D Hologram image required! Check data."
+            )
         if self.data.shape[0] != self.data.shape[1]:
             raise Exception("Quadratic hologram image required!")
 
-        assert isinstance(self.params, dict)  # dhm parameter has to be given as dictionary
-        assert all(key in self.params for key in self.required_dhm_keys), \
-            f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
+        assert isinstance(
+            self.params, dict
+        )  # dhm parameter has to be given as dictionary
+        assert all(
+            key in self.params for key in self.required_dhm_keys
+        ), f"Missing required parameter(s): {self.required_dhm_keys - self.params.keys()}"
         if self.logger:
             self.logger.DEBUG("Input successfully validated")
 
@@ -67,13 +82,18 @@ class Hologram(HologramCore):
             t2 = datetime.now()
         if self.logger:
             if t1 is not None and t2 is not None:
-                self.logger.INFO(f"Reconstruction completed in {(t2 - t1).total_seconds()} seconds")
+                self.logger.INFO(
+                    f"Reconstruction completed in {(t2 - t1).total_seconds()} seconds"
+                )
             self.logger.DEBUG(
-                f"Reconstruction of Hologram captured with {self.params['name']} (DC radius {self.params['dcRadius']}) successful.")
+                f"Reconstruction of Hologram captured with {self.params['name']} (DC radius {self.params['dcRadius']}) successful."
+            )
         return self.reconstructed_field
 
     # todo - how to deal with this? - remove??
-    def set_full_reconstruction(self, re_field, propagated_field, phase_unwrapped, height_profile=None):
+    def set_full_reconstruction(
+        self, re_field, propagated_field, phase_unwrapped, height_profile=None
+    ):
         self.finished_reconstruction = True
         # if re_field.all()==propagated_field.all():
         #     print("Gleich")
@@ -95,7 +115,7 @@ class Hologram(HologramCore):
         image based on the given spectral position of the first diffraction order
         relative to the zero order. A circular mask with the given radius is
         applied to the Fourier spectrum in order to extract the first order
-        spectrum. """
+        spectrum."""
         if holo is None:
             holo = self.data
         if (fx and fy) is None:
@@ -130,13 +150,13 @@ class Hologram(HologramCore):
             return field
 
     def locate_order(self, holo=None, size=16):
-        """ Calculate the Fourier spectrum of the given positive real valued
+        """Calculate the Fourier spectrum of the given positive real valued
         hologram image and return the spectral coordinates, the maximum spectral
         filter radius and the weight of the estimated first diffraction order
         peak. The global maximum after masking the zero and Nyquist frequencies
         is taken as first diffraction order. The size parameter is the smoothing
         radius and thus limits the density of local minima to be considered. The
-        weight of the peak is between 0.0 and 1.0. """
+        weight of the peak is between 0.0 and 1.0."""
 
         if holo is None:
             holo = self.data
@@ -152,19 +172,23 @@ class Hologram(HologramCore):
         N = spectrum.shape[0]
 
         # Blur and normalize the right half of the spectrum
-        blurred = cv.GaussianBlur(np.abs(spectrum[:, :N // 2]), None, size)
+        blurred = cv.GaussianBlur(np.abs(spectrum[:, : N // 2]), None, size)
         blurred /= blurred[0, 0]
 
         # Get indices of all local maxima in the spectrum
-        maxmask = (maximum_filter(blurred, size=size) == blurred)
+        maxmask = maximum_filter(blurred, size=size) == blurred
         points = np.unravel_index(np.nonzero(maxmask.ravel()), maxmask.shape)
         points = np.concatenate(points, axis=0).T
 
         # Strip all local maxima around the zero and the Nyquist frequency. This
         # strips the dominating zero order peak and many mirror artifacts.
         s = N // 4
-        points = [(y, x) for y, x in points if abs(x % (2 * s) - s) < s - size // 2 and \
-                  abs(y % (2 * s) - s) < s - size // 2]
+        points = [
+            (y, x)
+            for y, x in points
+            if abs(x % (2 * s) - s) < s - size // 2
+            and abs(y % (2 * s) - s) < s - size // 2
+        ]
         if not points:
             x, y, weight = None, None, 0.0
 
@@ -177,19 +201,21 @@ class Hologram(HologramCore):
             weight = np.max(weights)
 
         if self.logger:
-            self.logger.DEBUG(f"Calculated position of first diffraction order: {x}, {y}")
+            self.logger.DEBUG(
+                f"Calculated position of first diffraction order: {x}, {y}"
+            )
         # Done.
         return spectrum, x, y, weight
 
     def roll_image(self, img, x, y):
-        """ Roll given image content so that point (x, y) becomes (0, 0). Wrap
+        """Roll given image content so that point (x, y) becomes (0, 0). Wrap
         pixels at the image edges. Therefore, no information is lost.  For
         x = w//2 and y = h//2, the function is equivalent to np.fft.fftshift(img).
         """
         return np.roll(img, (-y, -x), axis=(0, 1))
 
     def circularMask(self, spectrum, r):
-        """ Apply circular mask with given radius to the centered spectrum. """
+        """Apply circular mask with given radius to the centered spectrum."""
 
         N = spectrum.shape[0]
         y, x = np.indices((N, N), dtype=float)
@@ -214,20 +240,26 @@ class Hologram(HologramCore):
         """
         Calculate the field of the hologram. Only use this function if you want to use the hologram of the object itself.
         """
-        (self.reconstructed_field, self.spectrum, self.spectrum_shifted,
-         self.spectrum_masked) = self.holo2field(return_spectrum=True)
+        (
+            self.reconstructed_field,
+            self.spectrum,
+            self.spectrum_shifted,
+            self.spectrum_masked,
+        ) = self.holo2field(return_spectrum=True)
 
         self.reconstructed_phase = self.phase(self.reconstructed_field)
         self.reconstructed_intensity = self.intensity(self.reconstructed_field)
         self.finished_reconstruction = True  # Set the reconstruction flag
 
     def _calc_radius_mask(self):
-        if self.params['dcRadius'] is None:
-            raise Exception(f"Dc Radius not implemented for objective {self.params.name}")
+        if self.params["dcRadius"] is None:
+            raise Exception(
+                f"Dc Radius not implemented for objective {self.params.name}"
+            )
         h, w = self.data.shape
         fx = self.first_diffraction_order_pos[0]
         fy = self.first_diffraction_order_pos[1]
-        rmax = np.sqrt(fx ** 2 + fy ** 2) - self.params['dcRadius']
+        rmax = np.sqrt(fx**2 + fy**2) - self.params["dcRadius"]
         rmax = min(rmax, abs(fx), w // 2 - abs(fx), abs(fy), h // 2 - abs(fy))
         self.radius_mask = rmax
         if self.logger:
@@ -236,7 +268,13 @@ class Hologram(HologramCore):
 
 
 class ReferenceHologram(Hologram):
-    def __init__(self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter, logger=None):
-        super().__init__(data=data, dhm_parameter=dhm_parameter,
-                         first_diffraction_order_pos=first_diffraction_order_pos, logger=logger)
+    def __init__(
+        self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter, logger=None
+    ):
+        super().__init__(
+            data=data,
+            dhm_parameter=dhm_parameter,
+            first_diffraction_order_pos=first_diffraction_order_pos,
+            logger=logger,
+        )
         self._calc_radius_mask()

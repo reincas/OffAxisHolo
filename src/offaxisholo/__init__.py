@@ -9,23 +9,26 @@
 #
 ##########################################################################
 import glob
-from pathlib import Path
-import os
-from scidatacontainer import Container
 import logging
+import os
+from pathlib import Path
 from shutil import rmtree
+
 import numpy as np
+from scidatacontainer import Container
+
 # from .docker import DockerBase as Docker
 # from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
 # from .reconstruction import DHMPlotter
 from .src.offaxisholo.loader import DataLoader
 
-LOGFMT = logging.Formatter(fmt="%(asctime)s / %(levelname)s / %(message)s",
-                           datefmt="%Y-%m-%d %H:%M:%S")
+LOGFMT = logging.Formatter(
+    fmt="%(asctime)s / %(levelname)s / %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 
 def mkdir(path, clean=False):
-    """ Make sure that the given folder exists and is empty. """
+    """Make sure that the given folder exists and is empty."""
 
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
@@ -37,11 +40,12 @@ def mkdir(path, clean=False):
                 rmtree(sub)
     return path
 
+
 def get_logger(logfile=None):
-    """ Configure and return a logger object. """
+    """Configure and return a logger object."""
 
     # Initialize logger object
-    logger = logging.getLogger('dummy')
+    logger = logging.getLogger("dummy")
     logger.setLevel(logging.DEBUG)
 
     # Console output
@@ -86,17 +90,17 @@ def get_hologram(path, filename=None, img_container=False) -> np.ndarray:
             print(f"{type(e)}: {e}")
 
     if img_container:
-        return dc._items['meas/image.png']
+        return dc._items["meas/image.png"]
     else:
-        return dc._items['meas/image.png'].data
+        return dc._items["meas/image.png"].data
 
 
-def get_datafiles(root, subdir=False, ending='.dat') -> list:
+def get_datafiles(root, subdir=False, ending=".dat") -> list:
     if subdir:
-        files='**\*'+ending
+        files = "**\*" + ending
         path = os.path.join(root, files)
     else:
-        files = '*' + ending
+        files = "*" + ending
         path = os.path.join(root, files)
     try:
         return glob.glob(path)

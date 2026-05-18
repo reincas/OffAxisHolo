@@ -1,8 +1,7 @@
 import os
 
 import numpy as np
-
-from OffAxisHolo.docker import DockerSciDataContainer, DockerImageFile
+from OffAxisHolo.docker import DockerImageFile
 
 container_path = r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method\rawdata\DHM_Print\structures\DOE1_ABZ_Zeiss 63x.zdc"
 image_path = r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method\rawdata\DHM_Developed\lens1.tif"
@@ -21,11 +20,17 @@ os.makedirs(eval_path, exist_ok=True)
 test_docker = DockerImageFile()
 a = np.linspace(start=-1e-6, stop=1e-6, num=10)
 for i in range(10):
-    length=a[i]
+    length = a[i]
     print(length)
-    test_docker.reconstruct(img_path=image_path, background_img_path=back_img_path,
-                            save_data=True, save_path=eval_path_img, save_name=f"data_test_docker_{length}",
-                            propagate=True, prop_dist=length)
+    test_docker.reconstruct(
+        img_path=image_path,
+        background_img_path=back_img_path,
+        save_data=True,
+        save_path=eval_path_img,
+        save_name=f"data_test_docker_{length}",
+        propagate=True,
+        prop_dist=length,
+    )
 
 # length=0.0
 # test_docker.reconstruct(img_path=image_path, background_img_path=back_img_path,

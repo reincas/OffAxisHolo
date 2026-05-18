@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import ndimage
 
-
 """
 
 This implementation includes several key components:
@@ -57,6 +56,7 @@ Handles edge cases in intensity values
 
 
 """
+
 
 def compensate_background(object_intensity, object_phase, bg_intensity, bg_phase):
     """
@@ -163,7 +163,7 @@ def example_usage():
 
     # Simulate object with phase variation
     object_phase = np.sin(x) + np.cos(y)
-    object_intensity = 1 + 0.5 * np.cos(x ** 2 + y ** 2)
+    object_intensity = 1 + 0.5 * np.cos(x**2 + y**2)
 
     # Simulate background noise
     bg_phase = 0.2 * np.random.random((size, size))
