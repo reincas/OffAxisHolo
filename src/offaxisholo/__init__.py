@@ -18,7 +18,7 @@ import numpy as np
 # from .docker import DockerBase as Docker
 # from .reconstruction import Hologram, ReferenceHologram, HologramProcessor
 # from .reconstruction import DHMPlotter
-from .loader import DataLoader
+from .src.offaxisholo.loader import DataLoader
 
 LOGFMT = logging.Formatter(fmt="%(asctime)s / %(levelname)s / %(message)s",
                            datefmt="%Y-%m-%d %H:%M:%S")

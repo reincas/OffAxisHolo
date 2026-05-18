@@ -1,27 +1,26 @@
-# Byte-compiled / optimized / DLL files
+# =========================
+# Byte-compiled / cache
+# =========================
 __pycache__/
 *.py[cod]
 *$py.class
 
+# =========================
 # C extensions
+# =========================
 *.so
 
+# =========================
 # Distribution / packaging
+# =========================
 .Python
 build/
-_build/
-develop-eggs/
 dist/
-downloads/
+develop-eggs/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
-_static/
 sdist/
-_template/
-var/
 wheels/
 share/python-wheels/
 *.egg-info/
@@ -29,13 +28,39 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Local
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Testing
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# IDEs / Editors
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# OS / system files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Project-specific artifacts
+# =========================
 attic/
-test/test/!/offaxisholo/reconstruction/plotter_class - Kopie.py
+scripts/
 *.png
 
-.idea/
-.venv/
-__pycache__/
-.pytest_cache/
-.vscode/
+OffAxisHolo_projectStructure_18052026.txt
+
+Notes_guteHandhabung.txt

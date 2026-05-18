@@ -8,12 +8,12 @@ if __name__ == "__main__":
     from OffAxisHolo.reconstruction import HologramProcessor, Hologram, ReferenceHologram
     from OffAxisHolo import get_logger, DataLoader
 else:
-    from .reconstruction import HologramProcessor, Hologram, ReferenceHologram
-    from .loader import DataLoader
-    from .__init__ import get_logger
+    from ..reconstruction import HologramProcessor, Hologram, ReferenceHologram
+    from ..io.loader import DataLoader
+    from .... import get_logger
 from tkinter import messagebox, filedialog
 
-class DockerBase:
+class ReconstructionPipeline:
     holo: Hologram
     background: ReferenceHologram
     processor: HologramProcessor

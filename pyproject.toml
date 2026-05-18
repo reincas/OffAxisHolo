@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "offaxisholo"
+version = "0.1.0"
+description = "Numerical function library for reconstruction of holograms captured with an off-axis transmissive digital holographic microscope (DHM)."
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.5",
+    "opencv-python>=4.10.0.82",
+    "scidatacontainer>=1.2.0",
+    "scipy>=1.17.1",
+    "scikit-image>=0.25.2"
+]
+
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ruff",
+    "pytest"
+]
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[tool.black]
+line-length = 88
+
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B"
+]

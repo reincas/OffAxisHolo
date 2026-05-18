@@ -10,7 +10,7 @@ from .numericalPropagation import angularSpectrum
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
 
-from .. import get_logger
+from .... import get_logger
 
 """
 Coordinates the entire reconstruction process, ensuring that all necessary steps (FFT, filtering, compensation) are 
