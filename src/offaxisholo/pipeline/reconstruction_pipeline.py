@@ -1,5 +1,6 @@
 import json
 import os
+from importlib.resources import files
 from typing import Literal
 
 import numpy as np
@@ -165,43 +166,41 @@ class ReconstructionPipeline:
         self.compensation_method = compensation_method
 
         if dhm_dictionary is None:
-            self.dhm_dictionary = {}
-            if dhm_preset == "Zeiss 63x":
-                with open(
-                    os.path.join(
-                        os.path.dirname(__file__), "DHM_preset/Zeiss_63x.json"
-                    ),
-                    "r",
-                ) as file:
-                    self.dhm_dictionary = json.load(file)
-            elif dhm_preset == "Zeiss 20x":
-                with open(
-                    os.path.join(
-                        os.path.dirname(__file__), "DHM_preset/Zeiss_20x.json"
-                    ),
-                    "r",
-                ) as file:
-                    self.dhm_dictionary = json.load(file)
-            else:
+            preset_map = {
+                "Zeiss 63x": "Zeiss_63x.json",
+                "Zeiss 20x": "Zeiss_20x.json",
+            }
+
+            if dhm_preset not in preset_map:
                 self.logger.warning(f"No preset {dhm_preset}")
                 raise NotImplementedError(f"No preset {dhm_preset} implemented.")
+
+            config_path = (
+                files("offaxisholo.config.DHM_preset") / preset_map[dhm_preset]
+            )
+            with config_path.open("r") as f:
+                self.dhm_dictionary = json.load(f)
+
             self.logger.info(f"DHM Preset {dhm_preset} loaded.")
         else:
             self.dhm_dictionary = dhm_dictionary
 
         if material_dictionary is None:
-            self.material_dictionary = {}
-            if material_preset == "SZ2080":
-                with open(
-                    os.path.join(
-                        os.path.dirname(__file__), "Background_preset/SZ2080.json"
-                    ),
-                    "r",
-                ) as file:
-                    self.material_dictionary = json.load(file)
-            else:
+            preset_map = {
+                "SZ2080": "SZ2080.json",
+            }
+
+            if material_preset not in preset_map:
                 self.logger.warning(f"No preset {material_preset}")
                 raise NotImplementedError(f"No preset {material_preset} implemented.")
+
+            config_path = (
+                files("offaxisholo.config.Background_preset")
+                / preset_map[material_preset]
+            )
+            with config_path.open("r") as f:
+                self.material_dictionary = json.load(f)
+
             self.logger.info(f"Material Preset {material_preset} loaded.")
         else:
             self.material_dictionary = material_dictionary
