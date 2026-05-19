@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .. import get_logger
+from ..utils import get_logger
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
 from .numericalPropagation import angularSpectrum

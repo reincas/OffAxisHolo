@@ -27,10 +27,18 @@ dev = [
     "pytest"
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["offaxisholo*"]
 
+[tool.setuptools.package-data]
+offaxisholo = [
+    "config/**/*.json",
+    "config/**/*.txt",
+]
 
 [tool.black]
 line-length = 88
