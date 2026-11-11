@@ -14,9 +14,9 @@ if __name__ == "__main__":
         ReferenceHologram,
     )
 else:
-    from .. import get_logger
     from ..io.loader import DataLoader
     from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
+    from ..utils import get_logger
 from tkinter import filedialog, messagebox
 
 
@@ -70,6 +70,8 @@ class ReconstructionPipeline:
                 self.logger = get_logger(logfile=f"{save_path}/console.log")
             else:
                 self.logger = logger
+        else:
+            self.logger = None
 
         if data_type is None:
             file, file_extension = os.path.splitext(self.data_path)
@@ -180,8 +182,8 @@ class ReconstructionPipeline:
             )
             with config_path.open("r") as f:
                 self.dhm_dictionary = json.load(f)
-
-            self.logger.info(f"DHM Preset {dhm_preset} loaded.")
+            if self.logger is not None:
+                self.logger.info(f"DHM Preset {dhm_preset} loaded.")
         else:
             self.dhm_dictionary = dhm_dictionary
 

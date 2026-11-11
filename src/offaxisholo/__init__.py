@@ -11,7 +11,8 @@
 
 # from .reconstruction import DHMPlotter
 from .io.loader import DataLoader
+from .pipeline.reconstruction_pipeline import ReconstructionPipeline
 from .reconstruction.hologram_class import Hologram
 from .reconstruction.processor_class import HologramProcessor
 
-__all__ = ["DataLoader", "Hologram", "HologramProcessor"]
+__all__ = ["DataLoader", "Hologram", "HologramProcessor", "ReconstructionPipeline"]
