@@ -26,7 +26,12 @@ def mkdir(path, clean=False):
 
 
 def get_logger(logfile=None):
-    logger = logging.getLogger("dummy")
+    name = logfile if logfile else "dummy"
+    logger = logging.getLogger(name)
+
+    if logger.handlers:
+        return logger  # schon konfiguriert, direkt zurück
+
     logger.setLevel(logging.DEBUG)
 
     consolehandler = logging.StreamHandler()

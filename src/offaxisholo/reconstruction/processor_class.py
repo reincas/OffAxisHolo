@@ -322,7 +322,7 @@ class HologramProcessor(HologramCore):
         pixel_pitch: list[float] = None,
         propagation_method: Literal["angularSpectrum", "Fresnel"] = "angularSpectrum",
     ):
-        if float(distance) == 0.0 or distance is None:
+        if distance is None or float(distance) == 0.0:
             return field
         if pixel_pitch is None:
             dx = self.params["pixelPitch"][0]
