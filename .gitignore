@@ -20,6 +20,7 @@ dist/
 develop-eggs/
 eggs/
 .eggs/
+data/
 parts/
 sdist/
 wheels/
