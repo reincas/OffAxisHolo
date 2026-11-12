@@ -69,8 +69,8 @@ def get_hologram(path, filename=None, img_container=False) -> np.ndarray:
         path = os.path.join(path, filename)
         try:
             dc = Container(file=path)
-        except Exception as e:
-            print(f"{type(e)}: {e}")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"No file at {path} found.") from None
 
     if img_container:
         return dc._items["meas/image.png"]
