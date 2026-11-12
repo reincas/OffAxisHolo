@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 import cv2
+import numpy as np
 from scidatacontainer import Container
 
 from .structure import StructureContainer
@@ -25,13 +26,17 @@ class DataLoader:
             loading_layer_data:
                     Only available with file type "zdc". Loads data for each layer.
             convert_to_grayscale:
-                    Only for image types(png, tif). Converts image to grayscale image.
+                    Only for image types (png, tif). Converts a colour image to a
+                    single channel image. The bit depth is preserved (e.g. 16 bit).
+            allow_8bit:
+                    Only for image types (png, tif). If True, images with a higher
+                    bit depth are linearly scaled to 8 bit (uint8) to save memory.
+                    This reduces the dynamic range. Default: False.
         ----
         get_data returns the loaded data
         """
         self.path = file_path
-        if logger is not None:
-            self.logger = logger
+        self.logger = logger
 
         if file_type is None:
             file_name, file_extension = os.path.splitext(file_path)
@@ -47,6 +52,7 @@ class DataLoader:
         self.loading_layer_data = kwargs.get("loading_layer_data", False)
         self.structure_container = kwargs.get("structure_container", False)
         self.convert_to_grayscale = kwargs.get("convert_to_grayscale", True)
+        self.allow_8bit = kwargs.get("allow_8bit", False)
 
         self._validate_kwargs()
 
@@ -76,10 +82,11 @@ class DataLoader:
                     # data = data_container.data_layered  # to be implemented
                 else:
                     # loading of completed print
-                    self.logger.info("Loading hologram data from Container...")
+                    if self.logger:
+                        self.logger.info("Loading hologram data from Container...")
                     data = data_container.complete_hologram
             else:
-                if self.loading_background or self.loading_layer_data:
+                if (self.loading_background or self.loading_layer_data) and self.logger:
                     self.logger.warning(
                         "Background images and layered data can only be loaded "
                         "with specific structure container. Set the kwarg "
@@ -105,15 +112,11 @@ class DataLoader:
 
     def _validate_file_type(self, file_type):
         file_name, file_extension = os.path.splitext(self.path)
-        try:
-            match = file_type == file_extension[1:]
-            if not match:
-                raise AttributeError(
-                    f"File type {file_type} does not match ending of file in path: "
-                    "{self.path}."
-                )
-        except Exception as e:
-            print(f"An Error occurred while validating file type: {e}")
+        if file_type != file_extension[1:]:
+            raise ValueError(
+                f"File type {file_type} does not match ending of file in path: "
+                f"{self.path}."
+            )
 
     def _validate_kwargs(self):
         assert isinstance(
@@ -128,6 +131,9 @@ class DataLoader:
         assert isinstance(
             self.convert_to_grayscale, bool
         ), "Keyword 'convert_to_grayscale' has to be a boolean"
+        assert isinstance(
+            self.allow_8bit, bool
+        ), "Keyword 'allow_8bit' has to be a boolean"
 
     def load_scidatacontainer(self):
         dc = Container(file=self.path)
@@ -145,21 +151,40 @@ class DataLoader:
             pass
         return layer_data
 
-    # ERROR because there are images with one channel -> already grayscale
-    # def load_image(self):
-    #     data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
-    #     if getattr(self, 'convert_to_grayscale', False):
-    #         # Convert to grayscale
-    #         self.logger.info("Converting image to grayscale...")
-    #         data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
-    #     return data
-
     def load_image(self):
-        if getattr(self, "convert_to_grayscale", False):
-            self.logger.info("Loading image as grayscale...")
-            data = cv2.imread(self.path, cv2.IMREAD_GRAYSCALE)
-        else:
-            data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
+        """
+        Load a png or tif image.
+
+        The image is read with its original bit depth (cv2.IMREAD_UNCHANGED), so
+        16 bit camera images keep their full dynamic range. The integer data type
+        is kept (no conversion to float) to keep the memory consumption low.
+
+        convert_to_grayscale: colour images (3 or 4 channels) are converted to a
+            single channel. Single channel images are left unchanged.
+        allow_8bit: images with more than 8 bit are scaled linearly to uint8
+            (value * 255 / max(value)). The zero point is kept, so the relative
+            intensities remain correct, but the quantisation becomes coarser.
+        """
+        data = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
+        if data is None:  # cv2.imread does not raise on missing/unreadable files
+            raise FileNotFoundError(f"Image {self.path} could not be read.")
+
+        if self.convert_to_grayscale and data.ndim == 3:
+            if self.logger:
+                self.logger.info("Converting image to grayscale...")
+            if data.shape[2] == 4:
+                data = cv2.cvtColor(data, cv2.COLOR_BGRA2GRAY)
+            elif data.shape[2] == 3:
+                data = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
+            else:
+                data = data[:, :, 0]
+
+        if self.allow_8bit and data.dtype != np.uint8:
+            if self.logger:
+                self.logger.info(f"Scaling {data.dtype} image to 8 bit...")
+            maximum = float(np.max(data))
+            scale = 255.0 / maximum if maximum > 0 else 0.0
+            data = np.round(data.astype(np.float32) * scale).astype(np.uint8)
 
         return data
 
