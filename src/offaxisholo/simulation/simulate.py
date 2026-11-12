@@ -104,10 +104,24 @@ def lens(Fin, pin, f, d=None):
 
 
 def propagate(Fin, pin, z):
-    """Use the angular spectrum method to calculate the complex field at
-    the distance z from an input field at distance 0.0. Return the output
-    field and its pixel pitch. Input and output pitch are identical for this
-    method."""
+    """
+    Use the angular spectrum method to calculate the complex field at the
+    distance z from an input field at distance 0.0. Input and output pitch are
+    identical for this method. All lengths are in units of the wavelength.
+
+    With spatial frequencies fx, fy in units of 1/wavelength, the exact transfer
+    function of free space is
+
+        H(fx, fy) = exp(2j * pi * z * sqrt(1 - fx^2 - fy^2))   for fx^2 + fy^2 < 1
+        H(fx, fy) = 0                                           (evanescent waves)
+
+    No paraxial (Fresnel) approximation sqrt(1 - f^2) ~ 1 - f^2 / 2 is used, as
+    it is not valid for high NA objectives.
+
+    Reference:
+        J. W. Goodman, "Introduction to Fourier Optics", 3rd ed., Roberts & Company
+        (2005), Sec. 3.10 "The angular spectrum of plane waves".
+    """
 
     assert len(Fin.shape) == 2
     assert Fin.shape[0] == Fin.shape[1]
@@ -116,17 +130,20 @@ def propagate(Fin, pin, z):
     if float(z) == 0.0:
         return Fin
 
-    # Spectral pitch
+    # Spatial frequencies in units of 1/wavelength (standard FFT layout)
     N = Fin.shape[0]
-    ps = 1.0 / (N * pin)
-    fy, fx = mesh(N, ps)
+    f = np.fft.fftfreq(N, d=pin)
+    fx, fy = np.meshgrid(f, f, indexing="xy")
+    argument = 1.0 - fx * fx - fy * fy
+    propagating = argument > 0.0
+    H = np.where(
+        propagating,
+        np.exp(2j * np.pi * z * np.sqrt(np.where(propagating, argument, 0.0))),
+        0.0,
+    )
 
     # Propagation using the ASM
-    Fs = np.fft.fft2(Fin)
-    Fs = np.fft.fftshift(Fs)
-    Fs *= np.exp(1j * np.pi * z * (2 - fx * fx - fy * fy))
-    Fs = np.fft.fftshift(Fs)
-    Fout = np.fft.ifft2(Fs)
+    Fout = np.fft.ifft2(np.fft.fft2(Fin) * H)
 
     # Return output field
     return Fout
@@ -413,8 +430,13 @@ class HoloMicroscope(object):
         Fc = propagate(Fi, pi, ds)
         Fc += Fr
 
-        # Return hologram image with pitch
-        holo = np.abs(Fc)
+        # The camera records the intensity of the superposition of object and
+        # reference wave, I = |O + R|^2.
+        # Reference: U. Schnars and W. Jueptner, "Digital Holography", Springer
+        # (2005), Sec. 2.4 (hologram recording); M. K. Kim, "Principles and
+        # techniques of digital holographic microscopy," SPIE Reviews 1, 018005
+        # (2010).
+        holo = np.abs(Fc) ** 2
         if not fields:
             return holo, pi
 
