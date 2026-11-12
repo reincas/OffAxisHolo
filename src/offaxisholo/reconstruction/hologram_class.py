@@ -51,7 +51,7 @@ class Hologram(HologramCore):
 
     def _validate_input(self):
         if self.logger:
-            self.logger.DEBUG("Validating input")
+            self.logger.debug("Validating input")
         if len(self.data.shape) != 2:
             raise Exception(
                 "An Error occurred. 2D Hologram image required! Check data."
@@ -67,7 +67,7 @@ class Hologram(HologramCore):
             f"{self.required_dhm_keys - self.params.keys()}"
         )
         if self.logger:
-            self.logger.DEBUG("Input successfully validated")
+            self.logger.debug("Input successfully validated")
 
     @property
     def shape(self):
@@ -77,16 +77,16 @@ class Hologram(HologramCore):
         t1, t2 = None, None
         if self.logger:
             t1 = datetime.now()
-            self.logger.INFO("Starting hologram reconstruction...")
+            self.logger.info("Starting hologram reconstruction...")
         if force or (not self.finished_reconstruction):
             self.calc_field()
             t2 = datetime.now()
         if self.logger:
             if t1 is not None and t2 is not None:
-                self.logger.INFO(
+                self.logger.info(
                     f"Reconstruction completed in {(t2 - t1).total_seconds()} seconds"
                 )
-            self.logger.DEBUG(
+            self.logger.debug(
                 f"Reconstruction of Hologram captured with {self.params['name']} "
                 f"(DC radius {self.params['dcRadius']}) successful."
             )
@@ -113,14 +113,45 @@ class Hologram(HologramCore):
 
     def holo2field(self, holo=None, fx=None, fy=None, r=None, return_spectrum=False):
         """
-        Calculate the wave field from a given positive real valued hologram
-        image based on the given spectral position of the first diffraction order
-        relative to the zero order. A circular mask with the given radius is
-        applied to the Fourier spectrum in order to extract the first order
-        spectrum."""
+        Calculate the complex object field from a real, positive hologram image
+        (Fourier transform method / spatial filtering).
+
+        The recorded off-axis hologram is the intensity of the superposition of
+        object wave O and tilted reference wave R:
+
+            I_H = |O + R|^2 = |O|^2 + |R|^2 + O * conj(R) + conj(O) * R.
+
+        Due to the tilt of R (carrier frequency f_c), the four terms are separated
+        in the Fourier spectrum: the zero order (|O|^2 + |R|^2) at the centre and
+        the two first orders O * conj(R) and conj(O) * R at +f_c and -f_c.
+
+        Steps:
+            1. Centred spectrum of the hologram (FFT).
+            2. Shift the selected first order (fx, fy) to the spectrum centre. This
+               removes the carrier frequency, i.e. the linear phase of the plane
+               reference wave.
+            3. Circular mask with radius r -> only the first order remains.
+            4. Inverse FFT -> complex field proportional to O * conj(R) / |R|.
+
+        Note: The two first orders are complex conjugates of each other. Selecting
+        the other order inverts the sign of the phase (and thus of the height).
+        The sign convention therefore depends on the geometry of the reference
+        beam of the setup.
+
+        References:
+            Mitsuo Takeda, Hideki Ina, and Seiji Kobayashi, "Fourier-transform
+            method of fringe-pattern analysis for computer-based topography and
+            interferometry," J. Opt. Soc. Am. 72, 156-160 (1982).
+            https://doi.org/10.1364/JOSA.72.000156
+
+            Etienne Cuche, Pierre Marquet, and Christian Depeursinge, "Spatial
+            filtering for zero-order and twin-image elimination in digital
+            off-axis holography," Appl. Opt. 39, 4070-4075 (2000).
+            https://doi.org/10.1364/AO.39.004070
+        """
         if holo is None:
             holo = self.data
-        if (fx and fy) is None:
+        if fx is None or fy is None:
             fx = self.first_diffraction_order_pos[0]
             fy = self.first_diffraction_order_pos[1]
         if r is None:
@@ -203,7 +234,7 @@ class Hologram(HologramCore):
             weight = np.max(weights)
 
         if self.logger:
-            self.logger.DEBUG(
+            self.logger.debug(
                 f"Calculated position of first diffraction order: {x}, {y}"
             )
         # Done.
@@ -231,7 +262,7 @@ class Hologram(HologramCore):
         Internal Methode.
         """
         if self.logger:
-            self.logger.INFO("Starting to locate position of first order diffraction.")
+            self.logger.info("Starting to locate position of first order diffraction.")
         # ToDo: Check how good the locateOrder works with 63x objective
         spectrum, fx, fy, weight = self.locate_order()
         self.spectrum = spectrum
@@ -257,16 +288,26 @@ class Hologram(HologramCore):
     def _calc_radius_mask(self):
         if self.params["dcRadius"] is None:
             raise Exception(
-                f"Dc Radius not implemented for objective {self.params.name}"
+                f"Dc Radius not implemented for objective {self.params['name']}"
+            )
+        if self.first_diffraction_order_pos[0] is None:
+            raise RuntimeError(
+                "First diffraction order could not be located in the spectrum."
             )
         h, w = self.data.shape
         fx = self.first_diffraction_order_pos[0]
         fy = self.first_diffraction_order_pos[1]
         rmax = np.sqrt(fx**2 + fy**2) - self.params["dcRadius"]
         rmax = min(rmax, abs(fx), w // 2 - abs(fx), abs(fy), h // 2 - abs(fy))
+        if rmax <= 0:
+            raise RuntimeError(
+                f"Invalid mask radius {rmax}: first diffraction order at ({fx}, {fy}) "
+                f"is too close to the DC term (dcRadius={self.params['dcRadius']}) "
+                f"or to the spectrum border."
+            )
         self.radius_mask = rmax
         if self.logger:
-            self.logger.DEBUG(f"Calculated radius mask radius: {rmax}")
+            self.logger.debug(f"Calculated radius mask radius: {rmax}")
         return rmax
 
 
