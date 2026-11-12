@@ -1,9 +1,11 @@
 {
   "name": "SZ 2080 transparent",
   "chemicalStructure": "",
-  "refractiveIndex": 1.504,
+  "refractiveIndex": 1.52,
+  "refractiveIndexLiquid": 1.508,
   "substrateName": "",
   "substrateThickness": "convert into number",
   "substrateThicknessUm": "convert into number",
+  "_comment_refractiveIndex": "refractiveIndex: polymerised (developed) material. refractiveIndexLiquid: non-polymerised liquid resin, used as surrounding medium in mode 'print' (difference 0.012).",
   "_comment": "In the Future the refractive index measurement should be implemented in here and then calculated of of it."
 }
