@@ -95,14 +95,14 @@ class StructureContainer(Container):
         magnification = self["data/objective.json"]["magnification"]
         na_objective = self["data/objective.json"]["numericalAperture"]
         wavelength_m = (
-            self["data/hologram.json"]["device"]["laser"]["wavelengthUm"] * 10e-6
-        )
+            self["data/hologram.json"]["device"]["laser"]["wavelengthUm"] * 10**-6
+        )  # um -> m. Note: 10e-6 in Python means 10 * 10^-6 = 1e-5 (wrong).
         if obj_name == "Zeiss 63x":
             pixel_pitch_m = [0.0869e-6, 0.0869e-6]  # ToDo implement it for 63 obj
         else:
             pixel_pitch_m = [
-                self["data/hologram.json"]["objective"]["xPixelSizeUm"] * 10e-6,
-                self["data/hologram.json"]["objective"]["yPixelSizeUm"] * 10e-6,
+                self["data/hologram.json"]["objective"]["xPixelSizeUm"] * 10**-6,
+                self["data/hologram.json"]["objective"]["yPixelSizeUm"] * 10**-6,
             ]
         if "propagationDistance" in self["data/hologram.json"]["device"]["dhm"]:
             propagation_distance = self["data/hologram.json"]["device"]["dhm"][
@@ -110,10 +110,6 @@ class StructureContainer(Container):
             ]  # ToDo implement it!
         else:
             propagation_distance = 0.0
-        n_resin = 1.5
-        if "info/substrate.json" in self:  # ToDo create the substrate json file
-            if "refractive index material" in self["info/substrate.json"]:
-                n_resin = self["info/substrate.json"]["refractive index material"]
 
         dhm_params = {
             "objective name": obj_name,
@@ -123,10 +119,23 @@ class StructureContainer(Container):
             "wavelength": wavelength_m,
             "pixel pitch": pixel_pitch_m,
             "NA objective": na_objective,
-            "refractive index": n_resin,
         }
 
         return dhm_params
+
+    @property
+    def material_params(self):
+        """
+        Material parameters (refractive index of the structure) or None.
+        The refractive index is a material property and therefore not part of
+        the DHM parameters.
+        """
+        if "info/substrate.json" not in self:  # ToDo create the substrate json file
+            return None
+        substrate = self["info/substrate.json"]
+        if "refractive index material" not in substrate:
+            return None
+        return {"refractiveIndex": substrate["refractive index material"]}
 
     @property
     def background_hologram(self):
