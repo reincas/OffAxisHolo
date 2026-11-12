@@ -57,21 +57,16 @@ class ReconstructionPipeline:
         )
         self.background_data_preset = background_data_preset  # initialization
 
-        if (
-            background_data_available is None
-            and background_data_path is None
-            and compensation_method == "None"
-        ):
-            self.background_data_available = False
-            self.background_data_path = None
+        # Defaults, so that the attributes always exist
+        self.background_data_available = bool(background_data_available)
+        self.background_data_path = background_data_path
 
-        if self.save_path is not None:
-            if logger is None:
-                self.logger = get_logger(logfile=f"{save_path}/console.log")
-            else:
-                self.logger = logger
+        if logger is not None:
+            self.logger = logger
+        elif self.save_path is not None:
+            self.logger = get_logger(logfile=f"{save_path}/console.log")
         else:
-            self.logger = None
+            self.logger = get_logger()
 
         if data_type is None:
             file, file_extension = os.path.splitext(self.data_path)
@@ -105,8 +100,7 @@ class ReconstructionPipeline:
                     # self.background_data_preset = data in form of np.ndarray
                     # todo: Implement default background images for DHM
                     # todo: implement ask dialog for selecting preset
-                    print("Not yet implemented")
-                    return
+                    raise NotImplementedError("Background presets not yet implemented.")
 
                 response = messagebox.askyesno(
                     title="Background data", message="Is Background data available?"
@@ -125,6 +119,8 @@ class ReconstructionPipeline:
                         if path is not None:
                             self.background_data_available = True
                             self.background_data_path = path.name
+                            path.close()
+                            break
                         else:
                             no_compensation = messagebox.askyesno(
                                 title="Aberration compensation",
@@ -138,7 +134,6 @@ class ReconstructionPipeline:
                                 )
                                 self.compensation = False
                                 compensation_method = "None"
-                                return
                 else:
                     # ask for other compensation method
                     zernike_compensation = messagebox.askyesno(
@@ -147,7 +142,11 @@ class ReconstructionPipeline:
                         " compensation method?",
                     )
                     if zernike_compensation:
-                        compensation_method = "ZernikePolynomial"
+                        raise NotImplementedError(
+                            "Zernike Polynomial is not yet implemented."
+                        )
+                    self.compensation = False
+                    compensation_method = "None"
 
         elif compensation_method == "Background" and self.structure_zdc_container:
             self.background_data_available = True
@@ -245,7 +244,7 @@ class ReconstructionPipeline:
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = (self.save_path,)
+            save_path = self.save_path
         else:
             save_path = path
 
@@ -271,7 +270,7 @@ class ReconstructionPipeline:
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = (self.save_path,)
+            save_path = self.save_path
         else:
             save_path = path
 
@@ -325,7 +324,7 @@ class ReconstructionPipeline:
         if path is None:
             if self.save_path is None:
                 raise FileNotFoundError("Save path has to be given!")
-            save_path = (self.save_path,)
+            save_path = self.save_path
         else:
             save_path = path
 
@@ -347,10 +346,11 @@ class ReconstructionPipeline:
             os.path.join(save_path, "processor_field_propagated"),
             self.processor.field_propagated,
         )
-        np.save(
-            os.path.join(save_path, "processor_field_compensated"),
-            self.processor.field_compensated,
-        )
+        if self.processor.field_compensated is not None:
+            np.save(
+                os.path.join(save_path, "processor_field_compensated"),
+                self.processor.field_compensated,
+            )
         np.save(
             os.path.join(save_path, "processor_reconstructed_field"),
             self.processor.field_reconstructed,
@@ -361,7 +361,7 @@ class ReconstructionPipeline:
         )
         np.save(
             os.path.join(save_path, "processor_phase_wrapped"),
-            self.processor.phase_compensated,
+            self.processor.phase_wrapped,
         )
         np.save(
             os.path.join(save_path, "processor_phase_unwrapped"),
@@ -374,14 +374,14 @@ class ReconstructionPipeline:
             "Only spatial filtering.",
             "hologram_background": "Captured background hologram. "
             "Used for aberration compensation.",
-            "processor_field_propagated": "Field after propagation. "
-            "Before aberration compensation.",
-            "processor_field_compensated": "Recombined field of the compensated"
-            " intensity and phase",
+            "processor_field_propagated": "Field after aberration compensation "
+            "and propagation to the focal plane.",
+            "processor_field_compensated": "Field after aberration compensation "
+            "in the hologram plane (E_obj / E_ref). Before propagation.",
             "processor_reconstructed_field": "final reconstructed electromagnetic "
             "field",
-            "processor_intensity": "Final intensity. If filtering was done, this "
-            "data is after filtering.",
+            "processor_intensity": "Final intensity in dB. With compensation this "
+            "is the relative intensity I_obj / I_ref.",
             "processor_phase_wrapped": "Final wrapped phase",
             "processor_phase_unwrapped": "Final unwrapped phase",
         }
@@ -436,10 +436,13 @@ class ReconstructionPipeline:
         )
 
         # mode_structure: kwargs have priority, then default
+        #   "developed": structure surrounded by air
+        #   "print":     structure surrounded by liquid resin (requires
+        #                "refractiveIndexLiquid" in the material dictionary)
         mode_structure = (
             kwargs.get("mode_structure")
             if kwargs.get("mode_structure") is not None
-            else "print"
+            else "developed"
         )
 
         # compensation: kwargs have priority, then default
