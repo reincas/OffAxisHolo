@@ -1,10 +1,11 @@
 import math
 import os
 
-import matplotlib.pyplot as plt
-from skimage.restoration import unwrap_phase
-
 from .. import backend
+
+# scikit-image and matplotlib are imported inside the functions that need them,
+# so that the GPU capable 'Least Squares' method can be used without them
+# (lightweight import for the realtime kernel).
 
 # from kamui import unwrap_dimensional
 
@@ -28,6 +29,8 @@ def phase_unwrapping_fast2d(phase_wrapped):
     Backend: scikit-image only runs on the CPU. GPU arrays are copied to the
     host, unwrapped and copied back (same backend and dtype as the input).
     """
+    from skimage.restoration import unwrap_phase
+
     phase_unwrapped = unwrap_phase(backend.to_numpy(phase_wrapped))
     return backend.asarray(
         phase_unwrapped, dtype=phase_wrapped.dtype, like=phase_wrapped
@@ -138,11 +141,15 @@ def phase_unwrapping_wrap_around(phase_wrapped, plot=False, path=None):
         Herraez et al., Appl. Opt. 41, 7437-7444 (2002)
         https://scikit-image.org/docs/stable/auto_examples/filters/plot_phase_unwrap.html
     """
+    from skimage.restoration import unwrap_phase
+
     image_unwrapped_wrap_around = unwrap_phase(
         backend.to_numpy(phase_wrapped), wrap_around=(True, True)
     )
 
     if plot:
+        import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots(1, 1)
         fig.colorbar(ax.imshow(image_unwrapped_wrap_around), ax=ax)
         ax.set_title("Unwrapped phase with wrap around")
