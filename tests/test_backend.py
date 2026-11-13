@@ -101,6 +101,18 @@ def test_use_backend_restores_state():
     assert oah.get_precision() == "double"
 
 
+def test_explicit_namespace_does_not_touch_global_state():
+    xp = backend.namespace("numpy")
+    assert xp.asarray([1.0]).dtype == np.float64
+    assert backend.real_dtype(xp, "single") == np.float32
+    assert backend.complex_dtype(xp, "double") == np.complex128
+    with oah.use_backend(precision="single"):
+        assert backend.complex_dtype(xp, "double") == np.complex128
+    assert oah.get_backend() == "numpy" and oah.get_precision() == "double"
+    with pytest.raises(ValueError):
+        backend.namespace("torch")
+
+
 def test_invalid_backend_and_precision():
     with pytest.raises(ValueError):
         oah.set_backend("torch")

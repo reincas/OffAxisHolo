@@ -36,6 +36,16 @@ accuracy for a given application has to be validated (see ToDos.txt).
 
 Operations outside of the array API standard (padding, ndimage filters, DCT) are
 dispatched by the helper functions of this module.
+
+Thread rule
+-----------
+The backend/precision selection (set_backend, set_precision, use_backend) is a
+module global state and is NOT thread safe: use_backend changes it for all
+threads. Multi-threaded applications (e.g. the realtime service) must either
+set the backend once at start-up, or - preferred - pass the namespace
+explicitly: ``xp = namespace("cupy")`` together with explicit dtypes
+(``real_dtype(xp, "single")``). The realtime kernel (offaxisholo.realtime) never
+reads the global state. All CUDA calls should be issued from a single thread.
 """
 
 from contextlib import contextmanager
@@ -127,6 +137,22 @@ def _active_namespace():
     return xp
 
 
+def namespace(name: str):
+    """
+    Return the array API namespace of the backend ``name`` ('numpy' or 'cupy')
+    without changing the global backend state (thread safe).
+    """
+    name = name.lower()
+    if name not in BACKENDS:
+        raise ValueError(f"Unknown backend '{name}'. Possible backends: {BACKENDS}.")
+    if name == "cupy":
+        _import_cupy()
+        import array_api_compat.cupy as xp
+    else:
+        import array_api_compat.numpy as xp
+    return xp
+
+
 def get_namespace(*arrays):
     """
     Return the array API namespace of the given arrays (None entries are
@@ -138,16 +164,25 @@ def get_namespace(*arrays):
     return array_api_compat.array_namespace(*arrays)
 
 
-def real_dtype(xp=None):
-    """Real floating point dtype of the active precision."""
-    xp = xp if xp is not None else _active_namespace()
-    return xp.float64 if _state["precision"] == "double" else xp.float32
+def _precision(precision):
+    precision = _state["precision"] if precision is None else precision.lower()
+    if precision not in PRECISIONS:
+        raise ValueError(
+            f"Unknown precision '{precision}'. Possible values: {PRECISIONS}."
+        )
+    return precision
 
 
-def complex_dtype(xp=None):
-    """Complex floating point dtype of the active precision."""
+def real_dtype(xp=None, precision: str = None):
+    """Real floating point dtype of the given (default: active) precision."""
     xp = xp if xp is not None else _active_namespace()
-    return xp.complex128 if _state["precision"] == "double" else xp.complex64
+    return xp.float64 if _precision(precision) == "double" else xp.float32
+
+
+def complex_dtype(xp=None, precision: str = None):
+    """Complex floating point dtype of the given (default: active) precision."""
+    xp = xp if xp is not None else _active_namespace()
+    return xp.complex128 if _precision(precision) == "double" else xp.complex64
 
 
 # ------------------------------------------------------------------ transfer
