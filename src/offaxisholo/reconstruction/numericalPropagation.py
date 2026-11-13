@@ -136,15 +136,71 @@ def angularSpectrum(
     M, N = field.shape  # rows (y), columns (x)
 
     # Optional padding against circular wrap-around (see docstring)
-    background = 0.0
     if padding:
-        border = xp.concat((field[0, :], field[-1, :], field[1:-1, 0], field[1:-1, -1]))
-        background = xp.mean(border)
-        pad_y, pad_x = M // 2, N // 2
-        field = backend.pad(
-            field - background, ((pad_y, M - pad_y), (pad_x, N - pad_x))
+        background = border_mean(field)
+        field = pad_centered(field - background)
+
+    transfer = transfer_function(
+        field.shape,
+        dx,
+        dy,
+        wavelength,
+        z,
+        n_medium=n_medium,
+        band_limit=band_limit,
+        xp=xp,
+        dtype=rdtype,
+    )
+    propagated = apply_transfer_function(field, transfer)
+
+    if padding:
+        propagated = crop_centered(propagated, (M, N))
+        # exact propagation of the plane background wave (normal incidence)
+        propagated = propagated + background * plane_wave_factor(
+            z, wavelength, n_medium
         )
-    Mp, Np = field.shape
+
+    return propagated
+
+
+# --------------------------------------------------------------------------
+# Building blocks of angularSpectrum. They are shared with the realtime kernel
+# (offaxisholo.realtime), which caches the transfer function, so that offline
+# and realtime reconstruction use exactly the same formulas.
+# --------------------------------------------------------------------------
+def transfer_function(
+    shape,
+    dx,
+    dy,
+    wavelength,
+    z,
+    *,
+    n_medium=1.0,
+    band_limit=True,
+    xp=None,
+    dtype=None,
+):
+    """
+    Transfer function H(fx, fy; z) of free space in the standard (unshifted) FFT
+    layout, including the evanescent cut-off and the optional band limitation of
+    Matsushima and Shimobaba (see angularSpectrum for theory and references).
+
+    Parameters
+    ----------
+    shape : (rows, columns) of the (padded) field.
+    dx, dy : sampling interval along columns (x) and rows (y) in metres.
+    wavelength : vacuum wavelength in metres.
+    z : propagation distance in metres.
+    n_medium : refractive index of the propagation medium.
+    band_limit : apply the band limitation.
+    xp : array namespace (default: active backend).
+    dtype : real dtype of the frequency grid (default: active precision). The
+        result has the corresponding complex dtype.
+    """
+    xp = xp if xp is not None else backend.get_namespace()
+    rdtype = dtype if dtype is not None else backend.real_dtype(xp)
+    z = float(z)
+    Mp, Np = shape
 
     # Spatial frequencies in the standard (unshifted) FFT layout.
     # fftfreq is correct for even and odd array sizes.
@@ -166,15 +222,38 @@ def angularSpectrum(
         fy_limit = 1.0 / (wavelength_medium * math.sqrt((2 * dfy * z) ** 2 + 1))
         band = (xp.abs(FX) < fx_limit) & (xp.abs(FY) < fy_limit)
         transfer = xp.where(band, transfer, 0.0)
+    return transfer
 
+
+def apply_transfer_function(field, transfer):
+    """IFFT2{ FFT2{field} * H } (field and H in the same layout and shape)."""
+    xp = backend.get_namespace(field)
     spectrum = xp.fft.fftn(field, axes=(-2, -1))
-    propagated = xp.fft.ifftn(spectrum * transfer, axes=(-2, -1))
+    return xp.fft.ifftn(spectrum * transfer, axes=(-2, -1))
 
-    if padding:
-        propagated = propagated[pad_y : pad_y + M, pad_x : pad_x + N]
-        # exact propagation of the plane background wave (normal incidence)
-        propagated = propagated + background * cmath.exp(
-            2j * math.pi * z / wavelength_medium
-        )
 
-    return propagated
+def border_mean(field):
+    """Mean of the field along the window border (plane background wave c)."""
+    xp = backend.get_namespace(field)
+    border = xp.concat((field[0, :], field[-1, :], field[1:-1, 0], field[1:-1, -1]))
+    return xp.mean(border)
+
+
+def pad_centered(field):
+    """Zero pad a (M, N) field centred to (2M, 2N)."""
+    M, N = field.shape
+    pad_y, pad_x = M // 2, N // 2
+    return backend.pad(field, ((pad_y, M - pad_y), (pad_x, N - pad_x)))
+
+
+def crop_centered(field, shape):
+    """Inverse of pad_centered: crop the centred (M, N) window."""
+    M, N = shape
+    pad_y, pad_x = M // 2, N // 2
+    return field[pad_y : pad_y + M, pad_x : pad_x + N]
+
+
+def plane_wave_factor(z, wavelength, n_medium=1.0):
+    """Propagation factor exp(2j*pi*n*z/lambda0) of a plane wave at normal
+    incidence (used for the background wave of the padding method)."""
+    return cmath.exp(2j * math.pi * float(z) / (wavelength / n_medium))
