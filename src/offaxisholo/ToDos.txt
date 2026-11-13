@@ -26,6 +26,21 @@ ToDo
 - hologram class
     - deal with the set full reconstruction -- is it necessary?
 
+- GPU backend (backend.py, currently NumPy + CuPy/CUDA)
+    - !!! MUST: compare phase unwrapping 'Fast 2D' (Herraez, skimage, CPU) with 'Least Squares'
+        (DCT, Ghiglia-Romero, GPU) systematically before 'Least Squares' may become the default:
+        simulated + real holograms, noise, phase residues, steps/discontinuities, height error,
+        congruent=True/False. Until then 'Fast 2D' stays the default on CPU and GPU.
+    - support further GPU vendors in a later release:
+        - AMD (ROCm) and Apple Silicon (MPS) via a PyTorch backend (array-api-compat supports torch;
+          dispatch for pad / ndimage filters / DCT needed; MPS has no complex128)
+        - optionally JAX (GPU only on Linux / WSL2)
+    - validate single precision (float32/complex64) against double for phase and height maps;
+        afterwards decide whether 'single' becomes the GPU default
+    - check GPU capable exact unwrapping algorithms (e.g. branch cut, graph cut, PUMA on GPU)
+    - batch processing on the GPU (layer data, z-scans / autofocus over many propagation distances)
+    - run tests/test_backend.py and tests/benchmark_backend.py on a CUDA machine
+
 
 
 ------- COMPLETE WITH AN EXTENDED DOCUMENTATION OF THIS LIBRARY AND USAGE OF DOCKER -------
