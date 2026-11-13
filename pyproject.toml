@@ -11,6 +11,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 dependencies = [
+    "array-api-compat>=1.11",
     "matplotlib>=3.10.9",
     "numpy>=2.4.5",
     "opencv-python>=4.10.0.82",
@@ -21,6 +22,10 @@ dependencies = [
 
 
 [project.optional-dependencies]
+# GPU backend (NVIDIA CUDA). For CUDA 13 drivers use "cupy-cuda13x" instead.
+gpu = [
+    "cupy-cuda12x>=13.0"
+]
 dev = [
     "black",
     "ruff",

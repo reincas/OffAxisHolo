@@ -10,9 +10,28 @@
 ##########################################################################
 
 # from .reconstruction import DHMPlotter
+from .backend import (
+    get_backend,
+    get_precision,
+    set_backend,
+    set_precision,
+    to_numpy,
+    use_backend,
+)
 from .io.loader import DataLoader
 from .pipeline.reconstruction_pipeline import ReconstructionPipeline
 from .reconstruction.hologram_class import Hologram
 from .reconstruction.processor_class import HologramProcessor
 
-__all__ = ["DataLoader", "Hologram", "HologramProcessor", "ReconstructionPipeline"]
+__all__ = [
+    "DataLoader",
+    "Hologram",
+    "HologramProcessor",
+    "ReconstructionPipeline",
+    "get_backend",
+    "get_precision",
+    "set_backend",
+    "set_precision",
+    "to_numpy",
+    "use_backend",
+]
