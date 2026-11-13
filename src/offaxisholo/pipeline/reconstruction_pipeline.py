@@ -1,12 +1,17 @@
 import json
 import os
-from importlib.resources import files
 from typing import Literal
 
 import numpy as np
 from scidatacontainer import Container
 
 from .. import backend as array_backend
+from ..config.presets import (
+    DHM_PRESETS,
+    MATERIAL_PRESETS,
+    load_dhm_preset,
+    load_material_preset,
+)
 from ..io.loader import DataLoader
 from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
 from ..utils import get_logger
@@ -174,40 +179,18 @@ class ReconstructionPipeline:
         self.compensation_method = compensation_method
 
         if dhm_dictionary is None:
-            preset_map = {
-                "Zeiss 63x": "Zeiss_63x.json",
-                "Zeiss 20x": "Zeiss_20x.json",
-            }
-
-            if dhm_preset not in preset_map:
+            if dhm_preset not in DHM_PRESETS:
                 self.logger.warning(f"No preset {dhm_preset}")
-                raise NotImplementedError(f"No preset {dhm_preset} implemented.")
-
-            config_path = (
-                files("offaxisholo.config.DHM_preset") / preset_map[dhm_preset]
-            )
-            with config_path.open("r") as f:
-                self.dhm_dictionary = json.load(f)
+            self.dhm_dictionary = load_dhm_preset(dhm_preset)
             if self.logger is not None:
                 self.logger.info(f"DHM Preset {dhm_preset} loaded.")
         else:
             self.dhm_dictionary = dhm_dictionary
 
         if material_dictionary is None:
-            preset_map = {
-                "SZ2080": "SZ2080.json",
-            }
-
-            if material_preset not in preset_map:
+            if material_preset not in MATERIAL_PRESETS:
                 self.logger.warning(f"No preset {material_preset}")
-                raise NotImplementedError(f"No preset {material_preset} implemented.")
-
-            config_path = (
-                files("offaxisholo.config.Background_preset")
-                / preset_map[material_preset]
-            )
-            with config_path.open("r") as f:
-                self.material_dictionary = json.load(f)
+            self.material_dictionary = load_material_preset(material_preset)
 
             self.logger.info(f"Material Preset {material_preset} loaded.")
         else:

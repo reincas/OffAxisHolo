@@ -4,38 +4,21 @@ without file loading, dialogs or the ReconstructionPipeline.
 """
 
 import copy
-import json
-from importlib.resources import files
 from typing import Literal
 
 import numpy as np
 
 from .. import backend as array_backend
+from ..config.presets import load_dhm_preset, load_material_preset
 from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
-
-_DHM_PRESETS = {"Zeiss 63x": "Zeiss_63x.json", "Zeiss 20x": "Zeiss_20x.json"}
-_MATERIAL_PRESETS = {"SZ2080": "SZ2080.json"}
-
-
-def _load_preset(package, preset_map, preset):
-    if preset not in preset_map:
-        raise NotImplementedError(f"No preset {preset} implemented.")
-    with (files(package) / preset_map[preset]).open("r") as f:
-        return json.load(f)
 
 
 def _get_parameters(dhm_dictionary, dhm_preset, material_dictionary, material_preset):
-    dhm = (
-        dhm_dictionary
-        if dhm_dictionary is not None
-        else _load_preset("offaxisholo.config.DHM_preset", _DHM_PRESETS, dhm_preset)
-    )
+    dhm = dhm_dictionary if dhm_dictionary is not None else load_dhm_preset(dhm_preset)
     material = (
         material_dictionary
         if material_dictionary is not None
-        else _load_preset(
-            "offaxisholo.config.Background_preset", _MATERIAL_PRESETS, material_preset
-        )
+        else load_material_preset(material_preset)
     )
     # HologramProcessor modifies the dict via update() -> pass copies
     return copy.deepcopy(dhm), copy.deepcopy(material)
