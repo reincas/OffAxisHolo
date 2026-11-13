@@ -15,20 +15,26 @@
 # This module provides functions to generate quadratic field arrays. All
 # length parameters are expected as unitless multiples of the wavelength.
 #
+# All fields are generated on the active array backend (NumPy or CuPy, see
+# offaxisholo.backend) in its working precision.
+#
 ##########################################################################
 
+import math
+
 import numpy as np
+
+from .. import backend
 
 
 def mesh(N, pitch):
     """Return quadratic x and y position arrays with given pitch and origin
     of the coordinate system at the array center."""
 
-    y, x = np.indices((N, N), dtype=float)
-    x -= 0.5 * np.max(x)
-    y -= 0.5 * np.max(y)
-    x *= pitch
-    y *= pitch
+    xp = backend.get_namespace()
+    c = xp.arange(N, dtype=backend.real_dtype(xp))
+    c = (c - 0.5 * (N - 1)) * pitch
+    x, y = xp.meshgrid(c, c, indexing="xy")
     return y, x
 
 
@@ -36,17 +42,19 @@ def norm(img):
     """Return given complex field with total magnitude normalized to a value
     of 1.0."""
 
-    return img / np.sum(np.abs(img))
+    xp = backend.get_namespace(img)
+    return img / xp.sum(xp.abs(img))
 
 
 def planar(N, theta, phi):
     """Return a planar wave field with magnitude 1.0 and tilted by a polar
     angle theta and an azimutal angle phi as complex (N,N) array."""
 
-    fx = np.sin(theta) * np.cos(phi)
-    fy = np.sin(theta) * np.sin(phi)
+    xp = backend.get_namespace()
+    fx = math.sin(theta) * math.cos(phi)
+    fy = math.sin(theta) * math.sin(phi)
     y, x = mesh(N, 1.0)
-    F = np.exp(2j * np.pi * (fx * x + fy * y))
+    F = xp.exp(2j * math.pi * (fx * x + fy * y))
     return F
 
 
@@ -56,11 +64,12 @@ def spherical(N, pitch, z, approx=False):
     is located on the optical axis."""
 
     # FIXME: Check the equation!
+    xp = backend.get_namespace()
     y, x = mesh(N, pitch)
     if approx:
-        F = np.exp(2j * np.pi * (z + (x * x + y * y) / (2 * z)))
+        F = xp.exp(2j * math.pi * (z + (x * x + y * y) / (2 * z)))
     else:
-        F = np.exp(2j * np.pi * np.sqrt(x * x + y * y + z * z))
+        F = xp.exp(2j * math.pi * xp.sqrt(x * x + y * y + z * z))
     return F
 
 
@@ -69,9 +78,10 @@ def aperture(N, r0, pitch, x0=0, y0=0):
     aperture with radius r0 and offset (x0,y0) relative to the center of the
     array."""
 
+    xp = backend.get_namespace()
     y, x = mesh(N, pitch)
-    r = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
-    F = np.where(r <= r0, 1.0, 0.0)
+    r = xp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
+    F = xp.astype(r <= r0, backend.real_dtype(xp))
     return F
 
 
@@ -89,15 +99,16 @@ def lens(Fin, pin, f, d=None):
     pout = f / (N * pin)
 
     # Lens transformation using Fourier transform
-    Fout = Fin
-    Fout = np.fft.fftshift(Fout)
-    Fout = np.fft.fft2(Fout)
-    Fout = np.fft.fftshift(Fout)
+    Fout = backend.asarray(Fin)
+    xp = backend.get_namespace(Fout)
+    Fout = xp.fft.fftshift(Fout)
+    Fout = xp.fft.fftn(Fout, axes=(-2, -1))
+    Fout = xp.fft.fftshift(Fout)
 
     # Quadratic phase factor
     if d is not None:
         v, u = mesh(N, f / (N * pin))
-        Fout *= np.exp(1j * np.pi / f * (1 - d / f) * (u * u + v * v))
+        Fout = Fout * xp.exp(1j * math.pi / f * (1 - d / f) * (u * u + v * v))
 
     # Return output field and pitch
     return Fout, pout
@@ -131,19 +142,21 @@ def propagate(Fin, pin, z):
         return Fin
 
     # Spatial frequencies in units of 1/wavelength (standard FFT layout)
+    Fin = backend.asarray(Fin)
+    xp = backend.get_namespace(Fin)
     N = Fin.shape[0]
-    f = np.fft.fftfreq(N, d=pin)
-    fx, fy = np.meshgrid(f, f, indexing="xy")
+    f = xp.fft.fftfreq(N, d=pin, dtype=backend.real_dtype(xp))
+    fx, fy = xp.meshgrid(f, f, indexing="xy")
     argument = 1.0 - fx * fx - fy * fy
     propagating = argument > 0.0
-    H = np.where(
+    H = xp.where(
         propagating,
-        np.exp(2j * np.pi * z * np.sqrt(np.where(propagating, argument, 0.0))),
+        xp.exp(2j * math.pi * z * xp.sqrt(xp.where(propagating, argument, 0.0))),
         0.0,
     )
 
     # Propagation using the ASM
-    Fout = np.fft.ifft2(np.fft.fft2(Fin) * H)
+    Fout = xp.fft.ifftn(xp.fft.fftn(Fin, axes=(-2, -1)) * H, axes=(-2, -1))
 
     # Return output field
     return Fout
@@ -216,7 +229,8 @@ class HoloMicroscope(object):
         assert isinstance(N, int), "Field size must be an integer!"
         assert N > 0, "Field size must be a positive integer!"
         assert N & (N - 1) == 0, "Field size must be a power of two!"
-        self.illuminationField = np.ones((N, N), dtype=complex)
+        xp = backend.get_namespace()
+        self.illuminationField = xp.ones((N, N), dtype=backend.complex_dtype(xp))
 
     @property
     def illuminationField(self):
@@ -231,13 +245,15 @@ class HoloMicroscope(object):
         ), "Unknown illumination field!"
         if Fin is None:
             return
-        assert isinstance(Fin, np.ndarray), "Field array required!"
-        assert np.issubdtype(Fin.dtype, np.number), "Numeric field array required!"
+        assert backend.is_array(Fin), "Field array required!"
+        assert np.issubdtype(
+            np.dtype(Fin.dtype), np.number
+        ), "Numeric field array required!"
         assert len(Fin.shape) == 2, "Two-dimensional field required!"
         h, w = Fin.shape
         assert h == w, "Quadratic field required"
         assert w & (w - 1) == 0, "Field size must be a power of two!"
-        Fin = Fin.astype(complex)
+        Fin = backend.asarray(Fin, dtype=backend.complex_dtype())
         self._params["illuminationField"] = norm(Fin)
 
     @property
@@ -394,9 +410,12 @@ class HoloMicroscope(object):
         array with pitch in wavelength units. Return also all fields and their
         pitches if fields is True."""
 
-        assert isinstance(Fo, np.ndarray), "Object field array required!"
-        assert np.issubdtype(Fo.dtype, np.number), "Numeric field array required!"
+        assert backend.is_array(Fo), "Object field array required!"
+        assert np.issubdtype(
+            np.dtype(Fo.dtype), np.number
+        ), "Numeric field array required!"
         assert Fo.shape == self.shape, "Wrong field shape!"
+        Fo = backend.asarray(Fo)
 
         assert po is not None, "Object pitch is required!"
         po = float(po)
@@ -413,7 +432,7 @@ class HoloMicroscope(object):
         Fs, ps = lens(Fo, po, fmo)
         N = self.fieldSize
         ra = self.pupilRadius
-        Fs *= aperture(N, ra, ps)
+        Fs = Fs * aperture(N, ra, ps)
 
         # Image field (back focal plane of tube lens)
         ftl = self.tubeFocalLength
@@ -428,7 +447,7 @@ class HoloMicroscope(object):
         # Field on camera sensor with reference wave
         ds = self.sensorDistance
         Fc = propagate(Fi, pi, ds)
-        Fc += Fr
+        Fc = Fc + Fr
 
         # The camera records the intensity of the superposition of object and
         # reference wave, I = |O + R|^2.
@@ -436,7 +455,8 @@ class HoloMicroscope(object):
         # (2005), Sec. 2.4 (hologram recording); M. K. Kim, "Principles and
         # techniques of digital holographic microscopy," SPIE Reviews 1, 018005
         # (2010).
-        holo = np.abs(Fc) ** 2
+        xp = backend.get_namespace(Fc)
+        holo = xp.abs(Fc) ** 2
         if not fields:
             return holo, pi
 
