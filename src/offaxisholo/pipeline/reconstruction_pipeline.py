@@ -6,20 +6,10 @@ from typing import Literal
 import numpy as np
 from scidatacontainer import Container
 
-if __name__ == "__main__":
-    from src.offaxisholo import DataLoader, get_logger
-    from src.offaxisholo import backend as array_backend
-    from src.offaxisholo.reconstruction import (
-        Hologram,
-        HologramProcessor,
-        ReferenceHologram,
-    )
-else:
-    from .. import backend as array_backend
-    from ..io.loader import DataLoader
-    from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
-    from ..utils import get_logger
-from tkinter import filedialog, messagebox
+from .. import backend as array_backend
+from ..io.loader import DataLoader
+from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
+from ..utils import get_logger
 
 
 class ReconstructionPipeline:
@@ -114,6 +104,10 @@ class ReconstructionPipeline:
                     # todo: Implement default background images for DHM
                     # todo: implement ask dialog for selecting preset
                     raise NotImplementedError("Background presets not yet implemented.")
+
+                # Interactive dialogs only in this branch: tkinter is imported
+                # here, so that importing the pipeline never needs a display.
+                from tkinter import filedialog, messagebox
 
                 response = messagebox.askyesno(
                     title="Background data", message="Is Background data available?"
@@ -659,20 +653,3 @@ class ReconstructionPipeline:
         if dc.content["containerType"]["name"] == "StructureContainer":
             self.structure_zdc_container = True
             self.background_data_available = True
-
-
-if __name__ == "__main__":
-    test_path = (
-        r"C:\Users\hanne\Documents\Projekte Offline PC\DHM as a QPI method"
-        r"\rawdata\DHM_Print\structures\DOE1_ABZ_Zeiss 63x.zdc"
-    )
-    test_eval = (
-        r"C:\Users\hanne\Documents\Projekte Offline PC"
-        r"\DHM as a QPI method\visualization\Test_Docker"
-    )
-
-    test_zdc = Container(file=test_path)
-
-    print("stop")
-    # docker = DockerSciDataContainer()
-    # docker.plot_reconstruction(container_path=test_path, save_path_plot=test_eval)

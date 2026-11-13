@@ -41,6 +41,14 @@ def test_light_import(module):
     assert _loaded_heavy_modules(f"import {module}") == []
 
 
+def test_pipeline_import_without_tkinter():
+    """tkinter is only needed for the interactive background dialogs."""
+    loaded = _loaded_heavy_modules(
+        "import offaxisholo.pipeline.reconstruction_pipeline"
+    )
+    assert "tkinter" not in loaded
+
+
 def test_public_api_still_available():
     """The lazy imports must keep the old public API working."""
     statement = (
