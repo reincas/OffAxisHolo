@@ -1,4 +1,5 @@
 from .. import backend
+from . import fieldops
 
 
 class HologramCore:
@@ -95,15 +96,7 @@ class HologramCore:
             Part 3: Logarithmic and related quantities, and their units"
             (definition of the decibel for power quantities: 10 * log10).
         """
-        xp = backend.get_namespace(complex_field)
-        intensity = xp.abs(complex_field) ** 2
-        eps = 1e-12
-
-        if mode.lower() == "db":
-            intensity = 10 * xp.log10(intensity + eps)
-        elif mode.lower() != "linear":
-            raise ValueError("Intensity mode must be 'linear' or 'db'.")
-        return intensity
+        return fieldops.intensity(complex_field, mode=mode)
 
     def phase(self, input):
         """
@@ -128,7 +121,7 @@ class HologramCore:
             J. W. Goodman, "Introduction to Fourier Optics", 3rd ed. (2005),
             Chapter 3 (phasor representation of monochromatic fields).
         """
-        return backend.angle(input)
+        return fieldops.phase(input)
 
     def calculate_efield(self, intensity, phase, intensity_is_db=False):
         """

@@ -4,12 +4,12 @@ Coordinates the entire reconstruction process, ensuring that all necessary steps
 height calculation) are executed in the physically correct order.
 """
 
-import math
 import warnings
 from typing import Literal
 
 from .. import backend
 from ..utils import get_logger
+from . import fieldops
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
 from .numericalPropagation import angularSpectrum
@@ -529,13 +529,9 @@ class HologramProcessor(HologramCore):
             n_resin = self.refractive_index_default
         if n_medium is None:
             n_medium = N_AIR
-        delta_n = n_resin - n_medium
-        if delta_n == 0:
-            raise ValueError(
-                "Refractive index of structure and medium are identical; "
-                "height cannot be calculated."
-            )
-        return self.params["wavelength"] * phase / (2 * math.pi * delta_n)
+        return fieldops.phase_to_height(
+            phase, self.params["wavelength"], n_resin, n_medium
+        )
 
     def get_dict(self):
         return self.reconstruction_dict if self.reconstruction_dict else self.params
