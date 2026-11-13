@@ -45,6 +45,17 @@ offaxisholo = [
     "config/**/*.txt",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/test/ contains legacy scripts (not runnable as tests)
+norecursedirs = ["test", "golden", ".*", "build", "*.egg-info"]
+markers = [
+    "gpu: requires CuPy and a CUDA device",
+    "slow: long running test",
+    "hardware: requires the measurement PC (camera)",
+]
+
+
 [tool.black]
 line-length = 88
 # reference material is kept verbatim (also when passed explicitly by pre-commit)
