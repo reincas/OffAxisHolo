@@ -18,6 +18,12 @@ LIGHT_MODULES = [
     "offaxisholo.reconstruction",
     "offaxisholo.reconstruction.numericalPropagation",
     "offaxisholo.reconstruction.phaseUnwrapping",
+    "offaxisholo.realtime",
+    "offaxisholo.realtime.config",
+    "offaxisholo.realtime.core",
+    "offaxisholo.realtime.accumulators",
+    "offaxisholo.realtime.calibration",
+    "offaxisholo.realtime.unwrapping",
 ]
 
 
