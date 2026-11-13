@@ -4,16 +4,19 @@ Coordinates the entire reconstruction process, ensuring that all necessary steps
 height calculation) are executed in the physically correct order.
 """
 
+import math
 import warnings
 from typing import Literal
 
-import numpy as np
-
+from .. import backend
 from ..utils import get_logger
 from .base_class import HologramCore
 from .hologram_class import Hologram, ReferenceHologram
 from .numericalPropagation import angularSpectrum
-from .phaseUnwrapping import phase_unwrapping_fast2d  # , phase_unwrapping_kamui_normal
+from .phaseUnwrapping import (  # , phase_unwrapping_kamui_normal
+    phase_unwrapping_fast2d,
+    phase_unwrapping_ls_dct,
+)
 from .plotter_class import DHMPlotter
 
 # Refractive index of the surrounding medium for each structure mode.
@@ -55,6 +58,7 @@ class HologramProcessor(HologramCore):
     required_dhm_keys = {"propagationDistance", "name", "pixelPitch", "wavelength"}
     refractive_index_default = 1.5  # default value for refractive index
     available_filters = []  # todo implement filter in the py file and add it here
+    unwrapping_methods = ("Fast 2D", "Least Squares")
 
     # compensated field (hologram plane)
     field_compensated = None  # E_obj * conj(E_ref) / |E_ref|^2
@@ -218,7 +222,9 @@ class HologramProcessor(HologramCore):
             'developed': structure in air; 'print': structure in liquid resin
             (see medium_refractive_index).
         phase_unwrapping_method : str
-            Only 'Fast 2D' is available.
+            'Fast 2D' (default, Herraez et al., always computed on the CPU) or
+            'Least Squares' (DCT based, runs on the GPU, not yet validated).
+            See phase_unwrapping.
         propagation_padding : bool
             Padding against wrap-around during propagation (see
             numericalPropagation.angularSpectrum).
@@ -393,7 +399,7 @@ class HologramProcessor(HologramCore):
         self.logger.info("Propagation finished ...")
         return propagated
 
-    def compensate(self, original: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    def compensate(self, original, reference):
         """
         Aberration compensation with a reference (background) hologram.
 
@@ -429,10 +435,11 @@ class HologramProcessor(HologramCore):
             digital holographic microscopy with a reference conjugated hologram,"
             Opt. Express 14, 4300-4306 (2006). https://doi.org/10.1364/OE.14.004300
         """
-        reference_intensity = np.abs(reference) ** 2
-        eps = np.finfo(float).eps * np.max(reference_intensity)
+        xp = backend.get_namespace(original, reference)
+        reference_intensity = xp.abs(reference) ** 2
+        eps = xp.finfo(reference_intensity.dtype).eps * xp.max(reference_intensity)
         self.field_compensated = (
-            original * np.conj(reference) / (reference_intensity + eps)
+            original * xp.conj(reference) / (reference_intensity + eps)
         )
         self.phase_compensated = self.phase(self.field_compensated)
         self.intensity_compensated_linear = self.intensity(
@@ -444,19 +451,43 @@ class HologramProcessor(HologramCore):
         self.logger.info("Compensation finished ...")
         return self.field_compensated
 
-    def phase_unwrapping(self, phase_wrapped, method: Literal["Fast 2D"] = "Fast 2D"):
+    def to_cpu(self):
         """
-        2D phase unwrapping. See phaseUnwrapping.phase_unwrapping_fast2d for the
-        algorithm and reference.
+        Convert all result arrays of the processor and of its holograms to NumPy
+        arrays (copy from the GPU if the CuPy backend was used). Returns self.
+        """
+        super().to_cpu()
+        self.hologram.to_cpu()
+        if self.background is not None:
+            self.background.to_cpu()
+        return self
+
+    def phase_unwrapping(
+        self,
+        phase_wrapped,
+        method: Literal["Fast 2D", "Least Squares"] = "Fast 2D",
+    ):
+        """
+        2D phase unwrapping.
+
+        'Fast 2D' (default): reliability sorting (Herraez et al.), see
+            phaseUnwrapping.phase_unwrapping_fast2d. Computed on the CPU; GPU
+            arrays are transferred automatically.
+        'Least Squares': unweighted least squares unwrapping with the DCT
+            (Ghiglia and Romero), see phaseUnwrapping.phase_unwrapping_ls_dct.
+            Runs completely on the active backend. Results differ from
+            'Fast 2D' and are not yet validated for DHM data (see ToDos.txt).
         """
         if method == "Fast 2D":
             phase_unwrapped = phase_unwrapping_fast2d(phase_wrapped)
+        elif method == "Least Squares":
+            phase_unwrapped = phase_unwrapping_ls_dct(phase_wrapped)
         # elif method == "Kamui":
         #     phase_unwrapped = phase_unwrapping_kamui_normal(phase_wrapped)
         else:
             raise ValueError(
                 f"Unsupported phase unwrapping method: {method}. "
-                f"Possible unwrapping method is 'Fast 2D'."
+                f"Possible unwrapping methods: {self.unwrapping_methods}."
             )
         self.logger.info("Phase unwrapping finished ...")
         return phase_unwrapped
@@ -504,7 +535,7 @@ class HologramProcessor(HologramCore):
                 "Refractive index of structure and medium are identical; "
                 "height cannot be calculated."
             )
-        return self.params["wavelength"] * phase / (2 * np.pi * delta_n)
+        return self.params["wavelength"] * phase / (2 * math.pi * delta_n)
 
     def get_dict(self):
         return self.reconstruction_dict if self.reconstruction_dict else self.params
