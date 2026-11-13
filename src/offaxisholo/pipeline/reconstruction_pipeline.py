@@ -8,12 +8,14 @@ from scidatacontainer import Container
 
 if __name__ == "__main__":
     from src.offaxisholo import DataLoader, get_logger
+    from src.offaxisholo import backend as array_backend
     from src.offaxisholo.reconstruction import (
         Hologram,
         HologramProcessor,
         ReferenceHologram,
     )
 else:
+    from .. import backend as array_backend
     from ..io.loader import DataLoader
     from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
     from ..utils import get_logger
@@ -43,7 +45,18 @@ class ReconstructionPipeline:
         background_data_path=None,
         using_layer_data=False,
         logger=None,
+        backend: Literal["numpy", "cupy"] = None,
+        precision: Literal["double", "single"] = None,
     ):
+        """
+        backend:      array backend for the reconstruction ('numpy' = CPU,
+                      'cupy' = NVIDIA GPU). None uses the global setting
+                      (offaxisholo.set_backend).
+        precision:    'double' or 'single'. None uses the global setting
+                      (offaxisholo.set_precision).
+        """
+        self.backend = backend
+        self.precision = precision
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
             self.save_path = save_path
@@ -285,19 +298,21 @@ class ReconstructionPipeline:
     def save_necessary_data(self, save_path):
         # save holo data
         np.save(
-            os.path.join(save_path, "hologram_original_data"), self.holo.data
+            os.path.join(save_path, "hologram_original_data"),
+            array_backend.to_numpy(self.holo.data),
         )  # original data
         if self.background_data_available:
             np.save(
-                os.path.join(save_path, "hologram_background"), self.background.data
+                os.path.join(save_path, "hologram_background"),
+                array_backend.to_numpy(self.background.data),
             )  # background data
         np.save(
             os.path.join(save_path, "processor_intensity"),
-            self.processor.intensity_reconstructed,
+            array_backend.to_numpy(self.processor.intensity_reconstructed),
         )
         np.save(
             os.path.join(save_path, "processor_phase_unwrapped"),
-            self.processor.phase_map,
+            array_backend.to_numpy(self.processor.phase_map),
         )
 
         information_saved_fields = {
@@ -330,42 +345,44 @@ class ReconstructionPipeline:
 
         # save holo data
         np.save(
-            os.path.join(save_path, "hologram_original_data"), self.holo.data
+            os.path.join(save_path, "hologram_original_data"),
+            array_backend.to_numpy(self.holo.data),
         )  # original data
         np.save(
             os.path.join(save_path, "hologram_Reconstructed_field"),
-            self.holo.reconstructed_field,
+            array_backend.to_numpy(self.holo.reconstructed_field),
         )  # reconstructed field data
         if self.background_data_available:
             np.save(
-                os.path.join(save_path, "hologram_background"), self.background.data
+                os.path.join(save_path, "hologram_background"),
+                array_backend.to_numpy(self.background.data),
             )  # background data
 
         # save processed data
         np.save(
             os.path.join(save_path, "processor_field_propagated"),
-            self.processor.field_propagated,
+            array_backend.to_numpy(self.processor.field_propagated),
         )
         if self.processor.field_compensated is not None:
             np.save(
                 os.path.join(save_path, "processor_field_compensated"),
-                self.processor.field_compensated,
+                array_backend.to_numpy(self.processor.field_compensated),
             )
         np.save(
             os.path.join(save_path, "processor_reconstructed_field"),
-            self.processor.field_reconstructed,
+            array_backend.to_numpy(self.processor.field_reconstructed),
         )
         np.save(
             os.path.join(save_path, "processor_intensity"),
-            self.processor.intensity_reconstructed,
+            array_backend.to_numpy(self.processor.intensity_reconstructed),
         )
         np.save(
             os.path.join(save_path, "processor_phase_wrapped"),
-            self.processor.phase_wrapped,
+            array_backend.to_numpy(self.processor.phase_wrapped),
         )
         np.save(
             os.path.join(save_path, "processor_phase_unwrapped"),
-            self.processor.phase_map,
+            array_backend.to_numpy(self.processor.phase_map),
         )
 
         information_saved_fields = {
@@ -398,6 +415,15 @@ class ReconstructionPipeline:
             )
 
     def run_reconstruction(self, **kwargs):
+        """
+        Run the reconstruction with the backend and precision of this pipeline.
+        Result arrays stay on the selected backend (use
+        self.processor.to_cpu() or offaxisholo.to_numpy for NumPy arrays).
+        """
+        with array_backend.use_backend(self.backend, precision=self.precision):
+            self._run_reconstruction(**kwargs)
+
+    def _run_reconstruction(self, **kwargs):
         # propagation_distance: kwargs have priority, then default
         propagation_distance = (
             kwargs.get("propagation_distance")

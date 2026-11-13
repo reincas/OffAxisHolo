@@ -6,9 +6,11 @@ without file loading, dialogs or the ReconstructionPipeline.
 import copy
 import json
 from importlib.resources import files
+from typing import Literal
 
 import numpy as np
 
+from .. import backend as array_backend
 from ..reconstruction import Hologram, HologramProcessor, ReferenceHologram
 
 _DHM_PRESETS = {"Zeiss 63x": "Zeiss_63x.json", "Zeiss 20x": "Zeiss_20x.json"}
@@ -47,6 +49,9 @@ def reconstruct_single_hologram(
     material_dictionary=None,
     material_preset="SZ2080",
     logger=None,
+    backend: Literal["numpy", "cupy"] = None,
+    precision: Literal["double", "single"] = None,
+    return_numpy=False,
     **run_kwargs,
 ) -> HologramProcessor:
     """
@@ -56,20 +61,26 @@ def reconstruct_single_hologram(
     (e.g. prop_dist, propagation_method, phase_unwrapping_method).
     Returns the HologramProcessor, giving access to phase_map, height_profile,
     intensity_reconstructed etc.
+
+    backend / precision: array backend ('numpy' = CPU, 'cupy' = NVIDIA GPU) and
+        precision ('double', 'single') for this call. None uses the global
+        settings (offaxisholo.set_backend / set_precision).
+    return_numpy: convert all result arrays to NumPy (processor.to_cpu()).
     """
     dhm, material = _get_parameters(
         dhm_dictionary, dhm_preset, material_dictionary, material_preset
     )
-    holo = Hologram(data=hologram, dhm_parameter=dhm, logger=logger)
-    processor = HologramProcessor(
-        hologram=holo,
-        reference=None,
-        dhm_parameter=dhm,
-        material_parameter=material,
-        logger=logger,
-    )
-    processor.run(compensate=False, **run_kwargs)
-    return processor
+    with array_backend.use_backend(backend, precision=precision):
+        holo = Hologram(data=hologram, dhm_parameter=dhm, logger=logger)
+        processor = HologramProcessor(
+            hologram=holo,
+            reference=None,
+            dhm_parameter=dhm,
+            material_parameter=material,
+            logger=logger,
+        )
+        processor.run(compensate=False, **run_kwargs)
+    return processor.to_cpu() if return_numpy else processor
 
 
 def reconstruct_hologram(
@@ -81,6 +92,9 @@ def reconstruct_hologram(
     material_dictionary=None,
     material_preset="SZ2080",
     logger=None,
+    backend: Literal["numpy", "cupy"] = None,
+    precision: Literal["double", "single"] = None,
+    return_numpy=False,
     **run_kwargs,
 ) -> HologramProcessor:
     """
@@ -90,23 +104,29 @@ def reconstruct_hologram(
     (e.g. prop_dist, propagation_method, phase_unwrapping_method).
     Returns the HologramProcessor, giving access to phase_map, height_profile,
     intensity_reconstructed etc.
+
+    backend / precision: array backend ('numpy' = CPU, 'cupy' = NVIDIA GPU) and
+        precision ('double', 'single') for this call. None uses the global
+        settings (offaxisholo.set_backend / set_precision).
+    return_numpy: convert all result arrays to NumPy (processor.to_cpu()).
     """
     dhm, material = _get_parameters(
         dhm_dictionary, dhm_preset, material_dictionary, material_preset
     )
-    holo = Hologram(data=hologram, dhm_parameter=dhm, logger=logger)
-    reference = ReferenceHologram(
-        data=background,
-        first_diffraction_order_pos=holo.first_diffraction_order_pos,
-        dhm_parameter=dhm,
-        logger=logger,
-    )
-    processor = HologramProcessor(
-        hologram=holo,
-        reference=reference,
-        dhm_parameter=dhm,
-        material_parameter=material,
-        logger=logger,
-    )
-    processor.run(compensate=True, compensation_mode="Background", **run_kwargs)
-    return processor
+    with array_backend.use_backend(backend, precision=precision):
+        holo = Hologram(data=hologram, dhm_parameter=dhm, logger=logger)
+        reference = ReferenceHologram(
+            data=background,
+            first_diffraction_order_pos=holo.first_diffraction_order_pos,
+            dhm_parameter=dhm,
+            logger=logger,
+        )
+        processor = HologramProcessor(
+            hologram=holo,
+            reference=reference,
+            dhm_parameter=dhm,
+            material_parameter=material,
+            logger=logger,
+        )
+        processor.run(compensate=True, compensation_mode="Background", **run_kwargs)
+    return processor.to_cpu() if return_numpy else processor

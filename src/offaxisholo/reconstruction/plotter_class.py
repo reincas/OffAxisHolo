@@ -4,6 +4,9 @@ Plotting of holograms and of the individual reconstruction steps.
 All plot methods take either a Hologram or a HologramProcessor object
 ("holo_class") and visualise its stored arrays. If the reconstruction has not
 been done yet, it is started automatically.
+
+Arrays of the GPU backend are converted to NumPy (to_numpy) before plotting or
+saving.
 """
 
 import json
@@ -12,6 +15,8 @@ from typing import Literal
 
 import numpy as np
 from matplotlib import pyplot as plt
+
+from ..backend import to_numpy
 
 
 class DHMPlotter:
@@ -82,10 +87,10 @@ class DHMPlotter:
             else:
                 name = f"picture_{self._image_counter}.png"
                 self._image_counter += 1
-            plt.imsave(os.path.join(save_path, name), img, cmap=cmap)
+            plt.imsave(os.path.join(save_path, name), to_numpy(img), cmap=cmap)
         else:
             fig, ax = plt.subplots()
-            ax.imshow(img, cmap=cmap)
+            ax.imshow(to_numpy(img), cmap=cmap)
             if title is not None:
                 ax.set_title(title)
             plt.show()
@@ -115,6 +120,7 @@ class DHMPlotter:
         else:
             x_px_sz, y_px_sz = pixel_pitch[0], pixel_pitch[1]
 
+        height_profile = to_numpy(height_profile)
         rows, cols = height_profile.shape
         X, Y = np.meshgrid(
             np.arange(cols) * x_px_sz,
@@ -158,7 +164,7 @@ class DHMPlotter:
     ):
         """Plot a single array in its own figure and save and/or show it."""
         fig, ax = plt.subplots(figsize=figsize)
-        ax.imshow(data, cmap=cmap)
+        ax.imshow(to_numpy(data), cmap=cmap)
         if title is not None:
             ax.set_title(title)
         plt.tight_layout()
@@ -181,6 +187,7 @@ class DHMPlotter:
         """
         if name is None:
             name = "field_reconstructed"
+        data = to_numpy(data)
         os.makedirs(path, exist_ok=True)
         info = {"format": data.dtype.name, "shape": list(data.shape)}
         if information is not None:
@@ -219,17 +226,21 @@ class DHMPlotter:
 
         fig, axs = plt.subplots(2, 3, figsize=(16, 9))
         fig.suptitle("Spatial filtering", fontsize=16)
-        axs[0, 0].imshow(hologram.data, cmap=cmap)
+        axs[0, 0].imshow(to_numpy(hologram.data), cmap=cmap)
         axs[0, 0].set_title("Original hologram image")
-        axs[1, 0].imshow(hologram.intensity(hologram.spectrum), cmap=cmap)
+        axs[1, 0].imshow(to_numpy(hologram.intensity(hologram.spectrum)), cmap=cmap)
         axs[1, 0].set_title("Spectrum of the hologram (dB)")
-        axs[0, 1].imshow(hologram.intensity(hologram.spectrum_shifted), cmap=cmap)
+        axs[0, 1].imshow(
+            to_numpy(hologram.intensity(hologram.spectrum_shifted)), cmap=cmap
+        )
         axs[0, 1].set_title("Shifted spectrum (dB)")
-        axs[1, 1].imshow(hologram.intensity(hologram.spectrum_masked), cmap=cmap)
+        axs[1, 1].imshow(
+            to_numpy(hologram.intensity(hologram.spectrum_masked)), cmap=cmap
+        )
         axs[1, 1].set_title("Masked spectrum (dB)")
-        axs[0, 2].imshow(hologram.reconstructed_phase, cmap=cmap)
+        axs[0, 2].imshow(to_numpy(hologram.reconstructed_phase), cmap=cmap)
         axs[0, 2].set_title("Reconstructed phase (wrapped)")
-        axs[1, 2].imshow(hologram.reconstructed_intensity, cmap=cmap)
+        axs[1, 2].imshow(to_numpy(hologram.reconstructed_intensity), cmap=cmap)
         axs[1, 2].set_title("Reconstructed intensity (dB)")
 
         name = "Spatial_filtering" + (f"_{save_title}" if save_title else "")
@@ -256,16 +267,16 @@ class DHMPlotter:
 
         fig, axs = plt.subplots(2, 2, figsize=(16, 9))
         fig.suptitle("Hologram reconstruction", fontsize=16)
-        axs[0, 0].imshow(holo_class.hologram.data, cmap="gray")
+        axs[0, 0].imshow(to_numpy(holo_class.hologram.data), cmap="gray")
         axs[0, 0].set_title("Original hologram image")
         if compensation:
-            axs[1, 0].imshow(holo_class.background.data, cmap="gray")
+            axs[1, 0].imshow(to_numpy(holo_class.background.data), cmap="gray")
             axs[1, 0].set_title("Background hologram")
         else:
             axs[1, 0].axis("off")
-        axs[0, 1].imshow(holo_class.phase_map, cmap=cmap)
+        axs[0, 1].imshow(to_numpy(holo_class.phase_map), cmap=cmap)
         axs[0, 1].set_title("Reconstructed and unwrapped phase")
-        axs[1, 1].imshow(holo_class.intensity_reconstructed, cmap="gray")
+        axs[1, 1].imshow(to_numpy(holo_class.intensity_reconstructed), cmap="gray")
         axs[1, 1].set_title("Reconstructed intensity (dB)")
 
         if save_single:
@@ -370,6 +381,7 @@ class DHMPlotter:
             if data is None:
                 ax.axis("off")
                 continue
+            data = to_numpy(data)
             ax.imshow(data, cmap=cmap)
             ax.set_title(title.replace(" ", "\n"))
 
