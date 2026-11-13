@@ -31,6 +31,8 @@ ToDo
         (DCT, Ghiglia-Romero, GPU) systematically before 'Least Squares' may become the default:
         simulated + real holograms, noise, phase residues, steps/discontinuities, height error,
         congruent=True/False. Until then 'Fast 2D' stays the default on CPU and GPU.
+        First report (synthetic + local real data): docs/realtime/unwrapping_comparison.md
+        (tools/compare_unwrapping.py) - LS deviates strongly on the developed structures.
     - support further GPU vendors in a later release:
         - AMD (ROCm) and Apple Silicon (MPS) via a PyTorch backend (array-api-compat supports torch;
           dispatch for pad / ndimage filters / DCT needed; MPS has no complex128)

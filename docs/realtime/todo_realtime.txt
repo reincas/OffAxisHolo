@@ -20,6 +20,39 @@ Legende: [ ] offen   Aufwand S (<0,5 Tag) / M (0,5-2 Tage) / L (>2 Tage)
 
 
 ================================================================================
+STATUS 2026-11-13 (Umsetzung Phase B + C, Branch Holo_HR)
+================================================================================
+Legende neu: [x] erledigt   [~] teilweise   [ ] offen
+Erledigt (je Punkt eigene Commits, Offline-Bibliothek nach jedem Schritt geprüft:
+tests/test_offline_golden.py + Smoke-Test der alten API):
+  B0 (neu) pytest-Konfiguration (testpaths, Legacy tests/test/ ausgeschlossen,
+     Marker gpu/slow/hardware), Golden-Referenz der Offline-Bibliothek.
+  B1 Lazy Imports (offaxisholo, reconstruction, phaseUnwrapping);
+     tests/test_import_hygiene.py.
+  B2 tkinter nur noch im Dialog-Zweig; defekter __main__-Block entfernt.
+  B3 [~] nur pytest-Konfiguration; Kern-Abhängigkeiten unverändert (Default-
+     Install gleich). Offen: realtime-Extra (pyzmq) in Phase E, Mindestversionen
+     vs. Mess-PC (Q2).
+  B4 backend.namespace(name) ohne globalen Zustand, explizite Präzision,
+     Thread-Regel dokumentiert. Pinned-Memory/Streams -> Phase D.
+  B5 [~] Spezifikation + Skelett nach docs/realtime/ (Skelett unverändert, von
+     black/ruff ausgenommen). /tests wird versioniert. Offen (Nutzer):
+     Legacy-Tests tests/test/*, Seafile + .git/.venv, ToDos/Notes nach docs/.
+  C1-C12, C14 siehe Einträge unten; Kern: src/offaxisholo/realtime/,
+     Tests: tests/realtime/ (Gates G1.1-G1.6 auf CPU), Benchmark:
+     tests/benchmark_realtime.py, Werkzeuge: tools/.
+  G1.8 erster Bericht: docs/realtime/unwrapping_comparison.md - auf den
+     entwickelten Strukturen weicht 'Least Squares' 0,65-2,3 rad RMS von
+     'Fast 2D' ab -> 'Fast 2D' bleibt Standard.
+Offen in Phase 1: B6, G1.7 (GPU-Lauf von tests/test_backend.py,
+  tests/realtime (gpu-Marker), tests/benchmark_realtime.py auf dem Mess-PC),
+  C13 (Optimierungen erst nach Profil), Entscheidungen Q1-Q9.
+Abweichungen vom Plan: Echtzeit-Mess-Skripte in tools/ statt scripts/
+  (scripts/ ist in .gitignore); Golden-Daten in tests/golden/ (data/ ist
+  ignoriert); calibrate_order ruft Hologram.locate_order ohne __init__ auf.
+
+
+================================================================================
 A. BEFUND IN KURZ
 ================================================================================
 Was schon passt (nicht neu bauen):
@@ -64,7 +97,7 @@ Warum die Bibliothek so NICHT als Echtzeitkern taugt (Kern des Befunds):
 ================================================================================
 B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
 ================================================================================
-[ ] B1  Lazy Imports in __init__.py (S)
+[x] B1  Lazy Imports in __init__.py (S)
         Datei: src/offaxisholo/__init__.py
         Schwere Importe (DataLoader -> cv2/scidatacontainer; ReconstructionPipeline
         -> tkinter/scidatacontainer; HologramProcessor -> matplotlib/skimage) per
@@ -73,7 +106,7 @@ B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
         Test: NEU tests/test_import_hygiene.py (Subprozess, sys.modules prüfen).
         Öffentliche API (__all__) unverändert lassen.
 
-[ ] B2  tkinter-Dialoge aus ReconstructionPipeline trennen (M)
+[x] B2  tkinter-Dialoge aus ReconstructionPipeline trennen (M)
         Datei: src/offaxisholo/pipeline/reconstruction_pipeline.py
         - `from tkinter import filedialog, messagebox` nur noch lokal in einer
           GUI-Hilfsfunktion; __init__ darf nie blockieren. Fehlende Entscheidung
@@ -88,7 +121,7 @@ B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
           Verhalten gleich).
         Hinweis: Vorhandene API-Verhalten nicht ändern; nur die Dialoge abkoppeln.
 
-[ ] B3  Abhängigkeiten aufteilen (S)
+[~] B3  Abhängigkeiten aufteilen (S)
         Datei: pyproject.toml
         Heute: opencv, matplotlib, scikit-image, scidatacontainer sind harte
         Abhängigkeiten. Vorschlag:
@@ -107,7 +140,7 @@ B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
         Pytest-Marker deklarieren (gpu, slow, hardware) - tool.pytest.ini_options
         ergänzen.
 
-[ ] B4  Thread-Regel für das Backend dokumentieren und durchsetzen (S/M)
+[x] B4  Thread-Regel für das Backend dokumentieren und durchsetzen (S/M)
         Datei: src/offaxisholo/backend.py (nur Doku + ggf. kleine Ergänzung)
         _state ist global; use_backend() ändert global. Regel: im Dienst nur der
         GPU-Worker nutzt Backend/CuPy; Backend wird einmal beim Start gesetzt.
@@ -116,7 +149,7 @@ B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
         (keine Abhängigkeit von _state); backend.py nur um Hilfsfunktionen
         erweitern (z. B. pinned_empty, device-Kontext) - rückwärtskompatibel.
 
-[ ] B5  Repository-Hygiene (S, teilweise Entscheidung des Nutzers)
+[~] B5  Repository-Hygiene (S, teilweise Entscheidung des Nutzers)
         - .venv, .git und build/ liegen in einem Seafile-Sync-Ordner: Seafile und
           .git/.venv vertragen sich schlecht (Konflikte, Korruptionsrisiko).
           Empfehlung: Git-Remote nutzen, .venv außerhalb des Sync-Ordners.
@@ -153,11 +186,11 @@ Referenz-Skelett: holo_gpu_pipeline.py (CPU-validiert; Klasse OffAxisPipeline). 
 wird als Ausgangspunkt übernommen, aber an die Konventionen der Bibliothek
 angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
 
-[ ] C1  Paketgerüst realtime/ (S)  (B1)
+[x] C1  Paketgerüst realtime/ (S)  (B1)
         NEU: realtime/__init__.py (leicht), core.py, accumulators.py, config.py,
         kernels.py (zunächst leer/optional).
 
-[ ] C2  Konfiguration (M)
+[x] C2  Konfiguration (M)
         NEU: realtime/config.py
         Dataclasses (siehe anweisung.txt Abschnitt 9), Validierung, Laden aus
         JSON/TOML, Ableitung aus bestehendem DHM-Preset (pixelPitch,
@@ -165,14 +198,14 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
         gerade, Ordnung außerhalb Spektrum -> gleiche Prüfungen wie
         Hologram._calc_radius_mask).
 
-[ ] C3  Kalibrierung der Ordnung außerhalb des Hot Paths (S)  (C2)
+[x] C3  Kalibrierung der Ordnung außerhalb des Hot Paths (S)  (C2)
         Einmalig: locate_order (bestehend) auf einem Hintergrundbild -> (fx, fy,
         rmax) in Konfiguration schreiben. Im Streaming wird locate_order NIE
         aufgerufen. Hologram selbst nicht ändern; nur nutzen.
         Zusatz: Qualitätsmaß (Gewicht des Peaks, Stabilität über mehrere Frames)
         und Warnung bei Abweichung zwischen Läufen.
 
-[ ] C4  Demodulation ohne Overhead (L)  (C1,C2)
+[x] C4  Demodulation ohne Overhead (L)  (C1,C2)
         NEU: core.py
         - Rohbild uint8/uint16 -> GPU (Pinned, async) -> float32 auf der GPU.
         - FFT2 voll (N x N), danach Ausschnitt n x n um (fx, fy) per
@@ -186,14 +219,14 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
         Entscheidungen offen: Seitenband-Fensterform (Tukey/Hann/Kreis),
         rfft2-Optimierung (nach Profil).
 
-[ ] C5  Kolbenphasenkorrektur (M)  (C4)
+[x] C5  Kolbenphasenkorrektur (M)  (C4)
         NEU: in core.py
         Maskiertes komplexes Skalarprodukt über Referenzregion, 0-d-Geräte-
         Skalar, Reduktion in float64, Korrektur U *= conj(p/|p|). Referenzregion
         konfigurierbar (Rand), Prüfung: Region darf kein Objekt enthalten
         (Diagnosewert: Streuung von |p|). Statistik von arg(p) in Metadaten.
 
-[ ] C6  Hintergrundaufnahme (M)  (C4,C5)
+[x] C6  Hintergrundaufnahme (M)  (C4,C5)
         NEU: core.py::set_background(frames)
         - Hintergrundframes demodulieren, auf ersten Frame phasenausrichten
           (Kolbenkorrektur), Mittel Ub.
@@ -203,14 +236,14 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
         - Qualitätskennzahlen: Streuung der Kolbenphase, Rest-Rauschen des
           Hintergrunds (z. B. Split-Half), Min/Max |Ub|, Anzahl dunkler Pixel.
 
-[ ] C7  Akkumulatoren (M)  (C4)
+[x] C7  Akkumulatoren (M)  (C4)
         NEU: realtime/accumulators.py
         Block, Sliding (Ringpuffer, S += neu - ältestes, periodische
         Neu-Summation gegen Drift), EMA (N_eff = (2-a)/a). Alle auf Geräte-
         Arrays fester Größe, ohne Allokation pro Frame; Zähler als Geräte- oder
         Host-Integer ohne Synchronisation.
 
-[ ] C8  Kompensation + Propagation je Ergebnis (M)  (C6,C7)
+[x] C8  Kompensation + Propagation je Ergebnis (M)  (C6,C7)
         NEU: core.py::result(z)
         E_comp = mean * K; Propagation mit gecachtem H(z).
         Cache: H(z) je (Form, dx', Wellenlänge, n_medium, z, Dtype, Padding,
@@ -226,13 +259,13 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
         per Abschätzung der Randbandbreite |z|*tan(asin(NA/n))/dx' und Messung.
         Mehrere z: eine FFT, mehrere H-Multiplikationen.
 
-[ ] C9  Ausgaben (S)  (C8)
+[x] C9  Ausgaben (S)  (C8)
         phase_wrapped (float32), amplitude / Intensität (linear oder dB wie
         HologramCore.intensity), optional Höhe (wie phase_to_height; ist heute
         eine Methode von HologramProcessor -> als reine Funktion herauslösen,
         Verhalten gleich).
 
-[ ] C10 Entfalten im Echtzeitpfad (M)
+[x] C10 Entfalten im Echtzeitpfad (M)
         Dateien: reconstruction/phaseUnwrapping.py (nur lesen/nutzen)
         - Standard: wrapped Phase ausgeben.
         - Optionen: (a) 'Fast 2D' als CPU-Nachverarbeitung in eigenem Thread;
@@ -245,7 +278,7 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
           Stufenhöhen unterschätzen (siehe Docstring) -> Vergleich auf realen
           Daten in data/ + synthetischen Stufen, Ergebnis dokumentieren.
 
-[ ] C11 Tests Phase 1 (L)  (C4-C9)
+[x] C11 Tests Phase 1 (L)  (C4-C9)
         NEU: tests/realtime/ (conftest mit Fixtures aus test_backend.py:
         _synthetic_hologram, _bump)
         - Parität gegen HologramProcessor.run (CPU double; GPU single/double).
@@ -262,7 +295,7 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
           Hintergrund, Ergebnis vor Hintergrund.
         - Marker: gpu (benötigt CUDA), sonst NumPy-Pfad auf CPU.
 
-[ ] C12 Benchmark/Profil (M)  (C8, B6, auf dem Mess-PC)
+[x] C12 Benchmark/Profil (M)  (C8, B6, auf dem Mess-PC)
         Datei: tests/benchmark_backend.py (erweitern, ohne Bestehendes zu ändern)
         oder NEU: tests/benchmark_realtime.py
         Gemessen werden muss nicht nur Einzelschritt-Median, sondern Durchsatz im
@@ -275,7 +308,7 @@ angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
         Streams (Upload/Compute/Download überlappen), Pinned-Puffer, rfft2.
         NICHT vorab.
 
-[ ] C14 Rauschmessung (S/M)  (C11)
+[x] C14 Rauschmessung (S/M)  (C11)
         NEU: scripts/noise_vs_N.py
         Misst sigma_phi vs. N_obj, N_bg an Realdaten (leere Region) und zeigt den
         Hintergrundboden -> liefert die Zahlen für sinnvolle Standardwerte von

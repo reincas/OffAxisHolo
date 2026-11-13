@@ -82,6 +82,39 @@ Notes:
 
 ---
 
+# Realtime Kernel
+
+`offaxisholo.realtime` is the computational core of the planned realtime DHM service (specification: `docs/realtime/`). It reconstructs a stream of camera frames on the GPU (or CPU) and averages several object and background holograms:
+
+```python
+from offaxisholo.realtime import (
+    DHMConfig, DemodConfig, PropagationConfig, RealtimeConfig,
+    OffAxisPipeline, calibrate_order,
+)
+
+cal = calibrate_order(background_frames[:5], dc_radius=304)   # once, offline
+config = RealtimeConfig(
+    dhm=DHMConfig.from_preset("Zeiss 63x"),
+    demod=DemodConfig(size=1024, order=cal.order, crop=512, radius=cal.radius),
+    propagation=PropagationConfig(z=(-2.6e-6,)),
+    precision="single",
+    backend="cupy",                 # or "numpy"
+)
+pipe = OffAxisPipeline(config)
+pipe.set_background(background_frames)   # averaged, K = conj(Ub)/(|Ub|^2+eps)
+for frame in object_frames:              # hot path: demodulation + piston + average
+    pipe.push(frame)
+result = pipe.result()                   # compensation + propagation, once
+phase = result.to_numpy()["phase"]       # wrapped phase, amplitude, ...
+```
+
+* Averaging of complex, piston corrected fields (`block`, `sliding`, `ema`) before compensation and propagation; the IFFT runs on the cropped sideband only (pixel pitch `config.crop_pitch`).
+* Parity mode (`crop=None`, `mask="circle"`, `eps_rel="machine"`, `piston=False`, `precision="double"`) reproduces `HologramProcessor` up to round-off; the offline library is unchanged and serves as golden reference (`tests/test_offline_golden.py`).
+* Configuration as JSON with hash (`RealtimeConfig.to_json` / `from_json` / `config_hash`).
+* Tests: `pytest tests/realtime`; benchmark: `python tests/benchmark_realtime.py 1024 2048`; tools: `tools/compare_unwrapping.py`, `tools/noise_vs_n.py`.
+
+---
+
 # Project Structure
 
 The codebase follows a **src-layout architecture**:
@@ -99,9 +132,12 @@ OffAxisHolo/
 │       ├── reconstruction/    # Core reconstruction algorithms
 │       ├── simulation/        # Numerical simulations (in development)
 │       ├── pipeline/          # Workflow orchestration (in development)
+│       ├── realtime/          # Realtime GPU kernel (config, core, accumulators)
 │       ├── backend.py         # Array backend selection (NumPy / CuPy GPU)
 │       └── __init__.py
-├── tests/                     # In refactoring
+├── docs/realtime/             # Realtime specification, todo, reference skeleton
+├── tools/                     # Measurement / comparison scripts
+├── tests/                     # pytest (tests/test/ = legacy scripts)
 ```
 
 ---
@@ -113,6 +149,7 @@ OffAxisHolo/
 * **reconstruction/**   → phase retrieval and propagation algorithms
 * **simulation/**       → synthetic hologram generation
 * **pipeline/**         → experimental workflow orchestration
+* **realtime/**         → realtime reconstruction kernel (GPU)
 
 ---
 
