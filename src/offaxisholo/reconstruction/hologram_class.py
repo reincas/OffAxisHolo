@@ -1,22 +1,24 @@
+import math
 from datetime import datetime
 from typing import Tuple
 
 import cv2 as cv
 import numpy as np
-from scipy.ndimage import maximum_filter
 
+from .. import backend
 from .base_class import HologramCore
 
 
 class Hologram(HologramCore):
-    data: np.array  # original Hologram data
+    # All arrays live on the active backend (NumPy or CuPy, see backend.py).
+    data = None  # original Hologram data (original dtype)
     # all possible data arrays
-    spectrum: np.array = None
-    spectrum_shifted: np.array = None
-    spectrum_masked: np.array = None
-    reconstructed_field: np.array = None
-    reconstructed_phase: np.array = None  # wrapped phase
-    reconstructed_intensity: np.array = None
+    spectrum = None
+    spectrum_shifted = None
+    spectrum_masked = None
+    reconstructed_field = None
+    reconstructed_phase = None  # wrapped phase
+    reconstructed_intensity = None
     # other variables
     logger = None
     first_diffraction_order_pos: Tuple[float, float] | Tuple[int, int] = None
@@ -28,12 +30,14 @@ class Hologram(HologramCore):
 
     def __init__(
         self,
-        data: np.ndarray,
+        data,
         dhm_parameter,
         first_diffraction_order_pos=None,
         logger=None,
     ):
-        self.data = data
+        # move the hologram to the active backend (GPU for 'cupy'); the original
+        # dtype is kept, the conversion to the working precision is done later
+        self.data = backend.asarray(data)
         self.params = dhm_parameter
         self.first_diffraction_order_pos = first_diffraction_order_pos
         self.radius_mask = None
@@ -151,6 +155,8 @@ class Hologram(HologramCore):
         """
         if holo is None:
             holo = self.data
+        holo = backend.asarray(holo, dtype=backend.real_dtype())
+        xp = backend.get_namespace(holo)
         if fx is None or fy is None:
             fx = self.first_diffraction_order_pos[0]
             fy = self.first_diffraction_order_pos[1]
@@ -160,7 +166,7 @@ class Hologram(HologramCore):
         # Positive, real valued hologram
         if len(holo.shape) != 2:
             raise RuntimeError("2D hologram image required!")
-        if np.min(holo) < 0:
+        if bool(xp.min(holo) < 0):
             raise RuntimeError("Real positive hologram image required!")
         if holo.shape[0] % 2 != 0 or holo.shape[1] % 2 != 0:
             raise RuntimeError("Hologram image with even dimensions required!")
@@ -193,45 +199,53 @@ class Hologram(HologramCore):
 
         if holo is None:
             holo = self.data
+        holo = backend.asarray(holo, dtype=backend.real_dtype())
+        xp = backend.get_namespace(holo)
 
         assert len(holo.shape) == 2, "2D hologram image required!"
         assert holo.shape[0] == holo.shape[1], "Quadratic hologram image required!"
         assert holo.shape[0] % 2 == 0, "Hologram image with even dimensions required!"
-        assert np.min(holo) >= 0.0, "Real positive hologram image required!"
+        assert bool(xp.min(holo) >= 0.0), "Real positive hologram image required!"
 
         # Get spectrum of the hologram image
-        holo = holo.astype(np.float64)
-        spectrum = np.fft.fftshift(np.fft.fft2(holo))
+        spectrum = self.get_spectrum(holo)
         N = spectrum.shape[0]
 
-        # Blur and normalize the right half of the spectrum
-        blurred = cv.GaussianBlur(np.abs(spectrum[:, : N // 2]), None, size)
-        blurred /= blurred[0, 0]
+        # Blur and normalize the right half of the spectrum.
+        # CPU: OpenCV (kernel radius 4 * sigma, border BORDER_REFLECT_101).
+        # GPU: equivalent ndimage filter (truncate=4, mode 'mirror').
+        magnitude = xp.abs(spectrum[:, : N // 2])
+        if backend.is_gpu(magnitude):
+            blurred = backend.gaussian_filter(
+                magnitude, sigma=size, mode="mirror", truncate=4.0
+            )
+        else:
+            blurred = cv.GaussianBlur(magnitude, None, size)
+        blurred = blurred / blurred[0, 0]
 
-        # Get indices of all local maxima in the spectrum
-        maxmask = maximum_filter(blurred, size=size) == blurred
-        points = np.unravel_index(np.nonzero(maxmask.ravel()), maxmask.shape)
-        points = np.concatenate(points, axis=0).T
+        # Get indices of all local maxima in the spectrum (on the device), then
+        # evaluate the few candidates on the CPU
+        maxmask = backend.maximum_filter(blurred, size=size) == blurred
+        candidates = xp.nonzero(maxmask)
+        weights = backend.to_numpy(blurred[candidates])
+        ys, xs = (backend.to_numpy(c) for c in candidates)
 
         # Strip all local maxima around the zero and the Nyquist frequency. This
         # strips the dominating zero order peak and many mirror artifacts.
         s = N // 4
-        points = [
-            (y, x)
-            for y, x in points
-            if abs(x % (2 * s) - s) < s - size // 2
-            and abs(y % (2 * s) - s) < s - size // 2
-        ]
-        if not points:
+        keep = (np.abs(xs % (2 * s) - s) < s - size // 2) & (
+            np.abs(ys % (2 * s) - s) < s - size // 2
+        )
+        if not np.any(keep):
             x, y, weight = None, None, 0.0
 
         else:
             # Take global maximum of the remaining points
-            weights = [blurred[y, x] for y, x in points]
-            y, x = points[np.argmax(weights)]
-            x -= N // 2
-            y -= N // 2
-            weight = np.max(weights)
+            ys, xs, weights = ys[keep], xs[keep], weights[keep]
+            best = int(np.argmax(weights))
+            x = int(xs[best]) - N // 2
+            y = int(ys[best]) - N // 2
+            weight = float(weights[best])
 
         if self.logger:
             self.logger.debug(
@@ -245,17 +259,19 @@ class Hologram(HologramCore):
         pixels at the image edges. Therefore, no information is lost.  For
         x = w//2 and y = h//2, the function is equivalent to np.fft.fftshift(img).
         """
-        return np.roll(img, (-y, -x), axis=(0, 1))
+        xp = backend.get_namespace(img)
+        return xp.roll(img, (-int(y), -int(x)), axis=(0, 1))
 
     def circularMask(self, spectrum, r):
         """Apply circular mask with given radius to the centered spectrum."""
 
+        xp = backend.get_namespace(spectrum)
         N = spectrum.shape[0]
-        y, x = np.indices((N, N), dtype=float)
-        x -= N // 2
-        y -= N // 2
+        # integer coordinates relative to the centre -> exact squared radius
+        c = xp.arange(N, dtype=xp.int64) - N // 2
+        x, y = xp.meshgrid(c, c, indexing="xy")
         r2 = x * x + y * y
-        return np.where(r2 <= r * r, spectrum, 0.0)
+        return xp.where(r2 <= r * r, spectrum, 0.0)
 
     def _locate_order(self):
         """
@@ -297,7 +313,7 @@ class Hologram(HologramCore):
         h, w = self.data.shape
         fx = self.first_diffraction_order_pos[0]
         fy = self.first_diffraction_order_pos[1]
-        rmax = np.sqrt(fx**2 + fy**2) - self.params["dcRadius"]
+        rmax = math.sqrt(fx**2 + fy**2) - self.params["dcRadius"]
         rmax = min(rmax, abs(fx), w // 2 - abs(fx), abs(fy), h // 2 - abs(fy))
         if rmax <= 0:
             raise RuntimeError(
@@ -312,9 +328,7 @@ class Hologram(HologramCore):
 
 
 class ReferenceHologram(Hologram):
-    def __init__(
-        self, data: np.ndarray, first_diffraction_order_pos, dhm_parameter, logger=None
-    ):
+    def __init__(self, data, first_diffraction_order_pos, dhm_parameter, logger=None):
         super().__init__(
             data=data,
             dhm_parameter=dhm_parameter,

@@ -1,4 +1,4 @@
-import numpy as np
+from .. import backend
 
 
 class HologramCore:
@@ -28,7 +28,17 @@ class HologramCore:
     def __init__(self, logger=None):
         self.logger = logger
 
-    def get_field(self, spectrum) -> np.ndarray:
+    def to_cpu(self):
+        """
+        Convert all array attributes of this object to NumPy arrays (copy from
+        the GPU if the CuPy backend was used). Returns self.
+        """
+        for name, value in vars(self).items():
+            if backend.is_array(value):
+                setattr(self, name, backend.to_numpy(value))
+        return self
+
+    def get_field(self, spectrum):
         """
         Return the complex field from a centred spectrum (zero frequency in the
         middle of the array).
@@ -41,15 +51,17 @@ class HologramCore:
         Reference:
             NumPy documentation, numpy.fft.fftshift / numpy.fft.ifftshift.
         """
-        field = np.fft.ifft2(np.fft.ifftshift(spectrum))
+        xp = backend.get_namespace(spectrum)
+        field = xp.fft.ifftn(xp.fft.ifftshift(spectrum), axes=(-2, -1))
         return field
 
-    def get_spectrum(self, field) -> np.ndarray:
+    def get_spectrum(self, field):
         """
         Return the centred spatial frequency spectrum of a field (zero frequency
         in the middle of the array). Inverse operation of get_field.
         """
-        spectrum = np.fft.fftshift(np.fft.fft2(field))
+        xp = backend.get_namespace(field)
+        spectrum = xp.fft.fftshift(xp.fft.fftn(field, axes=(-2, -1)))
         return spectrum
 
     def intensity(self, complex_field, mode="db"):
@@ -83,11 +95,12 @@ class HologramCore:
             Part 3: Logarithmic and related quantities, and their units"
             (definition of the decibel for power quantities: 10 * log10).
         """
-        intensity = np.abs(complex_field) ** 2
+        xp = backend.get_namespace(complex_field)
+        intensity = xp.abs(complex_field) ** 2
         eps = 1e-12
 
         if mode.lower() == "db":
-            intensity = 10 * np.log10(intensity + eps)
+            intensity = 10 * xp.log10(intensity + eps)
         elif mode.lower() != "linear":
             raise ValueError("Intensity mode must be 'linear' or 'db'.")
         return intensity
@@ -115,7 +128,7 @@ class HologramCore:
             J. W. Goodman, "Introduction to Fourier Optics", 3rd ed. (2005),
             Chapter 3 (phasor representation of monochromatic fields).
         """
-        return np.angle(input)
+        return backend.angle(input)
 
     def calculate_efield(self, intensity, phase, intensity_is_db=False):
         """
@@ -150,23 +163,24 @@ class HologramCore:
             B. E. A. Saleh and M. C. Teich, "Fundamentals of Photonics", 2nd ed.,
             Wiley (2007), Sec. 2.2.
         """
-        intensity = np.asarray(intensity, dtype=float)
-        phase = np.asarray(phase, dtype=float)
+        xp = backend.get_namespace()
+        intensity = backend.asarray(intensity, dtype=backend.real_dtype(xp))
+        phase = backend.asarray(phase, dtype=backend.real_dtype(xp))
 
         if intensity.shape != phase.shape:
             raise ValueError("Intensity and phase arrays must have same shape")
 
-        if np.any(np.isnan(intensity)) or np.any(np.isnan(phase)):
+        if bool(xp.any(xp.isnan(intensity))) or bool(xp.any(xp.isnan(phase))):
             raise ValueError("Input arrays contain NaN values")
 
         if intensity_is_db:
             intensity = 10 ** (intensity / 10)
 
-        if np.any(intensity < 0):
+        if bool(xp.any(intensity < 0)):
             raise ValueError(
                 "Negative intensity values are not physical. "
                 "Intensity must be |E|^2 >= 0."
             )
 
-        amplitude = np.sqrt(intensity)
-        return amplitude * np.exp(1j * phase)
+        amplitude = xp.sqrt(intensity)
+        return amplitude * xp.exp(1j * phase)

@@ -1,4 +1,7 @@
-import numpy as np
+import cmath
+import math
+
+from .. import backend
 
 
 def angularSpectrum(
@@ -84,8 +87,9 @@ def angularSpectrum(
 
     Parameters
     ----------
-    field : ndarray
-        Complex input field in the plane z = 0.
+    field : array
+        Complex input field in the plane z = 0. It is moved to the active backend
+        (see offaxisholo.backend) and converted to its complex precision.
     z : float
         Propagation distance in metres (negative for backward propagation).
     wavelength : float
@@ -104,8 +108,8 @@ def angularSpectrum(
 
     Returns
     -------
-    ndarray
-        Complex field in the plane z.
+    array
+        Complex field in the plane z (active backend).
 
     References
     ----------
@@ -120,7 +124,9 @@ def angularSpectrum(
     U. Schnars and W. Jueptner, "Digital Holography", Springer (2005),
     Sec. 3.2 (numerical reconstruction by the convolution approach / ASM).
     """
-    field = np.asarray(field, dtype=complex)
+    xp = backend.get_namespace()
+    rdtype = backend.real_dtype(xp)
+    field = backend.asarray(field, dtype=backend.complex_dtype(xp))
     if field.ndim != 2:
         raise ValueError("2D field required for angular spectrum propagation.")
     if z is None or float(z) == 0.0:
@@ -132,39 +138,43 @@ def angularSpectrum(
     # Optional padding against circular wrap-around (see docstring)
     background = 0.0
     if padding:
-        border = np.concatenate(
-            (field[0, :], field[-1, :], field[1:-1, 0], field[1:-1, -1])
-        )
-        background = np.mean(border)
+        border = xp.concat((field[0, :], field[-1, :], field[1:-1, 0], field[1:-1, -1]))
+        background = xp.mean(border)
         pad_y, pad_x = M // 2, N // 2
-        field = np.pad(field - background, ((pad_y, M - pad_y), (pad_x, N - pad_x)))
+        field = backend.pad(
+            field - background, ((pad_y, M - pad_y), (pad_x, N - pad_x))
+        )
     Mp, Np = field.shape
 
     # Spatial frequencies in the standard (unshifted) FFT layout.
     # fftfreq is correct for even and odd array sizes.
-    fx = np.fft.fftfreq(Np, d=dx)
-    fy = np.fft.fftfreq(Mp, d=dy)
-    FX, FY = np.meshgrid(fx, fy, indexing="xy")
+    fx = xp.fft.fftfreq(Np, d=dx, dtype=rdtype)
+    fy = xp.fft.fftfreq(Mp, d=dy, dtype=rdtype)
+    FX, FY = xp.meshgrid(fx, fy, indexing="xy")
 
     wavelength_medium = wavelength / n_medium
     argument = (1.0 / wavelength_medium) ** 2 - FX**2 - FY**2
     propagating = argument > 0.0
 
-    kz = 2 * np.pi * np.sqrt(np.where(propagating, argument, 0.0))
-    transfer = np.where(propagating, np.exp(1j * kz * z), 0.0)
+    kz = 2 * math.pi * xp.sqrt(xp.where(propagating, argument, 0.0))
+    transfer = xp.where(propagating, xp.exp(1j * kz * z), 0.0)
 
     if band_limit:
         dfx = 1.0 / (Np * dx)
         dfy = 1.0 / (Mp * dy)
-        fx_limit = 1.0 / (wavelength_medium * np.sqrt((2 * dfx * z) ** 2 + 1))
-        fy_limit = 1.0 / (wavelength_medium * np.sqrt((2 * dfy * z) ** 2 + 1))
-        transfer = transfer * ((np.abs(FX) < fx_limit) & (np.abs(FY) < fy_limit))
+        fx_limit = 1.0 / (wavelength_medium * math.sqrt((2 * dfx * z) ** 2 + 1))
+        fy_limit = 1.0 / (wavelength_medium * math.sqrt((2 * dfy * z) ** 2 + 1))
+        band = (xp.abs(FX) < fx_limit) & (xp.abs(FY) < fy_limit)
+        transfer = xp.where(band, transfer, 0.0)
 
-    propagated = np.fft.ifft2(np.fft.fft2(field) * transfer)
+    spectrum = xp.fft.fftn(field, axes=(-2, -1))
+    propagated = xp.fft.ifftn(spectrum * transfer, axes=(-2, -1))
 
     if padding:
         propagated = propagated[pad_y : pad_y + M, pad_x : pad_x + N]
         # exact propagation of the plane background wave (normal incidence)
-        propagated += background * np.exp(2j * np.pi * z / wavelength_medium)
+        propagated = propagated + background * cmath.exp(
+            2j * math.pi * z / wavelength_medium
+        )
 
     return propagated
