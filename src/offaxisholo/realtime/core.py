@@ -52,6 +52,7 @@ from ..reconstruction.numericalPropagation import (
 )
 from .accumulators import make_accumulator
 from .config import RealtimeConfig
+from .timing import StageTimer
 
 _TINY = 1e-300  # avoids 0/0 in the unit phasor (complex128 reduction)
 
@@ -138,9 +139,13 @@ class OffAxisPipeline:
         res = pipe.result(z=-2.6e-6)            # RealtimeResult
         phase = res.to_numpy()["phase"]
         pipe.reset()                            # next measurement
+
+    Stage timings of the current measurement are in ``pipe.timer.timings()``
+    (realtime.timing); ``profile=True`` synchronises the device for exact GPU
+    stage times and must not be used in production runs.
     """
 
-    def __init__(self, config: RealtimeConfig, xp=None):
+    def __init__(self, config: RealtimeConfig, xp=None, profile: bool = False):
         self.config = config.validate()
         self.config_hash = config.config_hash()
         self.xp = xp if xp is not None else backend.namespace(config.backend)
@@ -186,6 +191,7 @@ class OffAxisPipeline:
         self.crop_pitch = config.crop_pitch
         self._transfer_cache = {}
         self._acc = make_accumulator(xp, config.averaging)
+        self.timer = StageTimer(xp, profile=profile)
         self._piston_obj = _PhasorStats(xp)
         self._piston_bg = _PhasorStats(xp)
         self.Ub = None
@@ -323,24 +329,32 @@ class OffAxisPipeline:
 
     # ------------------------------------------------------------- object frames
     def reset(self):
-        """Start a new object average (background is kept)."""
+        """Start a new object average and new timings (background is kept)."""
         self._acc.reset()
+        self.timer.reset()
         self._piston_obj = _PhasorStats(self.xp)
 
     def push(self, frame):
-        """Hot path: demodulate, piston correct and accumulate one frame."""
+        """Hot path: upload, demodulate, piston correct and accumulate one frame."""
         if self.K is None:
             raise RuntimeError("Background required before object frames.")
         if tuple(frame.shape) != (self.size, self.size):
             raise ValueError(
                 f"Frame shape {tuple(frame.shape)} != ({self.size}, {self.size})."
             )
+        timer = self.timer
+        t = timer.start()
+        frame = self.xp.asarray(frame)
+        t = timer.lap("upload", t)
         U = self.demodulate(frame)
+        t = timer.lap("demodulation", t)
         if self.config.compensation.piston:
             unit, correction = self._piston(U, self.Ub, self._ref_weight)
             U = U * correction
             self._piston_obj.add(unit)
+            t = timer.lap("piston", t)
         self._acc.add(U)
+        timer.lap("averaging", t)
 
     @property
     def n_frames(self) -> int:
@@ -363,7 +377,10 @@ class OffAxisPipeline:
         z_list = self.config.propagation.z if z_list is None else tuple(z_list)
         if not z_list:
             z_list = (0.0,)
+        timer = self.timer
+        t = timer.start()
         E = self.compensated_field()
+        t = timer.lap("compensation", t)
         padding = self.config.propagation.padding
 
         spectrum = background = None
@@ -392,6 +409,7 @@ class OffAxisPipeline:
                         self.config.propagation.n_medium,
                     )
             out.append(RealtimeResult(field=field_z, z=z, meta=dict(meta, z=z)))
+        timer.lap("propagation", t)
         return out
 
     def result(self, z=None) -> RealtimeResult:

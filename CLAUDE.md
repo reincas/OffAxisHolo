@@ -75,6 +75,8 @@ black . && ruff check --fix .         # formatting and linting (line length 88)
 - Parity mode (`crop=None`, `mask="circle"`, `eps_rel="machine"`, `piston=False`, `precision="double"`) reproduces `HologramProcessor` up to round-off.
 - `accumulators.py`: `BlockAccumulator`, `SlidingAccumulator` (ring buffer, periodic re-summation), `EMAAccumulator` (N_eff = (2 − α)/α).
 - `unwrapping.py`: `unwrap(phase, method)` and `TemporalUnwrapper` (live tracking only).
+- `result.py` (K4): `ReconstructionResult` (phase float32, linear intensity, optional complex64 field, `pixel_pitch_um` after the crop, `z_um`, `wavelength_um`, `n_medium`, `FrameRecord` list, quality, `timings_s`, config and hash, versions, `created_utc`, draft `schema_version`) with `from_realtime` (the only device → host copy), `to_message` (JSON header + named little-endian buffers) and `from_message`. The final contract comes from `dhmconnect/schemas/` (G2, decided 2026-11-16; K16).
+- `timing.py` (K5): `StageTimer`, cumulative seconds per stage (upload, demodulation, piston, averaging, compensation, propagation, download) and `total`; `OffAxisPipeline.timer`. Without `profile=True` it never synchronises the device (GPU numbers are then enqueue times).
 - Noise model: σ² ≈ σ_obj²/N_obj + σ_bg²/N_bg (background floor).
 
 **Facts from the hardware analysis that matter here**
@@ -96,7 +98,7 @@ This repository is one of four that together build a 2PP system with real-time f
 Rules that follow from this:
 - No network server, protocol, camera or hardware driver, service state machine or raw archive in this repository (moved to DHMConnect: groups D, E, F, G of `todo_realtime.txt`). No registration, fusion, stitching or target comparison (MIRA).
 - The core of `offaxisholo` imports none of the other three packages. Only the optional GUI (`offaxisholo.gui`, extras `[gui]` / `[live]`) may import `dhmconnect.client`.
-- Shared contracts (`ReconstructionResult`, `FrameRecord`, `ProductSet`, …) are defined in DHMConnect (`dhmconnect/schemas/`, decision G2); this repository vendors the example messages under `tests/contracts/`. Conventions: units in names (`_um`, `_rad`, `_s`), float32 / complex64, axis 0 = y, axis 1 = x, `schema_version` in every message, never `pickle` across a process or network boundary.
+- Shared contracts (`ReconstructionResult`, `FrameRecord`, `ProductSet`, …) are defined in DHMConnect as JSON Schema plus example messages (`dhmconnect/schemas/`, decision G2, decided 2026-11-16); this repository vendors the example messages under `tests/contracts/`. Conventions: units in names (`_um`, `_rad`, `_s`), float32 / complex64, axis 0 = y, axis 1 = x, `schema_version` in every message, never `pickle` across a process or network boundary.
 - Todo IDs of the other repositories may be referenced: `T…`/`F…` (NanoFactorySystem_automated), `DL-…` (DHMConnect), `MI-…` (MIRA).
 
 ## Repository rules

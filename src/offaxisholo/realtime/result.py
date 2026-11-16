@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 
-SCHEMA_VERSION = "0.1"
+SCHEMA_VERSION = "0.2"  # 0.2: timings_profiled (K5)
 MESSAGE_TYPE = "ReconstructionResult"
 
 # name of the buffer -> dtype in the message
@@ -156,7 +156,11 @@ class ReconstructionResult:
         Quality numbers, e.g. ``n_obj``, ``n_bg``, ``piston_std_rad`` (K8 adds
         more).
     timings_s : dict, optional
-        Stage timings in seconds (K5).
+        Stage timings in seconds (K5): cumulative per stage of
+        ``realtime.timing.STAGES``, ``total`` and caller-supplied values.
+    timings_profiled : bool, optional
+        True if the timings were measured with device synchronisation
+        (``profile=True``); otherwise GPU stage times are enqueue times.
     versions : dict, optional
         Package versions used to compute the result.
     config : dict or None, optional
@@ -178,6 +182,7 @@ class ReconstructionResult:
     frames: list[FrameRecord] = dc_field(default_factory=list)
     quality: dict[str, Any] = dc_field(default_factory=dict)
     timings_s: dict[str, float] = dc_field(default_factory=dict)
+    timings_profiled: bool = False
     versions: dict[str, Any] = dc_field(default_factory=dict)
     config: dict | None = None
     created_utc: str = ""
@@ -258,10 +263,19 @@ class ReconstructionResult:
         frames : list of FrameRecord, optional
             Per-frame records; empty when not given.
         timings_s : dict, optional
-            Stage timings in seconds.
+            Additional timings in seconds supplied by the caller (for example
+            ``{"grab": 0.27}``), passed through unchanged next to the stage
+            timings of the pipeline (``realtime.timing``). A caller key with the
+            name of a stage replaces the measured value.
         versions : dict, optional
             Versions to store; default :func:`default_versions` of the
             pipeline's array namespace.
+
+        Notes
+        -----
+        The ``download`` stage covers the derivation of phase and intensity
+        from the field and the copy to the host; it is added to the pipeline's
+        timer, so several results of one ``results()`` call accumulate.
 
         Returns
         -------
@@ -270,7 +284,12 @@ class ReconstructionResult:
         outputs = (
             ("phase", "intensity", "field") if include_field else ("phase", "intensity")
         )
+        timer = pipeline.timer
+        started = timer.start()
         host = result.to_numpy(outputs)
+        timer.lap("download", started)
+        timings = timer.timings()
+        timings.update(timings_s or {})
         config = pipeline.config
         dx, dy = pipeline.crop_pitch
         quality = {
@@ -290,7 +309,8 @@ class ReconstructionResult:
             config_hash=pipeline.config_hash,
             frames=list(frames or []),
             quality=quality,
-            timings_s=dict(timings_s or {}),
+            timings_s=timings,
+            timings_profiled=timer.profile,
             versions=(
                 dict(versions)
                 if versions is not None
@@ -342,6 +362,7 @@ class ReconstructionResult:
                 "frames": [record.to_dict() for record in self.frames],
                 "quality": self.quality,
                 "timings_s": self.timings_s,
+                "timings_profiled": bool(self.timings_profiled),
                 "versions": self.versions,
                 "config": self.config,
                 "buffers": descriptors,
@@ -432,6 +453,7 @@ class ReconstructionResult:
             frames=[FrameRecord.from_dict(d) for d in header.get("frames", [])],
             quality=dict(header.get("quality") or {}),
             timings_s=dict(header.get("timings_s") or {}),
+            timings_profiled=bool(header.get("timings_profiled", False)),
             versions=dict(header.get("versions") or {}),
             config=header.get("config"),
             created_utc=header.get("created_utc", ""),
