@@ -55,3 +55,52 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Commits:** `ee39f40` docs(realtime): mark the old todo list historical, point to DHMConnect [K1];
   todo bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** none. Next todo of phase 0: B5 (needs maintainer decisions), B3 (needs O10).
+
+### 2026-11-16 09:56 CET — [B5] Repository hygiene: legacy scripts, old notes and planning inputs to attic
+- **Status:** partial (open: `Notes_reconstruction_order.txt` → `docs/`, decision G9 on `.git` / `.venv`
+  / `build/` in Seafile)
+- **Context:** Maintainer decisions of 2026-11-16: legacy scripts to `attic/`; scan `ToDos.txt` for
+  unknown items, add them to the md files and move the file to `attic/`; delete `console.log`; move the
+  planning folders to `attic/` if no todo needs them. Branch `chore/b5-hygiene`, created from
+  `docs/k1-scope` (not yet merged) because it builds on the K1 state of `TODO.md`.
+- **Findings:**
+  - `attic/` is in `.gitignore`. Moves were done with `git mv`, so the files stay versioned with their
+    history; files created in `attic/` later stay local (like `attic/conf.py`, `attic/future_todo`).
+  - `ToDos.txt`: all items were already in `TODO.md` (P1–P14, O5, K14, P10–P12). Missing details added:
+    the criteria for Least Squares as a default (O5), the decision on `"single"` as GPU default after
+    K14, and documentation of the batch workflow `ReconstructionPipeline` ("docker" in the old notes,
+    formerly `DockerImageFile`) in P13.
+  - Planning folders: `Claude outputs/00, 01, CLAUDE.md` are byte-identical to `todo_claude/00, 01,
+    CLAUDE_nanofactory.md`; `todo_claude/anweisung.txt` equals `docs/realtime/anweisung_realtime.txt`
+    without the K1 notes. The other repositories already hold their todos (DHMConnect DL-A0…DL-H5,
+    NanoFactorySystem_automated T82–T87 and F15, MIRA MI-…). Only content not found elsewhere: a link to
+    an early planning artifact (decisions D1–D8, risks) in `uebergabe_echtzeit_dhm.md`, superseded by the
+    specification.
+  - `console.log` is written by `ReconstructionPipeline` into its output directory (`get_logger(logfile=
+    f"{save_path}/console.log")`); hence `*.log` is ignored now.
+  - O10: the minimum versions in `pyproject.toml` equal the versions installed on the maintainer's
+    laptop; numpy 2.4.5 has no Python 3.10 wheel (`pip download … --python-version 3.10` fails), so
+    `requires-python = ">=3.10"` is not achievable as written. Recorded in O10.
+- **Changes:**
+  - `tests/test/*` (renamed → `attic/legacy_tests/*`): legacy scripts and reference data; the untracked
+    `test_4_einheit.py` moved along on disk (stays local).
+  - `pyproject.toml`: `"test"` removed from `norecursedirs`, comment fixed.
+  - `.gitignore`: line for `tests/test/test_4_einheit.py` removed; `*.log` added.
+  - `src/offaxisholo/ToDos.txt` (renamed → `attic/ToDos.txt`).
+  - `src/offaxisholo/reconstruction/console.log` (deleted): empty log file.
+  - `todo_claude/*` (renamed → `attic/planning_2026-11-15/todo_claude/*`); the gitignored local files
+    `Notes_guteHandhabung.txt` and `OffAxisHolo_projectStructure_18052026.txt` moved along on disk.
+  - `Claude outputs/*` (renamed → `attic/planning_2026-11-15/claude_outputs/*`).
+  - `README.md`: project structure matches the tree (project files, `single_functions/`, `utils.py`,
+    `docs/system/`, `attic/`, `scripts/` local only).
+  - `CLAUDE.md`: `attic/` described; references to `tests/test/` and `ToDos.txt` updated.
+  - `TODO.md`: B5 moved to In Progress with checked sub-items; O5, O10, K14, P13, P15 updated.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 90 passed, 8 skipped (GPU), same as before the move.
+- **Commits:** `ed74765` chore(tests): move the legacy test scripts to attic/legacy_tests [B5];
+  `04e5030` chore: move the old todo notes to attic and delete console.log [B5];
+  `5c18e66` chore: move the planning inputs of 2026-11-15 to attic [B5];
+  `083fcd4` docs: describe the real repository tree and the attic in README and CLAUDE.md [B5];
+  todo bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** maintainer decisions on `Notes_reconstruction_order.txt` (proposal: version it as
+  `docs/reconstruction_order.md`) and G9; whether `attic/` should stay gitignored.

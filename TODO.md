@@ -63,12 +63,12 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 | O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
 | O3 | Default frame selection policy and thresholds. | Ship `all` until the N-study (K13) is evaluated. | K3 |
 | O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | Mask in the parameter set, border ring as fallback. | K8 |
-| O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. | K11 |
+| O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
 | O6 | Lifetime of a background and drift monitoring (old Q8). | Measure first (Masterplan V4). | K7 |
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
 | O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
-| O10 | Minimum versions in `pyproject.toml` are very recent (numpy ≥ 2.4.5, scipy ≥ 1.17.1); CUDA version of the DHM-PC is unknown (`cupy-cuda12x` or `13x`). | Decide after K14. | B3, K14 |
+| O10 | Minimum versions in `pyproject.toml` are very recent (numpy ≥ 2.4.5, scipy ≥ 1.17.1); CUDA version of the DHM-PC is unknown (`cupy-cuda12x` or `13x`). Found 2026-11-16 (during B5): the minimums equal the versions installed on the maintainer's laptop, and numpy 2.4.5 has no wheel for Python 3.10, so `requires-python = ">=3.10"` cannot be met as written. | Decide after K14: set the minimums to what the DHM-PC Python can install and the tests pass with; align `requires-python`. | B3, K14 |
 | O11 | Mode "print" of the e-field / height calculation (old H6, maintainer note "not good"): what should it compute (n_medium = liquid resin)? | – | P5 |
 | G2 | Home of the shared contracts. | JSON Schema plus examples in `dhmconnect/schemas/`, vendored under `tests/contracts/`. | K4 |
 | G7 | Single source of truth for material data. | Material registry in nanofactorysystem; presets here stay a fallback for offline use. | K9, P3 |
@@ -76,25 +76,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 ## Open
 
 ### Phase 0 — Scope, repository hygiene, dependencies
-
-- [ ] B5: Repository hygiene (carried over, partly decisions of the maintainer) [phase: 0]
-  - Priority: medium
-  - Size: S
-  - Depends on: –
-  - Done when the maintainer has decided, and the decisions are carried out, for:
-    - the legacy scripts in `tests/test/` (`ablage.py`, `ablage 2.py` with a space in the name,
-      `test_docker.py`, `test_filedialog.py`, `test_zernike.py`, `test_dhm.py`, `test_usaf1951.py`,
-      the untracked `test_4_einheit.py`, data under `tests/test/test/`): keep, or move to `attic/`;
-    - `src/offaxisholo/ToDos.txt` and `src/offaxisholo/reconstruction/console.log` (tracked, inside the
-      package): move to `docs/` resp. remove from the index (`git rm --cached`) and ignore;
-    - `src/offaxisholo/Notes_reconstruction_order.txt` (gitignored): move to `docs/` and version it;
-    - the untracked folders `Claude outputs/` and `todo_claude/` (planning inputs of 2026-11-15, now
-      absorbed into `CLAUDE.md`, `TODO.md` and `docs/system/`): remove or archive;
-    - `.git`, `.venv` and `build/` inside a Seafile sync folder (decision G9);
-    - the README "Project Structure" section matches the real tree (`single_functions/`, `utils.py`,
-      `tools/`, `docs/system/`); `OffAxisHolo_projectStructure_18052026.txt` is not needed any more.
-  - Already done: preset loading bundled in `config/presets.py` (`c6ab76e`); specification moved to
-    `docs/realtime/` (`e57eed4`).
 
 - [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
   - Priority: medium
@@ -228,7 +209,8 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
   - Done when:
     - `pytest tests/test_backend.py -v`, `pytest tests/realtime -m gpu`, `tests/benchmark_backend.py` and
       `tests/benchmark_realtime.py` have run on the DHM-PC;
-    - single against double precision is compared on real holograms;
+    - single against double precision is compared on real holograms (phase and height maps), and
+      the maintainer decides from it whether `"single"` becomes the GPU default;
     - GPU, memory, CUDA version, driver, operating system, Python version and all numbers are recorded
       in `docs/realtime/benchmarks.md`;
     - closes B6 (CUDA run of the existing tests) and H4 (validate single precision); gives the input
@@ -432,7 +414,8 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 - [ ] P13: Extended documentation of the library [phase: B]
   - Priority: low | Size: M | Depends on: K15
   - Done when: an API documentation (e.g. Sphinx; old configuration in `attic/conf.py`) and usage
-    examples for the offline library exist under `docs/`.
+    examples for the offline library exist under `docs/`, including the batch workflow
+    `ReconstructionPipeline` (called "docker" in the maintainer's old notes, formerly `DockerImageFile`).
 
 - [ ] P14: LaTeX export of functions [phase: B]
   - Priority: low | Size: S | Depends on: –
@@ -443,7 +426,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
   - Priority: medium | Size: M | Depends on: –
   - Done when: `offaxisholo` offers a Zernike decomposition (named modes, masked aperture) and a radially
     averaged PSD (frequency axis in 1/µm) as pure, backend-agnostic functions with tests on synthetic
-    data; the old script `tests/test/test_zernike.py` is reviewed for reuse; MIRA is told the final
+    data; the old script `attic/legacy_tests/test_zernike.py` is reviewed for reuse; MIRA is told the final
     signatures.
 
 ## Items of `docs/realtime/todo_realtime.txt` and where they went
@@ -488,6 +471,24 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
+
+- [ ] B5: Repository hygiene (carried over, partly decisions of the maintainer) [phase: 0]
+  - Priority: medium
+  - Size: S
+  - Depends on: –
+  - Done when the maintainer has decided, and the decisions are carried out, for:
+    - [x] the legacy scripts in `tests/test/`: moved to `attic/legacy_tests/` (2026-11-16, `ed74765`);
+    - [x] `src/offaxisholo/ToDos.txt`: scanned, missing items added to O5, K14 and P13, file moved to
+      `attic/ToDos.txt`; `src/offaxisholo/reconstruction/console.log` deleted and `*.log` ignored
+      (2026-11-16, `04e5030`);
+    - [x] the folders `Claude outputs/` and `todo_claude/`: fully absorbed, moved to
+      `attic/planning_2026-11-15/` (2026-11-16, `5c18e66`);
+    - [x] the README "Project Structure" section matches the real tree (2026-11-16, `083fcd4`);
+    - [ ] `src/offaxisholo/Notes_reconstruction_order.txt` (gitignored): move to `docs/` and version it
+      (Decision: open, proposal: yes, as `docs/reconstruction_order.md`);
+    - [ ] `.git`, `.venv` and `build/` inside a Seafile sync folder (decision G9).
+  - Already done before: preset loading bundled in `config/presets.py` (`c6ab76e`); specification moved
+    to `docs/realtime/` (`e57eed4`).
 
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
