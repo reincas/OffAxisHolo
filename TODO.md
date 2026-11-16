@@ -88,17 +88,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
     - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
 
-- [ ] K6: Entry points [phase: 1]
-  - Priority: high
-  - Size: M
-  - Depends on: K3, K4, K5
-  - Done when:
-    - `reconstruct_frames(frames, background, config, *, selection, outputs, frame_info=None) ->
-      ReconstructionResult` and a stateful `ReconstructionSession` (`set_background`, `push`, `result`,
-      `reset`, `warmup`) exist as thin layers over `OffAxisPipeline`;
-    - service (DHMConnect DL-B4) and GUI need no other import than these two names plus the
-      configuration classes.
-
 - [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
   - Priority: low
   - Size: M
@@ -479,6 +468,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K6: Entry points — 2026-11-16 — `realtime/api.py`: `reconstruct_frames` and `ReconstructionSession` over `OffAxisPipeline` with metrics on and selection `all` by default, acquisition info passed through; the import surface (entry points plus configuration classes) is tested in a fresh interpreter. — commits: `4cac2bd`
 - [x] K3: Frame selection — 2026-11-16 — `realtime/selection.py`: policies `all` (default, O3), `threshold`, `robust`, `best_k` with enforced and reported `min_frames`; block mode keeps the fields (`keep_fields`, `FieldStore`) and `apply_selection` rebuilds the average; mask and reasons go into the frame records. Sliding / EMA gating is K17. — commits: `3a7c520`
 - [x] K2: Frame metrics — 2026-11-16 — `realtime/metrics.py`: eleven per-frame metrics computed in `push` from the demodulation FFT without host synchronisation, kept in a device ring buffer and turned into `FrameRecord`s; opt-in via `MetricsConfig.enabled`; tested with saturation, shifted carrier and reduced fringe contrast, CuPy parity test skipped without CUDA. — commits: `aab56d6`, `efdda6c`
 - [x] K5: Timings — 2026-11-16 — `realtime/timing.py` `StageTimer` fills `ReconstructionResult.timings_s` (seven stages plus total, stage sum ≤ total tested); device synchronisation only with `OffAxisPipeline(..., profile=True)`; caller values pass through unchanged. — commits: `c66838f`

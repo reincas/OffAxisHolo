@@ -229,3 +229,30 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   `4af6182` docs: describe the frame selection module in CLAUDE.md [K3]; todo bookkeeping in the
   following `docs(todo)` commit.
 - **Follow-ups:** K17. Next: K6 (entry points), then K7, K8.
+
+### 2026-11-16 12:32 CET — [K6] Entry points
+- **Status:** done
+- **Context:** Branch `feat/k6-entry-points` from `feat/k3-selection`.
+- **Design decisions (no open decision touched):**
+  - `outputs` always contains phase and intensity; `"field"` adds the complex field (K11 will add
+    `phase_unwrapped`).
+  - `metrics=True` by default (decision 2026-11-16) overrides `config.metrics.enabled`; the stored
+    config shows the effective value. Policy `all` by default (O3); other policies need metrics and the
+    block mode (fields kept), sliding / EMA gating is K17.
+  - `reconstruct_frames` sets the averaging mode to block and `n_obj` to the number of frames (one
+    measurement); the stored config shows it.
+  - Acquisition info per frame is passed through unchanged; the session keeps it for the last
+    `max(n_obj, window)` frames, like the metrics.
+- **Changes:**
+  - `src/offaxisholo/realtime/api.py` (new): `reconstruct_frames`, `ReconstructionSession`.
+  - `src/offaxisholo/realtime/__init__.py`: lazy exports and docstring pointer.
+  - `tests/realtime/test_api.py` (new): 14 tests plus a GPU test.
+  - `tests/test_import_hygiene.py`: `offaxisholo.realtime.api` added.
+  - `CLAUDE.md`: module `api.py` described.
+  - `TODO.md`: K6 to Done.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 174 passed, 12 skipped (GPU); `ruff check .` clean.
+- **Commits:** `4cac2bd` feat(realtime): add the entry points reconstruct_frames and
+  ReconstructionSession [K6]; `90cdd5a` docs: describe the entry points module in CLAUDE.md [K6]; todo
+  bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** tell DHMConnect that DL-B4 can build on `ReconstructionSession`. Next: K7, K8.

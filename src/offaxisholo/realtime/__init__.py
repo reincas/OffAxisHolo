@@ -5,6 +5,9 @@ Realtime GPU kernel for off-axis DHM (phase 1 of docs/realtime).
         DHMConfig, DemodConfig, RealtimeConfig, OffAxisPipeline, calibrate_order,
     )
 
+Product interface (K6): ``reconstruct_frames`` and ``ReconstructionSession``
+return a ``ReconstructionResult``; see ``offaxisholo.realtime.api``.
+
 Lightweight: importing this package loads neither tkinter, matplotlib,
 scikit-image, OpenCV nor scidatacontainer (tests/test_import_hygiene.py).
 Calibration ('calibrate_order') and 'fast2d' unwrapping load OpenCV /
@@ -29,6 +32,8 @@ _LAZY = {
     "Selection": ".selection",
     "SelectionPolicy": ".selection",
     "select_frames": ".selection",
+    "ReconstructionSession": ".api",
+    "reconstruct_frames": ".api",
     "BlockAccumulator": ".accumulators",
     "SlidingAccumulator": ".accumulators",
     "EMAAccumulator": ".accumulators",
