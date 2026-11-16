@@ -25,6 +25,7 @@ from offaxisholo.realtime import (
     CompensationConfig,
     DemodConfig,
     DHMConfig,
+    MetricsConfig,
     OffAxisPipeline,
     PropagationConfig,
     RealtimeConfig,
@@ -85,7 +86,7 @@ def synchronize(gpu):
         cupy.cuda.Device().synchronize()
 
 
-def benchmark(n, crop, precision, padding, backend_name, frames):
+def benchmark(n, crop, precision, padding, backend_name, frames, metrics=False):
     gpu = backend_name == "cupy"
     config = RealtimeConfig(
         dhm=DHMConfig(wavelength=0.675e-6, pixel_pitch=(0.1e-6, 0.1e-6), dc_radius=10),
@@ -94,6 +95,7 @@ def benchmark(n, crop, precision, padding, backend_name, frames):
         ),
         compensation=CompensationConfig(piston=True),
         propagation=PropagationConfig(z=(-2e-6,), padding=padding),
+        metrics=MetricsConfig(enabled=metrics, saturation_level=65535.0),
         precision=precision,
         backend=backend_name,
     )
@@ -151,6 +153,11 @@ def main():
     parser.add_argument("sizes", nargs="*", type=int, default=[1024, 2048])
     parser.add_argument("--frames", type=int, default=100)
     parser.add_argument("--backend", default=None, help="numpy or cupy (default: both)")
+    parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="enable the per-frame metrics (K2); changes the push fps column",
+    )
     args = parser.parse_args()
 
     backends = [args.backend] if args.backend else ["numpy"]
@@ -164,13 +171,22 @@ def main():
     for n in args.sizes:
         frames = synthetic_frames(n, args.frames)
         for backend_name in backends:
-            print(f"\nN = {n}, backend {backend_name}, {args.frames} frames")
+            print(
+                f"\nN = {n}, backend {backend_name}, {args.frames} frames, "
+                f"metrics {'on' if args.metrics else 'off'}"
+            )
             rows = []
             for crop in (None, n // 2, n // 4):
                 for precision in ("single", "double"):
                     for padding in (False, True):
                         stages, fps = benchmark(
-                            n, crop, precision, padding, backend_name, frames
+                            n,
+                            crop,
+                            precision,
+                            padding,
+                            backend_name,
+                            frames,
+                            metrics=args.metrics,
                         )
                         label = f"n={crop or n:<5d} {precision:6s} pad={padding!s:5s}"
                         rows.append((label, stages, fps))
