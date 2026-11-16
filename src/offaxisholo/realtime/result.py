@@ -261,7 +261,9 @@ class ReconstructionResult:
         include_field : bool, optional
             Also store the complex field.
         frames : list of FrameRecord, optional
-            Per-frame records; empty when not given.
+            Per-frame records. When not given, one record per frame is built
+            from the pipeline's frame metrics (``config.metrics.enabled``,
+            K2), all marked as used; empty when metrics are disabled.
         timings_s : dict, optional
             Additional timings in seconds supplied by the caller (for example
             ``{"grab": 0.27}``), passed through unchanged next to the stage
@@ -290,6 +292,11 @@ class ReconstructionResult:
         timer.lap("download", started)
         timings = timer.timings()
         timings.update(timings_s or {})
+        if frames is None:
+            frames = [
+                FrameRecord(index=index, metrics=metrics)
+                for index, metrics in pipeline.frame_metrics()
+            ]
         config = pipeline.config
         dx, dy = pipeline.crop_pitch
         quality = {

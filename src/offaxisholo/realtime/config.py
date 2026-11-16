@@ -142,12 +142,27 @@ class PropagationConfig:
 
 
 @dataclass
+class MetricsConfig:
+    """Per-frame metrics (realtime.metrics, K2).
+
+    Off by default: the kernel then does exactly the work of the parity and
+    benchmark runs. The levels are in camera counts (8-bit camera: 255).
+    """
+
+    enabled: bool = False
+    saturation_level: float = 255.0  # pixels >= level count as saturated
+    black_level: float = 0.0  # pixels <= level count as black
+    capacity: int | None = None  # frames kept; None = max(n_obj, window)
+
+
+@dataclass
 class RealtimeConfig:
     dhm: DHMConfig
     demod: DemodConfig
     compensation: CompensationConfig = field(default_factory=CompensationConfig)
     averaging: AveragingConfig = field(default_factory=AveragingConfig)
     propagation: PropagationConfig = field(default_factory=PropagationConfig)
+    metrics: MetricsConfig = field(default_factory=MetricsConfig)
     precision: str = "single"
     backend: str = "numpy"
 
@@ -203,6 +218,11 @@ class RealtimeConfig:
             raise ValueError("ema_alpha must be in (0, 1].")
         if not all(math.isfinite(z) for z in p.z):
             raise ValueError("Propagation distances must be finite.")
+        m = self.metrics
+        if m.capacity is not None and m.capacity < 1:
+            raise ValueError("metrics.capacity must be >= 1.")
+        if not m.black_level < m.saturation_level:
+            raise ValueError("metrics.black_level must be below saturation_level.")
         if self.precision not in PRECISIONS:
             raise ValueError(f"Unknown precision. Possible: {PRECISIONS}.")
         if self.backend not in BACKENDS:
@@ -266,4 +286,5 @@ _SUBCONFIGS = {
     (RealtimeConfig, "compensation"): CompensationConfig,
     (RealtimeConfig, "averaging"): AveragingConfig,
     (RealtimeConfig, "propagation"): PropagationConfig,
+    (RealtimeConfig, "metrics"): MetricsConfig,
 }

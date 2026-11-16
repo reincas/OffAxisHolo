@@ -52,6 +52,13 @@ from ..reconstruction.numericalPropagation import (
 )
 from .accumulators import make_accumulator
 from .config import RealtimeConfig
+from .metrics import (
+    MetricsRecorder,
+    intensity_stats,
+    piston_phase,
+    reference_phase_noise,
+    sideband_stats,
+)
 from .timing import StageTimer
 
 _TINY = 1e-300  # avoids 0/0 in the unit phasor (complex128 reduction)
@@ -192,6 +199,15 @@ class OffAxisPipeline:
         self._transfer_cache = {}
         self._acc = make_accumulator(xp, config.averaging)
         self.timer = StageTimer(xp, profile=profile)
+        m = config.metrics
+        if m.enabled:
+            a = config.averaging
+            capacity = m.capacity or max(a.n_obj, a.window)
+            self._metrics = MetricsRecorder(xp, capacity)
+            self._quantiles = xp.asarray([0.05, 0.5, 0.95])
+            self._offsets = xp.asarray(offsets)
+        else:
+            self._metrics = None
         self._piston_obj = _PhasorStats(xp)
         self._piston_bg = _PhasorStats(xp)
         self.Ub = None
@@ -214,6 +230,11 @@ class OffAxisPipeline:
 
     def demodulate(self, frame):
         """Camera frame (N, N), any real dtype -> complex sideband field (n, n)."""
+        return self._demodulate_parts(frame)[2]
+
+    def _demodulate_parts(self, frame):
+        """Demodulation with its intermediate results (for the frame metrics):
+        windowed real frame (N, N), masked sideband crop (n, n), field (n, n)."""
         xp = self.xp
         h = xp.astype(xp.asarray(frame), self.rdtype)
         if self._edge_window is not None:
@@ -224,7 +245,7 @@ class OffAxisPipeline:
             crop = xp.where(self._mask, crop, 0)
         else:
             crop = crop * self._sideband_window
-        return xp.fft.ifftn(crop, axes=(-2, -1))
+        return h, crop, xp.fft.ifftn(crop, axes=(-2, -1))
 
     def _piston(self, field, reference, weight):
         """Unit phasor exp(-i arg p) of p = sum(field * conj(reference) * w),
@@ -329,9 +350,12 @@ class OffAxisPipeline:
 
     # ------------------------------------------------------------- object frames
     def reset(self):
-        """Start a new object average and new timings (background is kept)."""
+        """Start a new object average, timings and frame metrics (background
+        is kept)."""
         self._acc.reset()
         self.timer.reset()
+        if self._metrics is not None:
+            self._metrics.reset()
         self._piston_obj = _PhasorStats(self.xp)
 
     def push(self, frame):
@@ -346,19 +370,58 @@ class OffAxisPipeline:
         t = timer.start()
         frame = self.xp.asarray(frame)
         t = timer.lap("upload", t)
-        U = self.demodulate(frame)
+        real_frame, crop, U = self._demodulate_parts(frame)
         t = timer.lap("demodulation", t)
+        raw = U
+        unit = correction = None
         if self.config.compensation.piston:
             unit, correction = self._piston(U, self.Ub, self._ref_weight)
             U = U * correction
             self._piston_obj.add(unit)
             t = timer.lap("piston", t)
         self._acc.add(U)
-        timer.lap("averaging", t)
+        t = timer.lap("averaging", t)
+        if self._metrics is not None:
+            self._record_metrics(frame, real_frame, crop, raw, unit, correction)
+            timer.lap("metrics", t)
+
+    def _record_metrics(self, frame, real_frame, crop, field, unit, correction):
+        """Hot path: per-frame metrics into the device recorder (K2)."""
+        xp = self.xp
+        m = self.config.metrics
+        if unit is None:  # piston correction disabled: measure it anyway
+            unit, correction = self._piston(field, self.Ub, self._ref_weight)
+        saturated, black, p05, median, p95 = intensity_stats(
+            xp, frame, m.saturation_level, m.black_level, self._quantiles
+        )
+        fraction, peak, dx, dy = sideband_stats(xp, real_frame, crop, self._offsets)
+        noise = reference_phase_noise(xp, field, self.Ub, correction, self._ref_weight)
+        self._metrics.record(
+            (
+                saturated,
+                black,
+                p05,
+                median,
+                p95,
+                fraction,
+                peak,
+                dx,
+                dy,
+                piston_phase(xp, unit),
+                noise,
+            )
+        )
 
     @property
     def n_frames(self) -> int:
         return self._acc.count
+
+    def frame_metrics(self) -> list[tuple[int, dict]]:
+        """Metrics of the frames since the last reset, oldest first (host
+        copy, synchronises). Empty when metrics are disabled."""
+        if self._metrics is None:
+            return []
+        return self._metrics.records()
 
     # ------------------------------------------------------------------- results
     def compensated_field(self):
