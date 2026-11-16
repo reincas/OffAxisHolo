@@ -126,3 +126,24 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Commits:** `8755f70` docs: version the note on the order of the reconstruction steps [B5];
   todo bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** record G9 ("kept knowingly") in the master system plan.
+
+### 2026-11-16 11:45 CET — [B3] Target CUDA 13 and Python ≥ 3.11
+- **Status:** partial (blocked: install check on the DHM-PC, `gui` / `live` extras, script entry)
+- **Context:** Maintainer: the DHM-PC supports CUDA 13; Python must be installed there from scratch (the PC
+  was only reached through the C server so far). Branch `build/b3-dependencies` from `chore/b5-hygiene`.
+- **Changes:**
+  - `pyproject.toml`: `gpu` extra `cupy-cuda13x>=13.6` (first CuPy for CUDA 13); `requires-python`
+    `>=3.11` (numpy 2.4.5 / scipy 1.17.1 have no 3.10 wheels); ruff `target-version` py311.
+  - `README.md`: GPU install note (CUDA 13, Python 3.11+).
+  - `CLAUDE.md`: Python version, gpu extra, DHM-PC facts (CUDA 13, Python not installed yet).
+  - `TODO.md`: B3 moved to Blocked with the remaining items; O10 updated (partly decided).
+  - `WORKLOG.md`: this entry.
+- **Tests:** `pip download --only-binary=:all: --platform win_amd64` of all minimum versions plus
+  `cupy-cuda13x==13.6.0` succeeds for Python 3.11, 3.12 and 3.13; `python -m pytest`: 90 passed,
+  8 skipped; `ruff check .` clean.
+- **Commits:** `2c8abb5` build: target CUDA 13 and Python 3.11+ for the DHM-PC [B3]; todo bookkeeping in
+  the following `docs(todo)` commit.
+- **Follow-ups:** after Python is installed on the DHM-PC: `pip install -e ".[gpu,dev]"` and record the
+  result here (closes the install item of B3, input for K14). Found: the local black 26.5 and the
+  pre-commit black 24.10 format multi-line f-strings differently (`tests/test_import_hygiene.py`), and
+  black 26 warns about Python 3.15 targets; the pre-commit hook is the reference, nothing changed.
