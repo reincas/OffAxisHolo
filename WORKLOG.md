@@ -55,3 +55,21 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Commits:** `ee39f40` docs(realtime): mark the old todo list historical, point to DHMConnect [K1];
   todo bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** none. Next todo of phase 0: B5 (needs maintainer decisions), B3 (needs O10).
+
+### 2026-11-16 14:24 CET — [K16, K18] Handover notes for DHMConnect and nanofactorysystem
+- **Status:** done
+- **Context:** Maintainer request: one document each for nanofactorysystem and DHMConnect with all
+  decisions, information and new features of this session that concern them.
+- **Changes:**
+  - `docs/handover/to_dhmconnect_2026-11-16.md` (new): decisions (G2, O3, metrics default, O6, O10,
+    O4 reopened), scope mapping of the old groups D–G, draft `ReconstructionResult` schema 0.3 for
+    DL-A3, `ReconstructionSession` usage and rules for DL-B4, background model, DHM-PC facts, the
+    contract side of K18 (SA2–SA4), requests.
+  - `docs/handover/to_nanofactorysystem_2026-11-16.md` (new): updates for the master system plan (G2,
+    G9, CUDA 13, SA1–SA7 as global decisions, K18 milestone), recipe defaults and selection policies,
+    result content for `ProductSet` / `experiment.h5`, the `LayerTarget` view on the a priori mask,
+    open decisions, requests.
+- **Tests:** none (documentation only).
+- **Commits:** `21589eb` docs: add handover notes for DHMConnect and nanofactorysystem [K16]
+- **Follow-ups:** the maintainer hands the notes to the two repositories; the master system plan is
+  updated there. No new todo here.
