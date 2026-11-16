@@ -70,7 +70,7 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
 | O10 | Minimum versions and CuPy package for the DHM-PC. Partly decided 2026-11-16: the driver supports CUDA 13 → `cupy-cuda13x`; Python is installed there from scratch; `requires-python` aligned to ≥ 3.11 (numpy 2.4.5 / scipy 1.17.1 have no Python 3.10 wheels). Open: confirm the install on the DHM-PC. | Install Python 3.12 (as on the development machine); keep the minimums unless the install fails. | B3, K14 |
 | O11 | Mode "print" of the e-field / height calculation (old H6, maintainer note "not good"): what should it compute (n_medium = liquid resin)? | – | P5 |
-| G2 | Home of the shared contracts. | JSON Schema plus examples in `dhmconnect/schemas/`, vendored under `tests/contracts/`. | K4 |
+| G2 | Home of the shared contracts. | **Decided 2026-11-16 (maintainer, as recommended):** JSON Schema plus example messages in `dhmconnect/schemas/`, vendored here under `tests/contracts/`. To be recorded in the master system plan. | K16 |
 | G7 | Single source of truth for material data. | Material registry in nanofactorysystem; presets here stay a fallback for offline use. | K9, P3 |
 
 ## Open
@@ -87,17 +87,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
     - the example messages of `ReconstructionResult` and `FrameRecord` from `dhmconnect/schemas/` are
       vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
     - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
-
-- [ ] K5: Timings [phase: 1]
-  - Priority: medium
-  - Size: S
-  - Depends on: K4
-  - Done when:
-    - stage timers for upload, demodulation, averaging, compensation and propagation, download and
-      total fill `result.timings_s`; GPU-synchronised timing only with `profile=True`;
-    - acquisition values supplied by the caller (exposure, camera and host time, grab duration) are
-      passed through unchanged;
-    - a test checks that the stage sum does not exceed the total.
 
 - [ ] K2: Frame metrics [phase: 1]
   - Priority: high
@@ -505,6 +494,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K5: Timings — 2026-11-16 — `realtime/timing.py` `StageTimer` fills `ReconstructionResult.timings_s` (seven stages plus total, stage sum ≤ total tested); device synchronisation only with `OffAxisPipeline(..., profile=True)`; caller values pass through unchanged. — commits: `c66838f`
 - [x] Port of the offline library to the array backend (before the realtime plan) — 2026-11-13 — NumPy/CuPy backend with precision control, core reconstruction, DCT least-squares unwrapping, simulation, conversion at plot/save boundaries, backend tests and benchmark, GPU documentation. — commits: `27c0a23`, `bb0bd1b`, `63481b2`, `1c7a012`, `c4b8ada`, `38f49d0`, `e2e56ef`
 - [x] B0: pytest configuration and golden reference of the offline library — 2026-11-13 — commits: `04067ea`
 - [x] B1: Lazy imports (`offaxisholo`, `reconstruction`, `phaseUnwrapping`) with `tests/test_import_hygiene.py` — 2026-11-13 — commits: `2ba3aff`

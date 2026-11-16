@@ -188,3 +188,39 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   in the following `docs(todo)` commit.
 - **Follow-ups:** K16; decision G2. Found: the local black 26.5 and the pre-commit black 24.10 format
   some constructs differently; the pre-commit hook is the reference.
+
+### 2026-11-16 12:11 CET — [K5] Stage timings
+- **Status:** done
+- **Context:** Maintainer decisions of 2026-11-16: G2 as recommended (JSON Schema plus example messages
+  in `dhmconnect/schemas/`); continue with phase 1, ask explicitly when a decision is due. Branch
+  `feat/k5-timings` from `feat/k4-result`.
+- **Design decisions:**
+  - Seven cumulative stages (upload, demodulation, piston, averaging, compensation, propagation, download)
+    plus `total` = first push to last timed step. The total includes the gaps between frames, so the
+    stage sum cannot exceed it. "download" includes deriving phase and intensity.
+  - `profile` is a constructor argument of `OffAxisPipeline`, not configuration (does not change the
+    result or the config hash). Without it the timer never touches the device; GPU stage times are then
+    enqueue times. With it, the current CUDA stream is synchronised before every clock reading.
+  - The flag travels as `ReconstructionResult.timings_profiled` (not inside `timings_s`, which holds
+    seconds only); draft `schema_version` 0.1 → 0.2.
+  - Caller values: per frame in `FrameRecord.acquisition`, per measurement via
+    `from_realtime(timings_s=...)`; both pass through unchanged (tested through a JSON round trip).
+- **Changes:**
+  - `src/offaxisholo/realtime/timing.py` (new): `StageTimer`, `STAGES`.
+  - `src/offaxisholo/realtime/core.py`: `OffAxisPipeline.timer`, `profile` argument, timed `push` and
+    `results`, `reset` clears the timings.
+  - `src/offaxisholo/realtime/result.py`: download timing, pipeline timings plus caller values,
+    `timings_profiled`, schema 0.2.
+  - `tests/realtime/test_timing.py` (new): 11 tests plus a GPU test (skipped without CUDA).
+  - `tests/test_import_hygiene.py`: `offaxisholo.realtime.timing` added.
+  - `CLAUDE.md`: realtime modules `result.py`, `timing.py`; G2 decided.
+  - `TODO.md`: G2 decided; K5 to Done.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 118 passed, 10 skipped (GPU); `ruff check .` clean; static hot-path
+  check of `push` passes.
+- **Commits:** `c66838f` feat(realtime): add stage timings to the kernel and the result [K5];
+  `388bdc0` docs: describe result.py and timing.py and the G2 decision in CLAUDE.md [K5]; todo
+  bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** record G2 in the master system plan (NanoFactorySystem_automated); tell DHMConnect
+  (DL-A3) that `realtime/result.py` (schema 0.2) is the proposed starting point for the
+  `ReconstructionResult` contract.
