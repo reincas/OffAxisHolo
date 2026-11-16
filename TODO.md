@@ -27,7 +27,7 @@ a GUI covers offline analysis, the experiment browser and live operation.
 | Phase | Topic | Todos | Gate before the dependent todos start |
 |---|---|---|---|
 | 0 | Scope, repository hygiene, dependencies | K1, B5, B3 | – |
-| 1 | Product interface (no hardware) | K4, K5, K2, K3, K6, K7, K8 | G2 for the final schema of K4 |
+| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K7, K8 | G2 for the final schema of K4 |
 | 2 | Replay, N-study, public API | K12, K13, K15 | – |
 | 3 | Validation on the DHM-PC (hardware) | K14 | access to the DHM-PC |
 | 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
@@ -79,18 +79,14 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 
 ### Phase 1 — Product interface (no hardware)
 
-- [ ] K4: `ReconstructionResult` and `FrameRecord` [phase: 1]
+- [ ] K16: Validate `ReconstructionResult` against the shared contract (follow-up of K4) [phase: 1]
   - Priority: high
-  - Size: M
-  - Depends on: G2 (final schema); start with the fields below
+  - Size: S
+  - Depends on: G2, DHMConnect DL-A3
   - Done when:
-    - dataclasses wrap `RealtimeResult` with: phase, intensity, optional complex field, pixel pitch
-      after the sideband crop, z, wavelength, medium, a `FrameRecord` per frame (metrics, used or
-      rejected, reason), quality numbers, timings, configuration hash, versions, `schema_version`;
-    - `to_message()` returns a JSON-able header and a list of named NumPy buffers; `from_message()`
-      reverses it;
-    - a round-trip test passes and the header validates against the shared example messages
-      (vendored under `tests/contracts/`).
+    - the example messages of `ReconstructionResult` and `FrameRecord` from `dhmconnect/schemas/` are
+      vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
+    - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
 
 - [ ] K5: Timings [phase: 1]
   - Priority: medium
@@ -472,6 +468,22 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
+
+- [ ] K4: `ReconstructionResult` and `FrameRecord` [phase: 1]
+  - Priority: high
+  - Size: M
+  - Depends on: G2 (final schema); start with the fields below
+  - Done when:
+    - dataclasses wrap `RealtimeResult` with: phase, intensity, optional complex field, pixel pitch
+      after the sideband crop, z, wavelength, medium, a `FrameRecord` per frame (metrics, used or
+      rejected, reason), quality numbers, timings, configuration hash, versions, `schema_version`;
+    - `to_message()` returns a JSON-able header and a list of named NumPy buffers; `from_message()`
+      reverses it;
+    - a round-trip test passes and the header validates against the shared example messages
+      (vendored under `tests/contracts/`).
+  - Status 2026-11-16: dataclasses, `to_message()` / `from_message()` and round-trip tests done
+    (`realtime/result.py`, draft `schema_version` 0.1, `43b772f`); open: validation against the vendored
+    examples, see K16.
 
 
 ## Blocked
