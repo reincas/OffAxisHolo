@@ -34,3 +34,24 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
      Files: `TODO.md` (new), `WORKLOG.md` (new)
 - **Follow-ups:** K1 (pointers in `docs/realtime/`), B5 (untracked `Claude outputs/` and `todo_claude/`,
   legacy tests, `ToDos.txt` inside the package).
+
+### 2026-11-16 09:26 CET — [K1] Finish the scope change in the realtime documents
+- **Status:** done
+- **Context:** The project files of 2026-11-15 were committed by the maintainer in `b247181`
+  ("Organizing todos"); the commits proposed in the previous entry are therefore not needed.
+  Work branch: `docs/k1-scope` from `Holo_HR`.
+- **Changes:**
+  - `docs/realtime/todo_realtime.txt`: English note at the top: historical, `TODO.md` is the
+    maintained list with the mapping table, groups D/E/F/G moved to DHMConnect (DL-B…, DL-C…, DL-H…).
+    CRLF line endings kept; German text unchanged.
+  - `docs/realtime/anweisung_realtime.txt`: English pointer notes at the start of §4 (components:
+    camera/service/client → DL-B1, B2, B3, B4, B5, B7, DL-C1, DL-H2), §7 (state machine → DL-B3,
+    DL-B10), §8 (protocol → DL-A2, DL-A4, DL-C1, D4, D5; contracts G2) and §10 (camera abstraction →
+    DL-B1, DL-H2; kernel tests use `tests/realtime/synthetic_dhm.py`). No other change.
+  - `TODO.md`: K1 moved to Done.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 90 passed, 8 skipped (GPU, no CUDA). Documentation-only change.
+  Checked `TODO.md`: no todo asks for network or camera code (L5 only uses `dhmconnect.client`).
+- **Commits:** `ee39f40` docs(realtime): mark the old todo list historical, point to DHMConnect [K1];
+  todo bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** none. Next todo of phase 0: B5 (needs maintainer decisions), B3 (needs O10).
