@@ -14,6 +14,7 @@ Stages (cumulative seconds over all frames of one measurement):
     demodulation  window, FFT, sideband crop, mask, IFFT    per frame
     piston        piston phase correction                   per frame
     averaging     accumulation of the complex field         per frame
+    metrics       per-frame metrics (only when enabled, K2) per frame
     compensation  mean(U) * K                               per result
     propagation   angular spectrum propagation (all z)      per result
     download      device -> host copy of the outputs        per result
@@ -33,6 +34,7 @@ STAGES = (
     "demodulation",
     "piston",
     "averaging",
+    "metrics",
     "compensation",
     "propagation",
     "download",
