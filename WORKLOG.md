@@ -327,3 +327,36 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   ReconstructionSession [K6]; `90cdd5a` docs: describe the entry points module in CLAUDE.md [K6]; todo
   bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** tell DHMConnect that DL-B4 can build on `ReconstructionSession`. Next: K7, K8.
+
+### 2026-11-16 12:38 CET — [K7] Background model
+- **Status:** done
+- **Context:** Branch `feat/k7-background` from `feat/k6-entry-points`. Decision O6 (2026-11-16): no
+  expiry, optional maximum age only as a warning.
+- **Design decisions:**
+  - Validity uses a separate `RealtimeConfig.background_hash()` (dhm, demod, eps_rel, piston,
+    precision), not the full config hash: changing z, averaging, metrics, the object reference border or
+    the backend keeps a background valid.
+  - Content id = first 16 hex digits of sha256(background hash, creation time, field); checked on every
+    construction, so a changed model or file is rejected.
+  - `.npz` with a JSON meta text, `allow_pickle=False` on save and load (no code execution from files).
+  - Results carry `background_id`, `background_created_utc`, `background_age_s` in quality and the new
+    `warnings` list (draft schema 0.3).
+- **Changes:**
+  - `src/offaxisholo/realtime/background.py` (new): `BackgroundModel`, `model_id`, `utc_now`.
+  - `src/offaxisholo/io/background.py` (new): `save_background`, `load_background`.
+  - `src/offaxisholo/realtime/config.py`: `background_hash()`.
+  - `src/offaxisholo/realtime/core.py`: `background_model()`, `use_background()`.
+  - `src/offaxisholo/realtime/result.py`: `warnings`, background quality, schema 0.3, `to_jsonable`
+    public.
+  - `src/offaxisholo/realtime/api.py`: `use_background`, `background_model`, `background_max_age_s`,
+    `BackgroundModel` accepted as background.
+  - `src/offaxisholo/realtime/__init__.py`: lazy export `BackgroundModel`.
+  - `tests/realtime/test_background.py` (new): 11 tests (all files under `tmp_path`).
+  - `tests/test_import_hygiene.py`: `realtime.background`, `io.background` added.
+  - `CLAUDE.md`: module described. `TODO.md`: K7 to Done. `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 187 passed, 12 skipped (GPU); `ruff check .` clean.
+- **Commits:** `d2f5342` feat(realtime): add a reusable background model with save, load and checks
+  [K7]; `a8c9a9e` docs: describe the background model in CLAUDE.md [K7]; todo bookkeeping in the
+  following `docs(todo)` commit.
+- **Follow-ups:** K8 needs two details of O4 from the maintainer (asked): format of the reference mask
+  and whether the border ring also becomes the default region of the piston correction.

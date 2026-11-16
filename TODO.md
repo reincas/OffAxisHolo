@@ -97,15 +97,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
     - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
 
-- [ ] K7: Background model [phase: 1]
-  - Priority: medium
-  - Size: M
-  - Depends on: K6; O6 for expiry rules (mechanism now, limits configurable)
-  - Done when:
-    - `BackgroundModel` holds the averaged background field, the precomputed compensation factor,
-      quality, id (hash), creation time and configuration hash;
-    - save and load (`.npz` or HDF5) and a validity check against the active configuration are tested.
-
 - [ ] K8: Quality numbers [phase: 1]
   - Priority: medium
   - Size: S
@@ -468,6 +459,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K7: Background model — 2026-11-16 — `BackgroundModel` with Ub, K, quality, id, creation time and a background hash of the relevant configuration parts; save / load as `.npz` without pickle with id check; validity check and age warning (O6) tested; usable in both entry points. — commits: `d2f5342`
 - [x] K6: Entry points — 2026-11-16 — `realtime/api.py`: `reconstruct_frames` and `ReconstructionSession` over `OffAxisPipeline` with metrics on and selection `all` by default, acquisition info passed through; the import surface (entry points plus configuration classes) is tested in a fresh interpreter. — commits: `4cac2bd`
 - [x] K3: Frame selection — 2026-11-16 — `realtime/selection.py`: policies `all` (default, O3), `threshold`, `robust`, `best_k` with enforced and reported `min_frames`; block mode keeps the fields (`keep_fields`, `FieldStore`) and `apply_selection` rebuilds the average; mask and reasons go into the frame records. Sliding / EMA gating is K17. — commits: `3a7c520`
 - [x] K2: Frame metrics — 2026-11-16 — `realtime/metrics.py`: eleven per-frame metrics computed in `push` from the demodulation FFT without host synchronisation, kept in a device ring buffer and turned into `FrameRecord`s; opt-in via `MetricsConfig.enabled`; tested with saturation, shifted carrier and reduced fringe contrast, CuPy parity test skipped without CUDA. — commits: `aab56d6`, `efdda6c`
