@@ -28,6 +28,7 @@ LIGHT_MODULES = [
     "offaxisholo.realtime.timing",
     "offaxisholo.realtime.metrics",
     "offaxisholo.realtime.selection",
+    "offaxisholo.realtime.api",
 ]
 
 

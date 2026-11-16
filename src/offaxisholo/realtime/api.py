@@ -1,0 +1,272 @@
+"""
+Entry points of the product interface (K6): ``reconstruct_frames`` and
+``ReconstructionSession``.
+
+PIPELINE layer: thin orchestration over ``OffAxisPipeline`` (kernel),
+``select_frames`` (selection) and ``ReconstructionResult`` (product). No file
+IO, no logging, no network. The DHM service (DHMConnect DL-B4) and the GUI
+import only these two names plus the configuration classes
+(``RealtimeConfig`` and its parts, ``SelectionPolicy``):
+
+    from offaxisholo.realtime import (
+        RealtimeConfig, SelectionPolicy, ReconstructionSession, reconstruct_frames,
+    )
+
+    # one call per measurement
+    result = reconstruct_frames(frames, background, config)
+
+    # stateful, frame by frame (service / live)
+    session = ReconstructionSession(config, selection=SelectionPolicy("robust"))
+    session.warmup()
+    session.set_background(background_frames)
+    for frame, info in camera:
+        session.push(frame, info)
+    result = session.result()
+    session.reset()
+
+Defaults (maintainer decisions of 2026-11-16): frame metrics are on (they can be
+switched off with ``metrics=False``); the selection policy is ``all`` (O3).
+A policy other than ``all`` needs the block averaging mode, because the fields
+are kept until the selection (``realtime.selection``, design note).
+"""
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import replace
+
+from .config import RealtimeConfig
+from .core import OffAxisPipeline
+from .result import FrameRecord, ReconstructionResult
+from .selection import SelectionPolicy, select_frames
+
+OUTPUTS = ("phase", "intensity", "field")
+
+
+def _check_outputs(outputs) -> bool:
+    """Validate ``outputs``; returns whether the complex field is requested."""
+    outputs = tuple(outputs)
+    unknown = set(outputs) - set(OUTPUTS)
+    if unknown:
+        raise ValueError(f"Unknown outputs {sorted(unknown)}. Possible: {OUTPUTS}.")
+    return "field" in outputs
+
+
+class ReconstructionSession:
+    """Stateful reconstruction of measurements frame by frame.
+
+    Parameters
+    ----------
+    config : RealtimeConfig
+        Kernel configuration with the calibrated order.
+    selection : SelectionPolicy, optional
+        Frame selection applied in :meth:`result`; default policy ``all``.
+    outputs : sequence of str, optional
+        Products of every result: ``"phase"`` and ``"intensity"`` are always
+        included, ``"field"`` adds the complex field.
+    metrics : bool, optional
+        Compute the per-frame metrics (default True). Overrides
+        ``config.metrics.enabled``; the stored configuration shows the value
+        used.
+    xp : module, optional
+        Array namespace; default from ``config.backend``.
+    profile : bool, optional
+        Device-synchronised stage timings (diagnostics only).
+
+    Notes
+    -----
+    Exactly one thread may use a session (it owns the CUDA context of its
+    pipeline). ``push`` is the hot path; ``result`` synchronises once.
+    """
+
+    def __init__(
+        self,
+        config: RealtimeConfig,
+        *,
+        selection: SelectionPolicy | None = None,
+        outputs=("phase", "intensity"),
+        metrics: bool = True,
+        xp=None,
+        profile: bool = False,
+    ):
+        self.selection = (selection or SelectionPolicy()).validate()
+        self._include_field = _check_outputs(outputs)
+        config = replace(config, metrics=replace(config.metrics, enabled=bool(metrics)))
+        selecting = self.selection.policy != "all"
+        if selecting and not metrics:
+            raise ValueError(
+                f"Selection policy '{self.selection.policy}' needs the frame metrics."
+            )
+        if selecting and config.averaging.mode != "block":
+            raise ValueError(
+                f"Selection policy '{self.selection.policy}' needs averaging mode "
+                f"'block' (sliding / EMA gating: K17)."
+            )
+        self.pipeline = OffAxisPipeline(
+            config, xp=xp, profile=profile, keep_fields=selecting
+        )
+        capacity = (
+            self.pipeline._metrics.capacity
+            if self.pipeline._metrics is not None
+            else max(config.averaging.n_obj, config.averaging.window)
+        )
+        self._infos = deque(maxlen=capacity)
+        self._pushed = 0
+
+    @property
+    def config(self) -> RealtimeConfig:
+        """The configuration in use (with the effective metrics setting)."""
+        return self.pipeline.config
+
+    @property
+    def n_frames(self) -> int:
+        """Frames pushed since the last reset."""
+        return self._pushed
+
+    def warmup(self):
+        """Create FFT plans and transfer functions before the first frame."""
+        self.pipeline.warmup()
+
+    def set_background(self, frames):
+        """Average a new background from an iterable of frames.
+
+        Resets the current measurement.
+
+        Returns
+        -------
+        dict
+            Quality of the background (``OffAxisPipeline.background_quality``;
+            synchronises once).
+        """
+        self.pipeline.set_background(frames)
+        self._infos.clear()
+        self._pushed = 0
+        return self.pipeline.background_quality()
+
+    def push(self, frame, info: dict | None = None):
+        """Add one object frame (hot path).
+
+        Parameters
+        ----------
+        frame : array
+            Raw camera frame (N, N), host or device array.
+        info : dict, optional
+            Acquisition values of this frame (exposure, camera and host time,
+            frame id, …), passed through unchanged into its ``FrameRecord``.
+        """
+        self.pipeline.push(frame)
+        if info is not None:
+            self._infos.append((self._pushed, info))
+        self._pushed += 1
+
+    def reset(self):
+        """Start a new measurement (the background is kept)."""
+        self.pipeline.reset()
+        self._infos.clear()
+        self._pushed = 0
+
+    def result(self, z: float | None = None, timings_s: dict | None = None):
+        """Select the frames and build the product result.
+
+        Parameters
+        ----------
+        z : float, optional
+            Propagation distance in metres; default the single configured z
+            (or the hologram plane when none is configured).
+        timings_s : dict, optional
+            Additional caller timings in seconds (e.g. the grab time).
+
+        Returns
+        -------
+        ReconstructionResult
+        """
+        pipe = self.pipeline
+        selection = None
+        if self.selection.policy != "all":
+            selection = select_frames(pipe.frame_metrics(), self.selection)
+            pipe.apply_selection(selection.mask)
+        elif pipe._metrics is not None and pipe.n_frames:
+            selection = select_frames(pipe.frame_metrics(), self.selection)
+        result = ReconstructionResult.from_realtime(
+            pipe.result(z),
+            pipe,
+            include_field=self._include_field,
+            timings_s=timings_s,
+            selection=selection,
+        )
+        infos = dict(self._infos)
+        if result.frames:
+            for record in result.frames:
+                if record.index in infos:
+                    record.acquisition = dict(infos[record.index])
+        elif infos:
+            result.frames = [
+                FrameRecord(index=index, acquisition=dict(info))
+                for index, info in sorted(infos.items())
+            ]
+        return result
+
+
+def reconstruct_frames(
+    frames,
+    background,
+    config: RealtimeConfig,
+    *,
+    selection: SelectionPolicy | None = None,
+    outputs=("phase", "intensity"),
+    frame_info=None,
+    metrics: bool = True,
+    z: float | None = None,
+    xp=None,
+) -> ReconstructionResult:
+    """Reconstruct one measurement from its object and background frames.
+
+    Parameters
+    ----------
+    frames : sequence of array
+        Raw object frames (N, N); an iterable is materialised once.
+    background : iterable of array
+        Raw background frames (N, N).
+    config : RealtimeConfig
+        Kernel configuration with the calibrated order. ``averaging.n_obj``
+        is set to the number of object frames and the averaging mode to
+        ``block`` (one measurement).
+    selection : SelectionPolicy, optional
+        Frame selection; default policy ``all``.
+    outputs : sequence of str, optional
+        ``"phase"`` and ``"intensity"`` are always included; ``"field"`` adds
+        the complex field.
+    frame_info : sequence of dict, optional
+        Acquisition values per object frame, passed through unchanged.
+    metrics : bool, optional
+        Compute the per-frame metrics (default True).
+    z : float, optional
+        Propagation distance in metres; default from the configuration.
+    xp : module, optional
+        Array namespace; default from ``config.backend``.
+
+    Returns
+    -------
+    ReconstructionResult
+    """
+    frames = list(frames)
+    if not frames:
+        raise ValueError("At least one object frame is required.")
+    if frame_info is not None:
+        frame_info = list(frame_info)
+        if len(frame_info) != len(frames):
+            raise ValueError(
+                f"{len(frame_info)} frame_info entries for {len(frames)} frames."
+            )
+    averaging = replace(config.averaging, mode="block", n_obj=len(frames))
+    session = ReconstructionSession(
+        replace(config, averaging=averaging),
+        selection=selection,
+        outputs=outputs,
+        metrics=metrics,
+        xp=xp,
+    )
+    session.set_background(background)
+    for index, frame in enumerate(frames):
+        session.push(frame, None if frame_info is None else frame_info[index])
+    return session.result(z)
