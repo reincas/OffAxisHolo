@@ -104,3 +104,25 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   todo bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** maintainer decisions on `Notes_reconstruction_order.txt` (proposal: version it as
   `docs/reconstruction_order.md`) and G9; whether `attic/` should stay gitignored.
+
+### 2026-11-16 11:40 CET — [B5] Version the reconstruction order note, close B5
+- **Status:** done
+- **Context:** Maintainer decisions of 2026-11-16: version `Notes_reconstruction_order.txt` if useful
+  (in English); `.git`, `.venv` and `build/` stay in the Seafile folder, the maintainer knows the risks
+  (G9; to be recorded in the master copy of the system plan in NanoFactorySystem_automated);
+  `attic/` stays gitignored.
+- **Changes:**
+  - `docs/reconstruction_order.md` (new): the note (already English) converted to Markdown with tables;
+    open points of §6 linked to O1, O2, P16, P17.
+  - `src/offaxisholo/Notes_reconstruction_order.txt` (untracked; moved on disk → `attic/notes/`).
+  - `.gitignore`: ignore line of the old note removed.
+  - `CLAUDE.md`: points to `docs/reconstruction_order.md`.
+  - `TODO.md`: B5 moved to Done; new backlog todos P16 (compensation before propagation vs.
+    `P_z{E_obj} / P_z{E_ref}`) and P17 (numerical aberration compensation), both found during B5;
+    phase table P1–P17.
+  - `WORKLOG.md`: this entry.
+- **Tests:** none run for this step (documentation only; the full suite passed at 09:56 with the same
+  code).
+- **Commits:** `8755f70` docs: version the note on the order of the reconstruction steps [B5];
+  todo bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** record G9 ("kept knowingly") in the master system plan.

@@ -33,7 +33,7 @@ a GUI covers offline analysis, the experiment browser and live operation.
 | 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
 | 5 | Optimisation after profiling | C13 | K14 numbers exist |
 | 6 | GUI | L0, L1, L2, L3, L4, L5, L6, L7, L8 | L0 approved by the maintainer; L5/L6 need DHMConnect DL-C1, DL-B8, DL-B10 |
-| B | Package backlog (offline library) | P1–P15 | – |
+| B | Package backlog (offline library) | P1–P17 | – |
 
 Phase 6 can start in parallel to phases 2–5 once K6 exists. Phase 4 todos may be started for their
 independent part (structure, hashing) and kept "In Progress" until the decisions arrive.
@@ -429,6 +429,18 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
     data; the old script `attic/legacy_tests/test_zernike.py` is reviewed for reuse; MIRA is told the final
     signatures.
 
+- [ ] P16: Compare compensation before propagation with propagating both fields (found during B5) [phase: B]
+  - Priority: low | Size: M | Depends on: real data of a known reference structure at several z
+  - Done when: `P_z{E_obj · conj(E_ref) / |E_ref|²}` (current order) and `P_z{E_obj} / P_z{E_ref}` are
+    compared on a known reference structure (object and background at several z) with a tool in
+    `tools/`; result appended to `docs/reconstruction_order.md`; the offline default stays unchanged.
+
+- [ ] P17: Numerical aberration compensation (found during B5) [phase: B]
+  - Priority: low | Size: M | Depends on: P15
+  - Done when: a numerical parametric lens / Zernike fit for use without a background hologram
+    (Colomb et al., J. Opt. Soc. Am. A 23, 3177 (2006)) is evaluated on synthetic and real data against
+    background compensation; source: `docs/reconstruction_order.md` §6.
+
 ## Items of `docs/realtime/todo_realtime.txt` and where they went
 
 | Old item | Status / new place |
@@ -472,23 +484,6 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
 
-- [ ] B5: Repository hygiene (carried over, partly decisions of the maintainer) [phase: 0]
-  - Priority: medium
-  - Size: S
-  - Depends on: –
-  - Done when the maintainer has decided, and the decisions are carried out, for:
-    - [x] the legacy scripts in `tests/test/`: moved to `attic/legacy_tests/` (2026-11-16, `ed74765`);
-    - [x] `src/offaxisholo/ToDos.txt`: scanned, missing items added to O5, K14 and P13, file moved to
-      `attic/ToDos.txt`; `src/offaxisholo/reconstruction/console.log` deleted and `*.log` ignored
-      (2026-11-16, `04e5030`);
-    - [x] the folders `Claude outputs/` and `todo_claude/`: fully absorbed, moved to
-      `attic/planning_2026-11-15/` (2026-11-16, `5c18e66`);
-    - [x] the README "Project Structure" section matches the real tree (2026-11-16, `083fcd4`);
-    - [ ] `src/offaxisholo/Notes_reconstruction_order.txt` (gitignored): move to `docs/` and version it
-      (Decision: open, proposal: yes, as `docs/reconstruction_order.md`);
-    - [ ] `.git`, `.venv` and `build/` inside a Seafile sync folder (decision G9).
-  - Already done before: preset loading bundled in `config/presets.py` (`c6ab76e`); specification moved
-    to `docs/realtime/` (`e57eed4`).
 
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
@@ -503,4 +498,5 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 - [x] Specification and reference skeleton moved to `docs/realtime/` — 2026-11-13 — commits: `e57eed4`
 - [x] C1–C12, C14: Realtime kernel (`realtime/`: configuration, calibration, demodulation with crop, piston correction, background and compensation factor, accumulators, compensation and propagation per result, outputs, unwrapping options, tests of gates G1.1–G1.6 on the CPU, benchmark, noise-vs-N tool) — 2026-11-13 — commits: `a446653`, `cfdb038`, `c6ab76e`, `d47eab8`, `885d513`, `a9e5466`, `0656e4f`, `c63d328`, `5a435c9`, `bd44a73`, `f36035a`
 - [x] G1.8 (first part): Unwrapping comparison tool and first report — 2026-11-13 — Least Squares deviates 0.65–2.3 rad RMS from Fast 2D on developed structures; Fast 2D stays the default. — commits: `3790c7e`
+- [x] B5: Repository hygiene — 2026-11-16 — Legacy scripts, old todo notes and planning inputs moved to `attic/` (with `git mv`; `attic/` stays gitignored), `console.log` deleted, README tree current, `Notes_reconstruction_order.txt` versioned as `docs/reconstruction_order.md`; the maintainer keeps `.git`, `.venv` and `build/` in the Seafile folder knowingly (G9). — commits: `ed74765`, `04e5030`, `5c18e66`, `083fcd4`, `8223404`, `8755f70`
 - [x] K1: Finish the scope change in the documents — 2026-11-16 — Project files (`CLAUDE.md`, `TODO.md`, `WORKLOG.md`, system plan) created; `todo_realtime.txt` marked historical and `anweisung_realtime.txt` §4, §7, §8, §10 point to DHMConnect; no todo here asks for network or camera code. — commits: `b247181`, `ee39f40`
