@@ -76,6 +76,7 @@ black . && ruff check --fix .         # formatting and linting (line length 88)
 - `accumulators.py`: `BlockAccumulator`, `SlidingAccumulator` (ring buffer, periodic re-summation), `EMAAccumulator` (N_eff = (2 − α)/α).
 - `unwrapping.py`: `unwrap(phase, method)` and `TemporalUnwrapper` (live tracking only).
 - `result.py` (K4): `ReconstructionResult` (phase float32, linear intensity, optional complex64 field, `pixel_pitch_um` after the crop, `z_um`, `wavelength_um`, `n_medium`, `FrameRecord` list, quality, `timings_s`, config and hash, versions, `created_utc`, draft `schema_version`) with `from_realtime` (the only device → host copy), `to_message` (JSON header + named little-endian buffers) and `from_message`. The final contract comes from `dhmconnect/schemas/` (G2, decided 2026-11-16; K16).
+- `metrics.py` (K2): per-frame metrics computed in `push` from the demodulation FFT (saturated / black counts, intensity quantiles, sideband energy fraction and peak position, piston phase, phase noise in the reference region); device ring buffer `MetricsRecorder`, host copy via `OffAxisPipeline.frame_metrics()`. Switched on by `MetricsConfig.enabled` (off by default, so parity and benchmarks are unchanged).
 - `timing.py` (K5): `StageTimer`, cumulative seconds per stage (upload, demodulation, piston, averaging, compensation, propagation, download) and `total`; `OffAxisPipeline.timer`. Without `profile=True` it never synchronises the device (GPU numbers are then enqueue times).
 - Noise model: σ² ≈ σ_obj²/N_obj + σ_bg²/N_bg (background floor).
 
