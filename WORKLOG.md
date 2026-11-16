@@ -256,3 +256,84 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   ReconstructionSession [K6]; `90cdd5a` docs: describe the entry points module in CLAUDE.md [K6]; todo
   bookkeeping in the following `docs(todo)` commit.
 - **Follow-ups:** tell DHMConnect that DL-B4 can build on `ReconstructionSession`. Next: K7, K8.
+
+### 2026-11-16 12:38 CET — [K7] Background model
+- **Status:** done
+- **Context:** Branch `feat/k7-background` from `feat/k6-entry-points`. Decision O6 (2026-11-16): no
+  expiry, optional maximum age only as a warning.
+- **Design decisions:**
+  - Validity uses a separate `RealtimeConfig.background_hash()` (dhm, demod, eps_rel, piston,
+    precision), not the full config hash: changing z, averaging, metrics, the object reference border or
+    the backend keeps a background valid.
+  - Content id = first 16 hex digits of sha256(background hash, creation time, field); checked on every
+    construction, so a changed model or file is rejected.
+  - `.npz` with a JSON meta text, `allow_pickle=False` on save and load (no code execution from files).
+  - Results carry `background_id`, `background_created_utc`, `background_age_s` in quality and the new
+    `warnings` list (draft schema 0.3).
+- **Changes:**
+  - `src/offaxisholo/realtime/background.py` (new): `BackgroundModel`, `model_id`, `utc_now`.
+  - `src/offaxisholo/io/background.py` (new): `save_background`, `load_background`.
+  - `src/offaxisholo/realtime/config.py`: `background_hash()`.
+  - `src/offaxisholo/realtime/core.py`: `background_model()`, `use_background()`.
+  - `src/offaxisholo/realtime/result.py`: `warnings`, background quality, schema 0.3, `to_jsonable`
+    public.
+  - `src/offaxisholo/realtime/api.py`: `use_background`, `background_model`, `background_max_age_s`,
+    `BackgroundModel` accepted as background.
+  - `src/offaxisholo/realtime/__init__.py`: lazy export `BackgroundModel`.
+  - `tests/realtime/test_background.py` (new): 11 tests (all files under `tmp_path`).
+  - `tests/test_import_hygiene.py`: `realtime.background`, `io.background` added.
+  - `CLAUDE.md`: module described. `TODO.md`: K7 to Done. `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 187 passed, 12 skipped (GPU); `ruff check .` clean.
+- **Commits:** `d2f5342` feat(realtime): add a reusable background model with save, load and checks
+  [K7]; `a8c9a9e` docs: describe the background model in CLAUDE.md [K7]; todo bookkeeping in the
+  following `docs(todo)` commit.
+- **Follow-ups:** K8 needs two details of O4 from the maintainer (asked): format of the reference mask
+  and whether the border ring also becomes the default region of the piston correction.
+
+### 2026-11-16 13:19 CET — [K18] Stitching and averaging problem document; K8 blocked
+- **Status:** partial (K18 is a planning todo; the document is written, the decisions are open)
+- **Context:** Before K8 the maintainer asked what "piston phase" and "reference mask" mean. After the
+  explanation: structures differ from print to print, large structures will be stitched, MIRA detects
+  structures with Otsu and sets the background to 0 (this already levels the absolute offset). The
+  maintainer finds the a priori mask from the print job very sensible and the a posteriori mask from MIRA
+  useful; detection, combination of holograms and stitching will be worked on intensively later. A fixed
+  mask per objective (O4 of the same morning) therefore does not hold.
+- **Findings (details in the document):** per-frame alignment before averaging (OffAxisHolo) and levelling
+  of the final map / tile offsets (MIRA) are different steps; for a static structure the whole-field
+  alignment is good enough, it fails when the structure changes during the measurement; the noise measure
+  needs a per-capture mask; averaging within a position belongs here, across positions to MIRA (MI-30).
+- **Changes:**
+  - `docs/stitching_and_averaging.md` (new): terms, current state of OffAxisHolo / MIRA / nanofactorysystem,
+    findings, problems P-A–P-F, decisions SA1–SA7 with proposals (not decided).
+  - `CLAUDE.md`: pointer to the document.
+  - `TODO.md`: O4 reopened and superseded by SA1–SA7; new K18 (planning session, found during K8); K8
+    moved to Blocked (blocked by K18) with a note on what is already in every result; K4 status shows
+    schema 0.3; phase table.
+  - `WORKLOG.md`: this entry and the session summary below.
+- **Tests:** `python -m pytest`: 187 passed, 12 skipped (GPU); `ruff check .` clean. No code changed.
+- **Commits:** `5243359` docs: collect the reference mask, averaging and stitching problems [K18];
+  todo bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** planning session K18 with access to all four repositories (start Claude Code in the
+  common parent folder or use `/add-dir`).
+
+### 2026-11-16 13:19 CET — Session summary (end of session)
+- **Done today:** K1, B5, K5, K2, K3, K6, K7. **In Progress:** K4 (contract validation, K16).
+  **Blocked:** B3 (Python on the DHM-PC, O7, DL-C1, L1), K8 (K18). **New:** K16, K17, K18, P16, P17.
+- **Decisions of the maintainer today:** B5 items (attic, notes versioned, G9 kept knowingly, `attic/`
+  stays ignored); CUDA 13 on the DHM-PC, Python to be installed there; G2 as recommended; O3 `all`;
+  metrics on in the entry points; O6 warning only; O4 decided and reopened the same day (→ K18).
+- **Branches (stacked, merge in this order into `Holo_HR`; nothing pushed):** `docs/k1-scope` →
+  `chore/b5-hygiene` → `build/b3-dependencies` → `feat/k4-result` → `feat/k5-timings` →
+  `feat/k2-metrics` → `feat/k3-selection` → `feat/k6-entry-points` → `feat/k7-background`.
+  The last branch contains all commits of the session.
+- **Tests at the end:** `python -m pytest`: 187 passed, 12 skipped (GPU tests, no CUDA on this machine).
+- **For the maintainer:**
+  - record G2 (decided) and G9 (kept knowingly) in the master system plan (NanoFactorySystem_automated);
+  - tell DHMConnect that `realtime/result.py` (draft schema 0.3) is the proposed starting point for the
+    `ReconstructionResult` contract (DL-A3) and that DL-B4 can build on `ReconstructionSession`;
+  - on the DHM-PC: install Python 3.12, `pip install -e ".[gpu,dev]"`, `python -m pytest -m gpu`,
+    `python tests/benchmark_realtime.py 1024 --metrics` and without `--metrics` (B3, K14);
+  - local black 26.5 and the pre-commit black 24.10 format some constructs differently; the hook is the
+    reference.
+- **Next todos:** K18 (planning session), then K8; phase 2 (K12 replay reader, K15 public API) can start
+  independently.

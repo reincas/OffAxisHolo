@@ -51,6 +51,7 @@ from ..reconstruction.numericalPropagation import (
     transfer_function,
 )
 from .accumulators import FieldStore, make_accumulator
+from .background import BackgroundModel, utc_now
 from .config import RealtimeConfig
 from .metrics import (
     MetricsRecorder,
@@ -231,6 +232,9 @@ class OffAxisPipeline:
         self.K = None
         self._bg_halves = None
         self.n_background = 0
+        self._bg_created_utc = None  # creation time of the current background
+        self._bg_model = None  # BackgroundModel cache (built on request)
+        self._bg_loaded_quality = None  # quality of a loaded model
 
     # ------------------------------------------------------------ building blocks
     def validate_frame(self, frame):
@@ -335,12 +339,71 @@ class OffAxisPipeline:
         self.K = xp.conj(Ub) / (intensity + eps)
         self._bg_halves = halves if count >= 2 else None
         self.n_background = count
+        self._bg_created_utc = utc_now().isoformat(timespec="milliseconds")
+        self._bg_model = None
+        self._bg_loaded_quality = None
+        self.reset()
+
+    def background_model(self) -> BackgroundModel:
+        """The current background as a reusable model (host copy, cached).
+
+        Returns
+        -------
+        BackgroundModel
+            With field, compensation factor, quality, background hash of the
+            configuration, creation time and id. Synchronises once per
+            background.
+        """
+        if self.Ub is None:
+            raise RuntimeError("No background set.")
+        if self._bg_model is None:
+            self._bg_model = BackgroundModel(
+                field=backend.to_numpy(self.Ub),
+                compensation=backend.to_numpy(self.K),
+                n_frames=self.n_background,
+                config_hash=self.config.background_hash(),
+                created_utc=self._bg_created_utc,
+                quality=self.background_quality(),
+                config=self.config.to_dict(),
+            )
+        return self._bg_model
+
+    def use_background(self, model: BackgroundModel):
+        """Use a stored background instead of recording a new one.
+
+        Parameters
+        ----------
+        model : BackgroundModel
+            Must fit the active configuration (``background_hash``).
+
+        Raises
+        ------
+        ValueError
+            The model was made with another demodulation, microscope,
+            compensation or precision setting, or has another shape.
+        """
+        model.check_config(self.config)
+        if model.field.shape != (self.n, self.n):
+            raise ValueError(
+                f"Background shape {model.field.shape} != crop ({self.n}, {self.n})."
+            )
+        xp = self.xp
+        self.Ub = xp.asarray(model.field, dtype=self.cdtype)
+        self.K = xp.asarray(model.compensation, dtype=self.cdtype)
+        self.n_background = model.n_frames
+        self._bg_halves = None
+        self._piston_bg = _PhasorStats(xp)
+        self._bg_created_utc = model.created_utc
+        self._bg_model = model
+        self._bg_loaded_quality = dict(model.quality)
         self.reset()
 
     def background_quality(self) -> dict:
         """Quality figures of the background (host values, synchronises)."""
         if self.Ub is None:
             raise RuntimeError("No background set.")
+        if self._bg_loaded_quality is not None:
+            return dict(self._bg_loaded_quality)
         xp = self.xp
         amplitude = xp.abs(self.Ub)
         a_max = float(xp.max(amplitude))

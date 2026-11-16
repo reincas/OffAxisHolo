@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 
-SCHEMA_VERSION = "0.2"  # 0.2: timings_profiled (K5)
+SCHEMA_VERSION = "0.3"  # 0.2: timings_profiled (K5); 0.3: warnings (K7)
 MESSAGE_TYPE = "ReconstructionResult"
 
 # name of the buffer -> dtype in the message
@@ -44,7 +44,7 @@ _BUFFER_DTYPES = {
 _DTYPE_NAMES = {np.dtype("<f4"): "float32", np.dtype("<c8"): "complex64"}
 
 
-def _jsonable(value):
+def to_jsonable(value):
     """Convert NumPy scalars, tuples and non-finite floats into plain JSON values.
 
     Parameters
@@ -59,9 +59,9 @@ def _jsonable(value):
         ``bool`` and ``None`` only. NaN and infinities become ``None``.
     """
     if isinstance(value, dict):
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        return {str(k): to_jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_jsonable(v) for v in value]
+        return [to_jsonable(v) for v in value]
     if isinstance(value, np.generic):
         value = value.item()
     if isinstance(value, float) and not math.isfinite(value):
@@ -104,7 +104,7 @@ class FrameRecord:
 
     def to_dict(self) -> dict:
         """Return the record as a JSON-able dict."""
-        return _jsonable(
+        return to_jsonable(
             {
                 "index": int(self.index),
                 "used": bool(self.used),
@@ -168,6 +168,9 @@ class ReconstructionResult:
         The full kernel configuration (``RealtimeConfig.to_dict``).
     created_utc : str, optional
         Creation time, UTC ISO 8601; set automatically when empty.
+    warnings : list of str, optional
+        Conditions the consumer should know about, e.g. an old background
+        (decision O6).
     schema_version : str, optional
         Version of the message schema.
     """
@@ -187,6 +190,7 @@ class ReconstructionResult:
     versions: dict[str, Any] = dc_field(default_factory=dict)
     config: dict | None = None
     created_utc: str = ""
+    warnings: list[str] = dc_field(default_factory=list)
     schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self):
@@ -215,11 +219,11 @@ class ReconstructionResult:
         self.n_medium = float(self.n_medium)
         # metadata is kept in its JSON form (lists, plain scalars, NaN -> None),
         # so a result and its message round trip compare equal
-        self.quality = _jsonable(dict(self.quality))
-        self.timings_s = _jsonable(dict(self.timings_s))
-        self.versions = _jsonable(dict(self.versions))
+        self.quality = to_jsonable(dict(self.quality))
+        self.timings_s = to_jsonable(dict(self.timings_s))
+        self.versions = to_jsonable(dict(self.versions))
         if self.config is not None:
-            self.config = _jsonable(dict(self.config))
+            self.config = to_jsonable(dict(self.config))
         if not self.created_utc:
             self.created_utc = datetime.now(timezone.utc).isoformat(
                 timespec="milliseconds"
@@ -248,6 +252,7 @@ class ReconstructionResult:
         timings_s: dict[str, float] | None = None,
         versions: dict[str, Any] | None = None,
         selection=None,
+        warnings: list[str] | None = None,
     ) -> ReconstructionResult:
         """Build the product result from a kernel result.
 
@@ -278,6 +283,8 @@ class ReconstructionResult:
             Frame selection applied to the pipeline (``apply_selection``). Its
             mask and reasons go into the frame records built from the metrics,
             its summary into ``quality``.
+        warnings : list of str, optional
+            Warnings to pass on (e.g. ``BackgroundModel.warnings``).
 
         Notes
         -----
@@ -326,6 +333,10 @@ class ReconstructionResult:
         }
         if selection is not None:
             quality.update(selection.quality())
+        background = pipeline.background_model()
+        quality["background_id"] = background.model_id
+        quality["background_created_utc"] = background.created_utc
+        quality["background_age_s"] = background.age_s()
         return cls(
             phase_rad=host["phase"],
             intensity=host["intensity"],
@@ -345,6 +356,7 @@ class ReconstructionResult:
                 else default_versions(pipeline.xp)
             ),
             config=config.to_dict(),
+            warnings=[str(w) for w in (warnings or [])],
         )
 
     # -------------------------------------------------------------- messages
@@ -377,7 +389,7 @@ class ReconstructionResult:
                     "byte_order": "little",
                 }
             )
-        header = _jsonable(
+        header = to_jsonable(
             {
                 "message_type": MESSAGE_TYPE,
                 "schema_version": self.schema_version,
@@ -393,6 +405,7 @@ class ReconstructionResult:
                 "timings_profiled": bool(self.timings_profiled),
                 "versions": self.versions,
                 "config": self.config,
+                "warnings": list(self.warnings),
                 "buffers": descriptors,
             }
         )
@@ -485,6 +498,7 @@ class ReconstructionResult:
             versions=dict(header.get("versions") or {}),
             config=header.get("config"),
             created_utc=header.get("created_utc", ""),
+            warnings=list(header.get("warnings") or []),
             schema_version=version,
         )
 

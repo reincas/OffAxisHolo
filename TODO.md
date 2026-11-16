@@ -27,7 +27,7 @@ a GUI covers offline analysis, the experiment browser and live operation.
 | Phase | Topic | Todos | Gate before the dependent todos start |
 |---|---|---|---|
 | 0 | Scope, repository hygiene, dependencies | K1, B5, B3 | – |
-| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K17, K7, K8 | G2 for the final schema of K4 |
+| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K17, K7, K18, K8 | G2 for the final schema of K4 |
 | 2 | Replay, N-study, public API | K12, K13, K15 | – |
 | 3 | Validation on the DHM-PC (hardware) | K14 | access to the DHM-PC |
 | 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
@@ -62,7 +62,7 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 | O1 | Result plane and z per objective (old H1, H3): preset 0.11 µm against measured about −2.6 µm. Same as G4. | z comes with the request; default from the parameter set. | K9, K10 |
 | O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
 | O3 | Default frame selection policy and thresholds. | **Decided 2026-11-16 (maintainer, as recommended):** default policy `all` until the N-study (K13) is evaluated; all policies are implemented. In the entry points (K6) the frame metrics are on by default (re-evaluate after K14). | K3, K6 |
-| O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | **Decided 2026-11-16 (maintainer, as recommended):** mask in the parameter set; without a mask a border ring as fallback (width configurable, proposal n/16). | K8 |
+| O4 | Reference region for piston phase and noise. | **Reopened 2026-11-16:** the decision of the same day (mask per objective, border ring fallback) does not hold, because every print has another structure and large structures are stitched. Superseded by SA1–SA7 in `docs/stitching_and_averaging.md` (planning session K18). | K8, K18 |
 | O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
 | O6 | Lifetime of a background and drift monitoring (old Q8). | **Decided 2026-11-16 (maintainer, as recommended):** the background model stores time, config hash and quality; a configurable maximum age (default: none) only adds a warning to the result. Limits after a drift measurement (Masterplan V4). | K7 |
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
@@ -97,23 +97,16 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
     - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
 
-- [ ] K7: Background model [phase: 1]
-  - Priority: medium
+- [ ] K18: Cross-repository planning: reference mask, averaging and stitching (found during K8) [phase: 1]
+  - Priority: high
   - Size: M
-  - Depends on: K6; O6 for expiry rules (mechanism now, limits configurable)
+  - Depends on: planning session with the maintainer and access to MIRA, nanofactorysystem and DHMConnect
   - Done when:
-    - `BackgroundModel` holds the averaged background field, the precomputed compensation factor,
-      quality, id (hash), creation time and configuration hash;
-    - save and load (`.npz` or HDF5) and a validity check against the active configuration are tested.
-
-- [ ] K8: Quality numbers [phase: 1]
-  - Priority: medium
-  - Size: S
-  - Depends on: K4; O4 for the reference region
-  - Done when:
-    - phase noise in the reference region after plane removal, number of frames used, piston standard
-      deviation and sideband signal-to-noise ratio are in every result;
-    - tested on synthetic data with known noise.
+    - decisions SA1–SA7 of `docs/stitching_and_averaging.md` are taken by the maintainer and recorded
+      there, in the master system plan and in the todo lists of the affected repositories;
+    - the resulting todos exist (here at least: per-measurement reference mask in the entry points,
+      K8 unblocked; MIRA / nanofactorysystem / DHMConnect as decided).
+  - Note: design todo; ends with the decisions in the document (working rule 2).
 
 ### Phase 2 — Replay, N-study, public API
 
@@ -445,12 +438,25 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
     - a round-trip test passes and the header validates against the shared example messages
       (vendored under `tests/contracts/`).
   - Status 2026-11-16: dataclasses, `to_message()` / `from_message()` and round-trip tests done
-    (`realtime/result.py`, draft `schema_version` 0.1, `43b772f`); open: validation against the vendored
+    (`realtime/result.py`, `43b772f`; draft `schema_version` now 0.3 after K5 and K7); open: validation against the vendored
     examples, see K16.
 
 
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
+
+- [ ] K8: Quality numbers [phase: 1]
+  - Priority: medium
+  - Size: S
+  - Depends on: K4; K18 (reference region, SA1–SA7)
+  - Done when:
+    - phase noise in the reference region after plane removal, number of frames used, piston standard
+      deviation and sideband signal-to-noise ratio are in every result;
+    - tested on synthetic data with known noise.
+  - Note 2026-11-16: number of frames used, piston standard deviation and selection summary are already in
+    every result (K2, K3, K4); open are the noise after plane removal and the sideband SNR, which need the
+    reference region.
+  - Blocked by: K18 (planning session on reference masks, averaging and stitching).
 
 - [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
   - Priority: medium
@@ -468,6 +474,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K7: Background model — 2026-11-16 — `BackgroundModel` with Ub, K, quality, id, creation time and a background hash of the relevant configuration parts; save / load as `.npz` without pickle with id check; validity check and age warning (O6) tested; usable in both entry points. — commits: `d2f5342`
 - [x] K6: Entry points — 2026-11-16 — `realtime/api.py`: `reconstruct_frames` and `ReconstructionSession` over `OffAxisPipeline` with metrics on and selection `all` by default, acquisition info passed through; the import surface (entry points plus configuration classes) is tested in a fresh interpreter. — commits: `4cac2bd`
 - [x] K3: Frame selection — 2026-11-16 — `realtime/selection.py`: policies `all` (default, O3), `threshold`, `robust`, `best_k` with enforced and reported `min_frames`; block mode keeps the fields (`keep_fields`, `FieldStore`) and `apply_selection` rebuilds the average; mask and reasons go into the frame records. Sliding / EMA gating is K17. — commits: `3a7c520`
 - [x] K2: Frame metrics — 2026-11-16 — `realtime/metrics.py`: eleven per-frame metrics computed in `push` from the demodulation FFT without host synchronisation, kept in a device ring buffer and turned into `FrameRecord`s; opt-in via `MetricsConfig.enabled`; tested with saturation, shifted carrier and reduced fringe contrast, CuPy parity test skipped without CUDA. — commits: `aab56d6`, `efdda6c`
