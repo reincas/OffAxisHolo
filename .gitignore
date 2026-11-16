@@ -63,6 +63,7 @@ attic/
 scripts/
 *.png
 .pre-commit-config.yaml
+*.log
 
 OffAxisHolo_projectStructure_18052026.txt
 
