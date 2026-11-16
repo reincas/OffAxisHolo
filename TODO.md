@@ -88,18 +88,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
     - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
 
-- [ ] K2: Frame metrics [phase: 1]
-  - Priority: high
-  - Size: M
-  - Depends on: K4
-  - Done when:
-    - new module `realtime/metrics.py` computes per frame: saturated and black pixel counts, median and
-      5 % / 95 % quantiles, sideband peak weight and position (from the FFT that the demodulation
-      computes anyway), piston phase and phase noise in the reference region; values stay on the device
-      until the result is built (hot-path rules);
-    - tests with synthetic frames (saturation, shifted carrier, reduced fringe contrast) pass on NumPy;
-      a CuPy parity test exists and is skipped without CUDA.
-
 - [ ] K3: Frame selection [phase: 1]
   - Priority: high
   - Size: M
@@ -182,7 +170,7 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
   - Depends on: access to the DHM-PC (with the maintainer)
   - Done when:
     - `pytest tests/test_backend.py -v`, `pytest tests/realtime -m gpu`, `tests/benchmark_backend.py` and
-      `tests/benchmark_realtime.py` have run on the DHM-PC;
+      `tests/benchmark_realtime.py` (with and without `--metrics`) have run on the DHM-PC;
     - single against double precision is compared on real holograms (phase and height maps), and
       the maintainer decides from it whether `"single"` becomes the GPU default;
     - GPU, memory, CUDA version, driver, operating system, Python version and all numbers are recorded
@@ -494,6 +482,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K2: Frame metrics — 2026-11-16 — `realtime/metrics.py`: eleven per-frame metrics computed in `push` from the demodulation FFT without host synchronisation, kept in a device ring buffer and turned into `FrameRecord`s; opt-in via `MetricsConfig.enabled`; tested with saturation, shifted carrier and reduced fringe contrast, CuPy parity test skipped without CUDA. — commits: `aab56d6`, `efdda6c`
 - [x] K5: Timings — 2026-11-16 — `realtime/timing.py` `StageTimer` fills `ReconstructionResult.timings_s` (seven stages plus total, stage sum ≤ total tested); device synchronisation only with `OffAxisPipeline(..., profile=True)`; caller values pass through unchanged. — commits: `c66838f`
 - [x] Port of the offline library to the array backend (before the realtime plan) — 2026-11-13 — NumPy/CuPy backend with precision control, core reconstruction, DCT least-squares unwrapping, simulation, conversion at plot/save boundaries, backend tests and benchmark, GPU documentation. — commits: `27c0a23`, `bb0bd1b`, `63481b2`, `1c7a012`, `c4b8ada`, `38f49d0`, `e2e56ef`
 - [x] B0: pytest configuration and golden reference of the offline library — 2026-11-13 — commits: `04067ea`

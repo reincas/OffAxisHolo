@@ -224,3 +224,41 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Follow-ups:** record G2 in the master system plan (NanoFactorySystem_automated); tell DHMConnect
   (DL-A3) that `realtime/result.py` (schema 0.2) is the proposed starting point for the
   `ReconstructionResult` contract.
+
+### 2026-11-16 12:18 CET — [K2] Frame metrics
+- **Status:** done
+- **Context:** Branch `feat/k2-metrics` from `feat/k5-timings`.
+- **Design decisions:**
+  - Eleven metrics per frame (`METRIC_NAMES`): saturated / black counts, 5 / 50 / 95 % intensity
+    quantiles (camera counts), sideband energy fraction and peak fraction (relative to the total spectral
+    energy incl. DC via Parseval, so incoherent light lowers it), peak position relative to the calibrated
+    order (px), piston phase against the background, phase noise in the reference region.
+  - Phase noise uses `compensation.ref_border` and is NaN without it; the default reference region is
+    decision O4 (K8).
+  - Quantiles via `xp.quantile`; `cupy.bincount` would read the maximum on the host. Optimisation only
+    after the K14 profile (C13).
+  - `MetricsConfig` (enabled, saturation_level 255, black_level 0, capacity) is off by default; the new
+    config part changes every config hash (no stored hashes exist).
+  - Device ring buffer (capacity default `max(n_obj, window)`); one host copy per result.
+  - Metrics do not change the field (bit-identical test with metrics on / off).
+- **Changes:**
+  - `src/offaxisholo/realtime/metrics.py` (new): metric functions, `MetricsRecorder`, `METRIC_NAMES`.
+  - `src/offaxisholo/realtime/config.py`: `MetricsConfig` and its validation.
+  - `src/offaxisholo/realtime/core.py`: `_demodulate_parts`, metrics in `push`, `frame_metrics()`, reset.
+  - `src/offaxisholo/realtime/result.py`: `FrameRecord`s from the metrics unless the caller passes some.
+  - `src/offaxisholo/realtime/timing.py`: stage `metrics`.
+  - `src/offaxisholo/realtime/__init__.py`: lazy exports `MetricsConfig`, `MetricsRecorder`, `METRIC_NAMES`.
+  - `tests/realtime/test_metrics.py` (new): 17 tests plus CuPy parity with `allow_synchronize(False)`.
+  - `tests/test_import_hygiene.py`: `offaxisholo.realtime.metrics` added.
+  - `tests/benchmark_realtime.py`: `--metrics` option (smoke run on the laptop only, numbers not recorded).
+  - `CLAUDE.md`: module `metrics.py` described.
+  - `TODO.md`: K2 to Done; K14 runs the benchmark with and without `--metrics`.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 136 passed, 11 skipped (GPU); `ruff check .` clean; static hot-path
+  check of the metric functions passes.
+- **Commits:** `aab56d6` feat(realtime): add per-frame metrics from the demodulation FFT [K2];
+  `efdda6c` test(realtime): add a --metrics option to the realtime benchmark [K2];
+  `25b6303` docs: describe the frame metrics module in CLAUDE.md [K2]; todo bookkeeping in the
+  following `docs(todo)` commit.
+- **Follow-ups:** decisions O3 (K3), O4 (K8), O6 (K7) and "metrics on by default in the entry points"
+  (K6) asked from the maintainer.
