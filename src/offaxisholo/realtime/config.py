@@ -272,6 +272,25 @@ class RealtimeConfig:
         canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    def background_hash(self) -> str:
+        """sha256 of the parts that determine a background (K7).
+
+        Covers ``dhm``, ``demod``, ``compensation.eps_rel``,
+        ``compensation.piston`` and ``precision``. Changing z, averaging,
+        metrics, the reference border of the object piston or the backend
+        keeps a background valid.
+        """
+        data = self.to_dict()
+        relevant = {
+            "dhm": data["dhm"],
+            "demod": data["demod"],
+            "eps_rel": data["compensation"]["eps_rel"],
+            "piston": data["compensation"]["piston"],
+            "precision": data["precision"],
+        }
+        canonical = json.dumps(relevant, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def with_order(self, order, radius=None) -> RealtimeConfig:
         """Copy with the calibrated order (and optionally mask radius)."""
         demod = replace(self.demod, order=(int(order[0]), int(order[1])))

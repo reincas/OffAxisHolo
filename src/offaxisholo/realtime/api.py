@@ -35,6 +35,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import replace
 
+from .background import BackgroundModel
 from .config import RealtimeConfig
 from .core import OffAxisPipeline
 from .result import FrameRecord, ReconstructionResult
@@ -72,6 +73,9 @@ class ReconstructionSession:
         Array namespace; default from ``config.backend``.
     profile : bool, optional
         Device-synchronised stage timings (diagnostics only).
+    background_max_age_s : float or None, optional
+        Results get a warning when the background is older (decision O6);
+        None (default) disables the check. A background never expires.
 
     Notes
     -----
@@ -88,8 +92,10 @@ class ReconstructionSession:
         metrics: bool = True,
         xp=None,
         profile: bool = False,
+        background_max_age_s: float | None = None,
     ):
         self.selection = (selection or SelectionPolicy()).validate()
+        self.background_max_age_s = background_max_age_s
         self._include_field = _check_outputs(outputs)
         config = replace(config, metrics=replace(config.metrics, enabled=bool(metrics)))
         selecting = self.selection.policy != "all"
@@ -143,6 +149,30 @@ class ReconstructionSession:
         self._pushed = 0
         return self.pipeline.background_quality()
 
+    def use_background(self, model: BackgroundModel):
+        """Use a stored background model (K7) instead of recording one.
+
+        Resets the current measurement.
+
+        Parameters
+        ----------
+        model : BackgroundModel
+            Must fit the configuration (``RealtimeConfig.background_hash``).
+
+        Returns
+        -------
+        dict
+            The quality stored with the model.
+        """
+        self.pipeline.use_background(model)
+        self._infos.clear()
+        self._pushed = 0
+        return self.pipeline.background_quality()
+
+    def background_model(self) -> BackgroundModel:
+        """The current background as a model to save or share."""
+        return self.pipeline.background_model()
+
     def push(self, frame, info: dict | None = None):
         """Add one object frame (hot path).
 
@@ -187,12 +217,14 @@ class ReconstructionSession:
             pipe.apply_selection(selection.mask)
         elif pipe._metrics is not None and pipe.n_frames:
             selection = select_frames(pipe.frame_metrics(), self.selection)
+        warnings = pipe.background_model().warnings(self.background_max_age_s)
         result = ReconstructionResult.from_realtime(
             pipe.result(z),
             pipe,
             include_field=self._include_field,
             timings_s=timings_s,
             selection=selection,
+            warnings=warnings,
         )
         infos = dict(self._infos)
         if result.frames:
@@ -218,6 +250,7 @@ def reconstruct_frames(
     metrics: bool = True,
     z: float | None = None,
     xp=None,
+    background_max_age_s: float | None = None,
 ) -> ReconstructionResult:
     """Reconstruct one measurement from its object and background frames.
 
@@ -225,8 +258,8 @@ def reconstruct_frames(
     ----------
     frames : sequence of array
         Raw object frames (N, N); an iterable is materialised once.
-    background : iterable of array
-        Raw background frames (N, N).
+    background : iterable of array or BackgroundModel
+        Raw background frames (N, N), or a stored background model (K7).
     config : RealtimeConfig
         Kernel configuration with the calibrated order. ``averaging.n_obj``
         is set to the number of object frames and the averaging mode to
@@ -244,6 +277,8 @@ def reconstruct_frames(
         Propagation distance in metres; default from the configuration.
     xp : module, optional
         Array namespace; default from ``config.backend``.
+    background_max_age_s : float or None, optional
+        Warn when a stored background is older (O6); None disables it.
 
     Returns
     -------
@@ -265,8 +300,12 @@ def reconstruct_frames(
         outputs=outputs,
         metrics=metrics,
         xp=xp,
+        background_max_age_s=background_max_age_s,
     )
-    session.set_background(background)
+    if isinstance(background, BackgroundModel):
+        session.use_background(background)
+    else:
+        session.set_background(background)
     for index, frame in enumerate(frames):
         session.push(frame, None if frame_info is None else frame_info[index])
     return session.result(z)
