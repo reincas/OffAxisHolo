@@ -77,19 +77,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 
 ### Phase 0 — Scope, repository hygiene, dependencies
 
-- [ ] K1: Finish the scope change in the documents (follow-up of the reorganisation 2026-11-15) [phase: 0]
-  - Priority: high
-  - Size: S
-  - Depends on: –
-  - Done when:
-    - `docs/realtime/todo_realtime.txt` starts with a short English note that it is historical, that
-      `TODO.md` is the maintained list and that groups D (camera), E (service), F (client) and G
-      (operation) moved to DHMConnect (`DL-B…`, `DL-C…`, `DL-H…`; mapping table in `TODO.md`);
-    - `docs/realtime/anweisung_realtime.txt` gets pointers in §4, §7, §8 and §10 that these parts are
-      specified in DHMConnect now (no other change to the specification);
-    - no todo in this repository asks for network or camera code.
-  - Note: `CLAUDE.md`, `TODO.md` and `WORKLOG.md` were created on 2026-11-15 (first part of K1).
-
 - [ ] B5: Repository hygiene (carried over, partly decisions of the maintainer) [phase: 0]
   - Priority: medium
   - Size: S
@@ -515,3 +502,4 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 - [x] Specification and reference skeleton moved to `docs/realtime/` — 2026-11-13 — commits: `e57eed4`
 - [x] C1–C12, C14: Realtime kernel (`realtime/`: configuration, calibration, demodulation with crop, piston correction, background and compensation factor, accumulators, compensation and propagation per result, outputs, unwrapping options, tests of gates G1.1–G1.6 on the CPU, benchmark, noise-vs-N tool) — 2026-11-13 — commits: `a446653`, `cfdb038`, `c6ab76e`, `d47eab8`, `885d513`, `a9e5466`, `0656e4f`, `c63d328`, `5a435c9`, `bd44a73`, `f36035a`
 - [x] G1.8 (first part): Unwrapping comparison tool and first report — 2026-11-13 — Least Squares deviates 0.65–2.3 rad RMS from Fast 2D on developed structures; Fast 2D stays the default. — commits: `3790c7e`
+- [x] K1: Finish the scope change in the documents — 2026-11-16 — Project files (`CLAUDE.md`, `TODO.md`, `WORKLOG.md`, system plan) created; `todo_realtime.txt` marked historical and `anweisung_realtime.txt` §4, §7, §8, §10 point to DHMConnect; no todo here asks for network or camera code. — commits: `b247181`, `ee39f40`

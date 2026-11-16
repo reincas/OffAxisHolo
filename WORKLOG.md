@@ -34,3 +34,42 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
      Files: `TODO.md` (new), `WORKLOG.md` (new)
 - **Follow-ups:** K1 (pointers in `docs/realtime/`), B5 (untracked `Claude outputs/` and `todo_claude/`,
   legacy tests, `ToDos.txt` inside the package).
+
+### 2026-11-16 09:26 CET — [K1] Finish the scope change in the realtime documents
+- **Status:** done
+- **Context:** The project files of 2026-11-15 were committed by the maintainer in `b247181`
+  ("Organizing todos"); the commits proposed in the previous entry are therefore not needed.
+  Work branch: `docs/k1-scope` from `Holo_HR`.
+- **Changes:**
+  - `docs/realtime/todo_realtime.txt`: English note at the top: historical, `TODO.md` is the
+    maintained list with the mapping table, groups D/E/F/G moved to DHMConnect (DL-B…, DL-C…, DL-H…).
+    CRLF line endings kept; German text unchanged.
+  - `docs/realtime/anweisung_realtime.txt`: English pointer notes at the start of §4 (components:
+    camera/service/client → DL-B1, B2, B3, B4, B5, B7, DL-C1, DL-H2), §7 (state machine → DL-B3,
+    DL-B10), §8 (protocol → DL-A2, DL-A4, DL-C1, D4, D5; contracts G2) and §10 (camera abstraction →
+    DL-B1, DL-H2; kernel tests use `tests/realtime/synthetic_dhm.py`). No other change.
+  - `TODO.md`: K1 moved to Done.
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 90 passed, 8 skipped (GPU, no CUDA). Documentation-only change.
+  Checked `TODO.md`: no todo asks for network or camera code (L5 only uses `dhmconnect.client`).
+- **Commits:** `ee39f40` docs(realtime): mark the old todo list historical, point to DHMConnect [K1];
+  todo bookkeeping in the following `docs(todo)` commit.
+- **Follow-ups:** none. Next todo of phase 0: B5 (needs maintainer decisions), B3 (needs O10).
+
+### 2026-11-16 14:24 CET — [K16, K18] Handover notes for DHMConnect and nanofactorysystem
+- **Status:** done
+- **Context:** Maintainer request: one document each for nanofactorysystem and DHMConnect with all
+  decisions, information and new features of this session that concern them.
+- **Changes:**
+  - `docs/handover/to_dhmconnect_2026-11-16.md` (new): decisions (G2, O3, metrics default, O6, O10,
+    O4 reopened), scope mapping of the old groups D–G, draft `ReconstructionResult` schema 0.3 for
+    DL-A3, `ReconstructionSession` usage and rules for DL-B4, background model, DHM-PC facts, the
+    contract side of K18 (SA2–SA4), requests.
+  - `docs/handover/to_nanofactorysystem_2026-11-16.md` (new): updates for the master system plan (G2,
+    G9, CUDA 13, SA1–SA7 as global decisions, K18 milestone), recipe defaults and selection policies,
+    result content for `ProductSet` / `experiment.h5`, the `LayerTarget` view on the a priori mask,
+    open decisions, requests.
+- **Tests:** none (documentation only).
+- **Commits:** `21589eb` docs: add handover notes for DHMConnect and nanofactorysystem [K16]
+- **Follow-ups:** the maintainer hands the notes to the two repositories; the master system plan is
+  updated there. No new todo here.

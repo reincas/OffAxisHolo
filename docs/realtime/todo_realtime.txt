@@ -1,4 +1,18 @@
 ================================================================================
+NOTE (2026-11-16, added in English; the German text below is unchanged)
+================================================================================
+HISTORICAL. This list is no longer maintained. The maintained task list is
+TODO.md in the repository root; its section "Items of
+docs/realtime/todo_realtime.txt and where they went" maps every item below
+to its new place.
+Groups D (camera), E (service), F (client) and G (operation) moved to the
+repository DHMConnect (package dhmconnect): see DL-B... (service, camera
+gateway, acquisition, archive), DL-C... (client) and DL-H... (hardware,
+operation) in DHMConnect/TODO.md. Nothing of these groups is built in
+OffAxisHolo.
+
+
+================================================================================
 TODO: Was am Ordner OffAxisHolo geändert werden muss, damit die Echtzeit-
       Architektur (siehe anweisung.txt) nutzbar wird
 ================================================================================
