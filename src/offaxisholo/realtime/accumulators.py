@@ -128,3 +128,51 @@ def make_accumulator(xp, averaging):
     if averaging.mode == "ema":
         return EMAAccumulator(xp, averaging.ema_alpha)
     raise ValueError(f"Unknown averaging mode '{averaging.mode}'.")
+
+
+class FieldStore:
+    """Fixed-size device stack of the fields of one block measurement.
+
+    Keeps the piston-corrected fields until the frame selection (K3), so the
+    block average can be rebuilt from the used frames only. The buffer of
+    ``capacity`` fields is allocated on the first ``add`` and reused after
+    ``reset``.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    capacity : int
+        Maximum number of fields (``AveragingConfig.n_obj``).
+    """
+
+    def __init__(self, xp, capacity):
+        if capacity < 1:
+            raise ValueError("capacity must be >= 1.")
+        self.xp = xp
+        self.capacity = int(capacity)
+        self._stack = None
+        self.count = 0
+
+    def reset(self):
+        """Forget the stored fields (the buffer is kept)."""
+        self.count = 0
+
+    def add(self, field):
+        """Store the next field (hot path: one device copy, no synchronisation)."""
+        if self.count >= self.capacity:
+            raise RuntimeError(
+                "More frames than the field store holds (averaging.n_obj); "
+                "increase n_obj or reset between measurements."
+            )
+        if self._stack is None:
+            self._stack = self.xp.empty(
+                (self.capacity,) + field.shape, dtype=field.dtype
+            )
+        self._stack[self.count] = field
+        self.count += 1
+
+    def __getitem__(self, index):
+        if not 0 <= index < self.count:
+            raise IndexError(f"Field {index} not stored (count {self.count}).")
+        return self._stack[index]

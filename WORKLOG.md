@@ -191,3 +191,41 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   following `docs(todo)` commit.
 - **Follow-ups:** decisions O3 (K3), O4 (K8), O6 (K7) and "metrics on by default in the entry points"
   (K6) asked from the maintainer.
+
+### 2026-11-16 12:29 CET — [K3] Frame selection
+- **Status:** done
+- **Context:** Maintainer decisions of 2026-11-16 (asked explicitly): O3 default policy `all` until K13;
+  frame metrics on by default in the K6 entry points; O4 mask per objective with border-ring fallback;
+  O6 background age only as a warning (default: no limit). Recorded in `TODO.md` (`794a799`). Branch
+  `feat/k3-selection` from `feat/k2-metrics`.
+- **Design decisions:**
+  - `select_frames` is a pure host function run once per measurement on `frame_metrics()`.
+  - `threshold`: NaN in a bounded metric rejects ("not available"), so a missing reference region is
+    visible. `robust`: `|x − median| > k · 1.4826 · MAD` (k = 3.5); constant (MAD = 0) or missing metrics
+    are not tested. `best_k`: by `rank_by` (default `phase_noise_rad`, lower is better), NaN last, ties by
+    index.
+  - `min_frames` re-adds the best rejected frames; their reason keeps the original text with the prefix
+    "forced by min_frames: "; the quality summary reports policy, totals, `min_frames` and whether it was
+    enforced.
+  - Block mode: `OffAxisPipeline(..., keep_fields=True)` stores every corrected field in a fixed device
+    stack (`FieldStore`, capacity `n_obj`, allocated once); `apply_selection(mask)` rebuilds the average
+    and may be called again. Memory documented in the module docstring. Sliding / EMA are refused
+    (follow-up K17: device-side gating).
+- **Changes:**
+  - `src/offaxisholo/realtime/selection.py` (new): `SelectionPolicy`, `Selection`, `select_frames`.
+  - `src/offaxisholo/realtime/accumulators.py`: `FieldStore`.
+  - `src/offaxisholo/realtime/core.py`: `keep_fields`, `apply_selection`, field store in `push` / `reset`.
+  - `src/offaxisholo/realtime/result.py`: `from_realtime(selection=...)`.
+  - `src/offaxisholo/realtime/__init__.py`: lazy exports `Selection`, `SelectionPolicy`, `select_frames`.
+  - `tests/realtime/test_selection.py` (new): 22 tests.
+  - `tests/test_import_hygiene.py`: `offaxisholo.realtime.selection` added.
+  - `CLAUDE.md`: module `selection.py` described.
+  - `TODO.md`: O3, O4, O6 decided; K3 to Done; new K17 (follow-up of K3).
+  - `WORKLOG.md`: this entry.
+- **Tests:** `python -m pytest`: 159 passed, 11 skipped (GPU); `ruff check .` clean. Two test expectations
+  were wrong at first (test data with MAD = 0; tie order) and were corrected, not the code.
+- **Commits:** `794a799` docs(todo): record the maintainer decisions O3, O4 and O6 [K3];
+  `3a7c520` feat(realtime): add frame selection with policies and a field store [K3];
+  `4af6182` docs: describe the frame selection module in CLAUDE.md [K3]; todo bookkeeping in the
+  following `docs(todo)` commit.
+- **Follow-ups:** K17. Next: K6 (entry points), then K7, K8.

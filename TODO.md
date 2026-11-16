@@ -27,7 +27,7 @@ a GUI covers offline analysis, the experiment browser and live operation.
 | Phase | Topic | Todos | Gate before the dependent todos start |
 |---|---|---|---|
 | 0 | Scope, repository hygiene, dependencies | K1, B5, B3 | – |
-| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K7, K8 | G2 for the final schema of K4 |
+| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K17, K7, K8 | G2 for the final schema of K4 |
 | 2 | Replay, N-study, public API | K12, K13, K15 | – |
 | 3 | Validation on the DHM-PC (hardware) | K14 | access to the DHM-PC |
 | 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
@@ -61,10 +61,10 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 |---|---|---|---|
 | O1 | Result plane and z per objective (old H1, H3): preset 0.11 µm against measured about −2.6 µm. Same as G4. | z comes with the request; default from the parameter set. | K9, K10 |
 | O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
-| O3 | Default frame selection policy and thresholds. | Ship `all` until the N-study (K13) is evaluated. | K3 |
-| O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | Mask in the parameter set, border ring as fallback. | K8 |
+| O3 | Default frame selection policy and thresholds. | **Decided 2026-11-16 (maintainer, as recommended):** default policy `all` until the N-study (K13) is evaluated; all policies are implemented. In the entry points (K6) the frame metrics are on by default (re-evaluate after K14). | K3, K6 |
+| O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | **Decided 2026-11-16 (maintainer, as recommended):** mask in the parameter set; without a mask a border ring as fallback (width configurable, proposal n/16). | K8 |
 | O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
-| O6 | Lifetime of a background and drift monitoring (old Q8). | Measure first (Masterplan V4). | K7 |
+| O6 | Lifetime of a background and drift monitoring (old Q8). | **Decided 2026-11-16 (maintainer, as recommended):** the background model stores time, config hash and quality; a configurable maximum age (default: none) only adds a warning to the result. Limits after a drift measurement (Masterplan V4). | K7 |
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
 | O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
@@ -88,18 +88,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
     - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
 
-- [ ] K3: Frame selection [phase: 1]
-  - Priority: high
-  - Size: M
-  - Depends on: K2; O3 for the default policy
-  - Done when:
-    - new module `realtime/selection.py`: a pure function from a metrics table to a mask and a reject
-      reason per frame; policies `all`, `threshold`, `robust` (median / MAD), `best_k`; `min_frames` is
-      always enforced and reported;
-    - design note in the module docstring: block mode keeps the N demodulated fields until selection
-      (memory need documented); sliding and EMA modes can only use fixed thresholds;
-    - every policy is tested; the mask is part of the result.
-
 - [ ] K6: Entry points [phase: 1]
   - Priority: high
   - Size: M
@@ -110,6 +98,15 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       `reset`, `warmup`) exist as thin layers over `OffAxisPipeline`;
     - service (DHMConnect DL-B4) and GUI need no other import than these two names plus the
       configuration classes.
+
+- [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
+  - Priority: low
+  - Size: M
+  - Depends on: K3, K6; useful for DHMConnect DL-B10 (live mode)
+  - Done when:
+    - fixed thresholds are evaluated per frame on the device into a 0/1 weight (no host decision), and the
+      sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
+    - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
 
 - [ ] K7: Background model [phase: 1]
   - Priority: medium
@@ -482,6 +479,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
+- [x] K3: Frame selection — 2026-11-16 — `realtime/selection.py`: policies `all` (default, O3), `threshold`, `robust`, `best_k` with enforced and reported `min_frames`; block mode keeps the fields (`keep_fields`, `FieldStore`) and `apply_selection` rebuilds the average; mask and reasons go into the frame records. Sliding / EMA gating is K17. — commits: `3a7c520`
 - [x] K2: Frame metrics — 2026-11-16 — `realtime/metrics.py`: eleven per-frame metrics computed in `push` from the demodulation FFT without host synchronisation, kept in a device ring buffer and turned into `FrameRecord`s; opt-in via `MetricsConfig.enabled`; tested with saturation, shifted carrier and reduced fringe contrast, CuPy parity test skipped without CUDA. — commits: `aab56d6`, `efdda6c`
 - [x] K5: Timings — 2026-11-16 — `realtime/timing.py` `StageTimer` fills `ReconstructionResult.timings_s` (seven stages plus total, stage sum ≤ total tested); device synchronisation only with `OffAxisPipeline(..., profile=True)`; caller values pass through unchanged. — commits: `c66838f`
 - [x] Port of the offline library to the array backend (before the realtime plan) — 2026-11-13 — NumPy/CuPy backend with precision control, core reconstruction, DCT least-squares unwrapping, simulation, conversion at plot/save boundaries, backend tests and benchmark, GPU documentation. — commits: `27c0a23`, `bb0bd1b`, `63481b2`, `1c7a012`, `c4b8ada`, `38f49d0`, `e2e56ef`

@@ -86,7 +86,8 @@ class FrameRecord:
     used : bool, optional
         Whether the frame entered the average (frame selection, K3).
     reject_reason : str or None, optional
-        Why the frame was rejected; None for used frames.
+        Why the frame was rejected; None for used frames, except frames that
+        were used only to reach ``min_frames`` (``"forced by min_frames: …"``).
     metrics : dict, optional
         Per-frame metrics (K2), e.g. ``saturated_count`` or ``piston_rad``;
         values are JSON-able scalars or None.
@@ -246,6 +247,7 @@ class ReconstructionResult:
         frames: list[FrameRecord] | None = None,
         timings_s: dict[str, float] | None = None,
         versions: dict[str, Any] | None = None,
+        selection=None,
     ) -> ReconstructionResult:
         """Build the product result from a kernel result.
 
@@ -272,6 +274,10 @@ class ReconstructionResult:
         versions : dict, optional
             Versions to store; default :func:`default_versions` of the
             pipeline's array namespace.
+        selection : offaxisholo.realtime.selection.Selection, optional
+            Frame selection applied to the pipeline (``apply_selection``). Its
+            mask and reasons go into the frame records built from the metrics,
+            its summary into ``quality``.
 
         Notes
         -----
@@ -297,6 +303,19 @@ class ReconstructionResult:
                 FrameRecord(index=index, metrics=metrics)
                 for index, metrics in pipeline.frame_metrics()
             ]
+            if selection is not None:
+                verdict = dict(
+                    zip(
+                        selection.indices,
+                        zip(selection.mask, selection.reasons, strict=True),
+                        strict=True,
+                    )
+                )
+                for record in frames:
+                    if record.index in verdict:
+                        used, reason = verdict[record.index]
+                        record.used = bool(used)
+                        record.reject_reason = reason
         config = pipeline.config
         dx, dy = pipeline.crop_pitch
         quality = {
@@ -305,6 +324,8 @@ class ReconstructionResult:
             "n_bg": int(pipeline.n_background),
             "piston_std_rad": pipeline.piston_std(),
         }
+        if selection is not None:
+            quality.update(selection.quality())
         return cls(
             phase_rad=host["phase"],
             intensity=host["intensity"],
