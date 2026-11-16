@@ -61,10 +61,10 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 |---|---|---|---|
 | O1 | Result plane and z per objective (old H1, H3): preset 0.11 µm against measured about −2.6 µm. Same as G4. | z comes with the request; default from the parameter set. | K9, K10 |
 | O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
-| O3 | Default frame selection policy and thresholds. | Ship `all` until the N-study (K13) is evaluated. | K3 |
-| O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | Mask in the parameter set, border ring as fallback. | K8 |
+| O3 | Default frame selection policy and thresholds. | **Decided 2026-11-16 (maintainer, as recommended):** default policy `all` until the N-study (K13) is evaluated; all policies are implemented. In the entry points (K6) the frame metrics are on by default (re-evaluate after K14). | K3, K6 |
+| O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | **Decided 2026-11-16 (maintainer, as recommended):** mask in the parameter set; without a mask a border ring as fallback (width configurable, proposal n/16). | K8 |
 | O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
-| O6 | Lifetime of a background and drift monitoring (old Q8). | Measure first (Masterplan V4). | K7 |
+| O6 | Lifetime of a background and drift monitoring (old Q8). | **Decided 2026-11-16 (maintainer, as recommended):** the background model stores time, config hash and quality; a configurable maximum age (default: none) only adds a warning to the result. Limits after a drift measurement (Masterplan V4). | K7 |
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
 | O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
