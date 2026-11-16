@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`offaxisholo` is a Python package (src layout, Python ≥ 3.10, developed with 3.12) for the reconstruction and simulation of off-axis holograms recorded with a transmissive digital holographic microscope (DHM, LyncéeTec, 674.99 nm laser). It has two parts:
+`offaxisholo` is a Python package (src layout, Python ≥ 3.11, developed with 3.12) for the reconstruction and simulation of off-axis holograms recorded with a transmissive digital holographic microscope (DHM, LyncéeTec, 674.99 nm laser). It has two parts:
 
 - the **offline library** (`Hologram`, `HologramProcessor`, `ReconstructionPipeline`, `reconstruct_hologram`, …): CPU or GPU, the **golden reference** for everything new;
 - the **realtime kernel** `offaxisholo.realtime` (`OffAxisPipeline`): reconstructs a stream of camera frames on the GPU (CuPy) or CPU (NumPy) and averages several object and background holograms. It becomes the computational core of the DHM service on the DHM-PC (service and protocol live in DHMConnect).
@@ -28,7 +28,7 @@ Project files:
 
 ```bash
 python -m pip install -e ".[dev]"     # editable install with pytest, black, ruff
-python -m pip install -e ".[gpu]"     # CuPy for CUDA 12 (cupy-cuda12x); with a CUDA 13 driver install cupy-cuda13x instead
+python -m pip install -e ".[gpu]"     # CuPy for CUDA 13 (cupy-cuda13x, DHM-PC); with a CUDA 12 driver install cupy-cuda12x instead
 python -m pytest                      # all tests; GPU tests are skipped without CUDA
 python -m pytest tests/realtime       # realtime kernel (gates G1.1–G1.6 on the CPU)
 python -m pytest tests/test_offline_golden.py   # golden reference of the offline library
@@ -80,7 +80,7 @@ black . && ruff check --fix .         # formatting and linting (line length 88)
 **Facts from the hardware analysis that matter here**
 - Camera: Basler acA1920-155um, ROI 1024 × 1024, 8 bit (1 MiB per frame), exposure about 16.8 ms. Zeiss 63x preset: pixel pitch 0.0869 µm in the object plane, `dcRadius` 304, `propagationDistance` 1.1e-7 m, while a focus of about −2.6 µm was measured (open decision G4 / O1).
 - The pixel size reported by Koala configuration 180 belongs to a 20x objective (finding B17). The pixel size always comes from the parameter set, never from the device.
-- GPU, CUDA version and operating system of the DHM-PC are unknown (K14 measures them).
+- The DHM-PC driver supports CUDA 13 (maintainer, 2026-11-16). Python is not installed there yet (the PC was only reached through the C server so far); recommended: Python 3.12 like the development machine. GPU model and operating system are still unknown (K14 measures them).
 
 ## System context
 

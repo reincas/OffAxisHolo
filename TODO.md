@@ -68,7 +68,7 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
 | O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
-| O10 | Minimum versions in `pyproject.toml` are very recent (numpy ≥ 2.4.5, scipy ≥ 1.17.1); CUDA version of the DHM-PC is unknown (`cupy-cuda12x` or `13x`). Found 2026-11-16 (during B5): the minimums equal the versions installed on the maintainer's laptop, and numpy 2.4.5 has no wheel for Python 3.10, so `requires-python = ">=3.10"` cannot be met as written. | Decide after K14: set the minimums to what the DHM-PC Python can install and the tests pass with; align `requires-python`. | B3, K14 |
+| O10 | Minimum versions and CuPy package for the DHM-PC. Partly decided 2026-11-16: the driver supports CUDA 13 → `cupy-cuda13x`; Python is installed there from scratch; `requires-python` aligned to ≥ 3.11 (numpy 2.4.5 / scipy 1.17.1 have no Python 3.10 wheels). Open: confirm the install on the DHM-PC. | Install Python 3.12 (as on the development machine); keep the minimums unless the install fails. | B3, K14 |
 | O11 | Mode "print" of the e-field / height calculation (old H6, maintainer note "not good"): what should it compute (n_medium = liquid resin)? | – | P5 |
 | G2 | Home of the shared contracts. | JSON Schema plus examples in `dhmconnect/schemas/`, vendored under `tests/contracts/`. | K4 |
 | G7 | Single source of truth for material data. | Material registry in nanofactorysystem; presets here stay a fallback for offline use. | K9, P3 |
@@ -76,17 +76,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 ## Open
 
 ### Phase 0 — Scope, repository hygiene, dependencies
-
-- [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
-  - Priority: medium
-  - Size: S
-  - Depends on: O10 for the minimum versions and the CuPy package
-  - Done when:
-    - `pyproject.toml` has the extras `gpu`, `dev`, `gui` (PySide6, pyqtgraph; after O7) and `live`
-      (`dhmconnect` client; after DL-C1); the default install stays as today (offline library works);
-    - the minimum versions are installable on the DHM-PC Python (recorded in WORKLOG.md);
-    - `[project.scripts]` entry `offaxisholo-gui` is added together with L1.
-  - Already done: pytest configuration and markers (`04067ea`).
 
 ### Phase 1 — Product interface (no hardware)
 
@@ -487,6 +476,20 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
+
+- [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
+  - Priority: medium
+  - Size: S
+  - Depends on: O10, O7, DL-C1, L1
+  - Done when:
+    - `pyproject.toml` has the extras `gpu`, `dev`, `gui` (PySide6, pyqtgraph; after O7) and `live`
+      (`dhmconnect` client; after DL-C1); the default install stays as today (offline library works);
+    - the minimum versions are installable on the DHM-PC Python (recorded in WORKLOG.md);
+    - `[project.scripts]` entry `offaxisholo-gui` is added together with L1.
+  - Already done: pytest configuration and markers (`04067ea`); `gpu` extra switched to `cupy-cuda13x`,
+    `requires-python` ≥ 3.11 (`2c8abb5`).
+  - Blocked by: Python is not yet installed on the DHM-PC (install check); `gui` extra waits for O7 / L0,
+    `live` extra for DHMConnect DL-C1, the script entry for L1.
 
 ## Done
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
