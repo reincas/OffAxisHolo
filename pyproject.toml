@@ -8,7 +8,7 @@ name = "offaxisholo"
 version = "0.1.0"
 description = "Numerical function library for reconstruction of holograms captured with an off-axis transmissive digital holographic microscope (DHM)."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
     "array-api-compat>=1.11",
@@ -22,9 +22,10 @@ dependencies = [
 
 
 [project.optional-dependencies]
-# GPU backend (NVIDIA CUDA). For CUDA 13 drivers use "cupy-cuda13x" instead.
+# GPU backend (NVIDIA CUDA 13, as on the DHM-PC). With a CUDA 12 driver install
+# "cupy-cuda12x" by hand instead.
 gpu = [
-    "cupy-cuda12x>=13.0"
+    "cupy-cuda13x>=13.6"
 ]
 dev = [
     "black",
@@ -64,7 +65,7 @@ force-exclude = "docs/realtime/reference/"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["docs/realtime/reference"]
 force-exclude = true
 

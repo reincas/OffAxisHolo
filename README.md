@@ -43,7 +43,7 @@ python -m pip install -e ".[dev]"
 python -m pip install -e ".[gpu]"
 ```
 
-The `gpu` extra installs `cupy-cuda12x`. With a CUDA 13 driver, install `cupy-cuda13x` instead. Run `nvidia-smi` to see which CUDA version your driver supports.
+The `gpu` extra installs `cupy-cuda13x` (CUDA 13, as on the DHM-PC). With a CUDA 12 driver, install `cupy-cuda12x` by hand instead. Run `nvidia-smi` to see which CUDA version your driver supports. Python 3.11 or newer is required.
 
 ---
 
