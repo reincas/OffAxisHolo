@@ -24,6 +24,7 @@ LIGHT_MODULES = [
     "offaxisholo.realtime.accumulators",
     "offaxisholo.realtime.calibration",
     "offaxisholo.realtime.unwrapping",
+    "offaxisholo.realtime.result",
 ]
 
 

@@ -21,6 +21,8 @@ _LAZY = {
     "mask_radius": ".config",
     "OffAxisPipeline": ".core",
     "RealtimeResult": ".core",
+    "ReconstructionResult": ".result",
+    "FrameRecord": ".result",
     "BlockAccumulator": ".accumulators",
     "SlidingAccumulator": ".accumulators",
     "EMAAccumulator": ".accumulators",
