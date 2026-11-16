@@ -47,8 +47,8 @@ offaxisholo = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# tests/test/ contains legacy scripts (not runnable as tests)
-norecursedirs = ["test", "golden", ".*", "build", "*.egg-info"]
+# tests/golden/ holds the generator of the golden data, not tests
+norecursedirs = ["golden", ".*", "build", "*.egg-info"]
 markers = [
     "gpu: requires CuPy and a CUDA device",
     "slow: long running test",

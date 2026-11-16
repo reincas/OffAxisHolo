@@ -123,8 +123,9 @@ The codebase follows a **src-layout architecture**:
 OffAxisHolo/
 ├── pyproject.toml
 ├── README.md
-├── scripts/
-│   └── clean.py
+├── CLAUDE.md                  # Architecture, rules and conventions for contributors
+├── TODO.md                    # Maintained task list
+├── WORKLOG.md                 # Append-only work log
 ├── src/
 │   └── offaxisholo/
 │       ├── config/            # DHM and material presets
@@ -132,12 +133,18 @@ OffAxisHolo/
 │       ├── reconstruction/    # Core reconstruction algorithms
 │       ├── simulation/        # Numerical simulations (in development)
 │       ├── pipeline/          # Workflow orchestration (in development)
+│       ├── single_functions/  # One-call reconstruction functions
 │       ├── realtime/          # Realtime GPU kernel (config, core, accumulators)
 │       ├── backend.py         # Array backend selection (NumPy / CuPy GPU)
+│       ├── utils.py           # Logger and hologram helpers
 │       └── __init__.py
-├── docs/realtime/             # Realtime specification, todo, reference skeleton
+├── docs/
+│   ├── realtime/              # Realtime specification, old todo list, reference skeleton
+│   └── system/                # Plan of the four cooperating repositories
 ├── tools/                     # Measurement / comparison scripts
-├── tests/                     # pytest (tests/test/ = legacy scripts)
+├── tests/                     # pytest (realtime/, golden/ = golden data generator)
+├── attic/                     # Archived legacy scripts and planning inputs
+└── scripts/                   # Local only (gitignored): clean.py
 ```
 
 ---

@@ -21,8 +21,8 @@ Project files:
 - `docs/realtime/todo_realtime.txt` (German): the change list of 2026-11-13 (groups A–J) with its status. Historical: do not maintain it, use `TODO.md`.
 - `docs/realtime/unwrapping_comparison.md`: first report Fast 2D vs. Least Squares (G1.8).
 - `docs/realtime/reference/holo_gpu_pipeline.py`: CPU-validated reference skeleton, kept verbatim (excluded from black and ruff).
-- `src/offaxisholo/ToDos.txt`: the maintainer's old todo notes; their items are in `TODO.md` (group P). Moving it to `docs/` is part of B5.
-- `src/offaxisholo/Notes_reconstruction_order.txt` (local, gitignored): why compensation happens in the hologram plane before propagation, with a numerical test.
+- `attic/`: archived material (B5): `legacy_tests/` (the former `tests/test/` scripts and their data), `ToDos.txt` (the maintainer's old todo notes; their items are in `TODO.md`, group P), `planning_2026-11-15/` (the planning inputs of `CLAUDE.md`, `TODO.md` and `docs/system/`). `attic/` is in `.gitignore`: files moved there with `git mv` stay versioned, new files there stay local.
+- `docs/reconstruction_order.md`: why compensation happens in the hologram plane before propagation, the padding trick of the propagation, numerical tests and the focus measured on real data (formerly the local `Notes_reconstruction_order.txt`; original in `attic/notes/`).
 
 ## Commands
 
@@ -40,7 +40,7 @@ python tools/noise_vs_n.py            # phase noise against the number of frames
 black . && ruff check --fix .         # formatting and linting (line length 88)
 ```
 
-- pytest configuration is in `pyproject.toml`: `testpaths = ["tests"]`; `tests/test/` (legacy scripts) and `tests/golden/` are not collected. Markers: `gpu` (CuPy and a CUDA device), `slow`, `hardware` (DHM-PC with camera).
+- pytest configuration is in `pyproject.toml`: `testpaths = ["tests"]`; `tests/golden/` is not collected. Markers: `gpu` (CuPy and a CUDA device), `slow`, `hardware` (DHM-PC with camera).
 - `tests/golden/golden_offline.npz` is produced by `tests/golden/make_golden_offline.py`. Regenerate it only when a todo says so, and give the reason in `WORKLOG.md`.
 - `tests/realtime/synthetic_dhm.py` and `tests/realtime/conftest.py` provide synthetic holograms (carrier fringes, piston phase, noise) for kernel tests.
 - Measurement and comparison scripts live in `tools/`, because `scripts/` is gitignored (only `scripts/clean.py` lives there, locally). `data/` (example holograms and results) is gitignored as well; test data must be small and live under `tests/`.
@@ -110,7 +110,7 @@ Rules that follow from this:
 7. The pixel size never comes from Koala (B17). It is part of the parameter set.
 8. Test before optimising. Record measured numbers in `docs/realtime/benchmarks.md` with date, machine, GPU, backend and precision. No performance number without a measurement.
 9. Strict layer separation (maintainer note): DATA (configuration, results, records), PROCESSING (pure computation, no file IO, plotting, logging or network), IO (loading and saving), PIPELINE (orchestration). Plotting stays in the plotting modules.
-10. Nothing is deleted. Legacy material (`tests/test/`, `attic/`, `src/offaxisholo/ToDos.txt`) is moved only after the maintainer approves (B5).
+10. Nothing is deleted. Legacy material lives in `attic/` (B5); anything else is moved there only after the maintainer approves.
 
 ## Maintainer Instructions (Hannes)
 
@@ -232,7 +232,7 @@ If a task does not meet this, mark it `partial` in the log and describe the rema
   If a test reveals a real bug, fix it in a separate `fix:` commit if the fix is small and clear.
   Otherwise, mark the test `xfail(reason=..., strict=True)` and add a todo.
 - Tests write only to `tmp_path`.
-- Never modify the legacy scripts in `tests/test/`; they are not collected.
+- Never modify the legacy scripts in `attic/legacy_tests/`; they are not collected.
 
 ## Current Status
 <!-- Maintained exclusively by the status review routine. Claude Code reads it, never edits it. -->

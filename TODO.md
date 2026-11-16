@@ -33,7 +33,7 @@ a GUI covers offline analysis, the experiment browser and live operation.
 | 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
 | 5 | Optimisation after profiling | C13 | K14 numbers exist |
 | 6 | GUI | L0, L1, L2, L3, L4, L5, L6, L7, L8 | L0 approved by the maintainer; L5/L6 need DHMConnect DL-C1, DL-B8, DL-B10 |
-| B | Package backlog (offline library) | P1–P15 | – |
+| B | Package backlog (offline library) | P1–P17 | – |
 
 Phase 6 can start in parallel to phases 2–5 once K6 exists. Phase 4 todos may be started for their
 independent part (structure, hashing) and kept "In Progress" until the decisions arrive.
@@ -63,12 +63,12 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 | O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
 | O3 | Default frame selection policy and thresholds. | Ship `all` until the N-study (K13) is evaluated. | K3 |
 | O4 | Reference region for piston phase and noise: fixed mask per objective, or automatic border ring. | Mask in the parameter set, border ring as fallback. | K8 |
-| O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. | K11 |
+| O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
 | O6 | Lifetime of a background and drift monitoring (old Q8). | Measure first (Masterplan V4). | K7 |
 | O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
 | O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
 | O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
-| O10 | Minimum versions in `pyproject.toml` are very recent (numpy ≥ 2.4.5, scipy ≥ 1.17.1); CUDA version of the DHM-PC is unknown (`cupy-cuda12x` or `13x`). | Decide after K14. | B3, K14 |
+| O10 | Minimum versions in `pyproject.toml` are very recent (numpy ≥ 2.4.5, scipy ≥ 1.17.1); CUDA version of the DHM-PC is unknown (`cupy-cuda12x` or `13x`). Found 2026-11-16 (during B5): the minimums equal the versions installed on the maintainer's laptop, and numpy 2.4.5 has no wheel for Python 3.10, so `requires-python = ">=3.10"` cannot be met as written. | Decide after K14: set the minimums to what the DHM-PC Python can install and the tests pass with; align `requires-python`. | B3, K14 |
 | O11 | Mode "print" of the e-field / height calculation (old H6, maintainer note "not good"): what should it compute (n_medium = liquid resin)? | – | P5 |
 | G2 | Home of the shared contracts. | JSON Schema plus examples in `dhmconnect/schemas/`, vendored under `tests/contracts/`. | K4 |
 | G7 | Single source of truth for material data. | Material registry in nanofactorysystem; presets here stay a fallback for offline use. | K9, P3 |
@@ -76,25 +76,6 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 ## Open
 
 ### Phase 0 — Scope, repository hygiene, dependencies
-
-- [ ] B5: Repository hygiene (carried over, partly decisions of the maintainer) [phase: 0]
-  - Priority: medium
-  - Size: S
-  - Depends on: –
-  - Done when the maintainer has decided, and the decisions are carried out, for:
-    - the legacy scripts in `tests/test/` (`ablage.py`, `ablage 2.py` with a space in the name,
-      `test_docker.py`, `test_filedialog.py`, `test_zernike.py`, `test_dhm.py`, `test_usaf1951.py`,
-      the untracked `test_4_einheit.py`, data under `tests/test/test/`): keep, or move to `attic/`;
-    - `src/offaxisholo/ToDos.txt` and `src/offaxisholo/reconstruction/console.log` (tracked, inside the
-      package): move to `docs/` resp. remove from the index (`git rm --cached`) and ignore;
-    - `src/offaxisholo/Notes_reconstruction_order.txt` (gitignored): move to `docs/` and version it;
-    - the untracked folders `Claude outputs/` and `todo_claude/` (planning inputs of 2026-11-15, now
-      absorbed into `CLAUDE.md`, `TODO.md` and `docs/system/`): remove or archive;
-    - `.git`, `.venv` and `build/` inside a Seafile sync folder (decision G9);
-    - the README "Project Structure" section matches the real tree (`single_functions/`, `utils.py`,
-      `tools/`, `docs/system/`); `OffAxisHolo_projectStructure_18052026.txt` is not needed any more.
-  - Already done: preset loading bundled in `config/presets.py` (`c6ab76e`); specification moved to
-    `docs/realtime/` (`e57eed4`).
 
 - [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
   - Priority: medium
@@ -228,7 +209,8 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
   - Done when:
     - `pytest tests/test_backend.py -v`, `pytest tests/realtime -m gpu`, `tests/benchmark_backend.py` and
       `tests/benchmark_realtime.py` have run on the DHM-PC;
-    - single against double precision is compared on real holograms;
+    - single against double precision is compared on real holograms (phase and height maps), and
+      the maintainer decides from it whether `"single"` becomes the GPU default;
     - GPU, memory, CUDA version, driver, operating system, Python version and all numbers are recorded
       in `docs/realtime/benchmarks.md`;
     - closes B6 (CUDA run of the existing tests) and H4 (validate single precision); gives the input
@@ -432,7 +414,8 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 - [ ] P13: Extended documentation of the library [phase: B]
   - Priority: low | Size: M | Depends on: K15
   - Done when: an API documentation (e.g. Sphinx; old configuration in `attic/conf.py`) and usage
-    examples for the offline library exist under `docs/`.
+    examples for the offline library exist under `docs/`, including the batch workflow
+    `ReconstructionPipeline` (called "docker" in the maintainer's old notes, formerly `DockerImageFile`).
 
 - [ ] P14: LaTeX export of functions [phase: B]
   - Priority: low | Size: S | Depends on: –
@@ -443,8 +426,20 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
   - Priority: medium | Size: M | Depends on: –
   - Done when: `offaxisholo` offers a Zernike decomposition (named modes, masked aperture) and a radially
     averaged PSD (frequency axis in 1/µm) as pure, backend-agnostic functions with tests on synthetic
-    data; the old script `tests/test/test_zernike.py` is reviewed for reuse; MIRA is told the final
+    data; the old script `attic/legacy_tests/test_zernike.py` is reviewed for reuse; MIRA is told the final
     signatures.
+
+- [ ] P16: Compare compensation before propagation with propagating both fields (found during B5) [phase: B]
+  - Priority: low | Size: M | Depends on: real data of a known reference structure at several z
+  - Done when: `P_z{E_obj · conj(E_ref) / |E_ref|²}` (current order) and `P_z{E_obj} / P_z{E_ref}` are
+    compared on a known reference structure (object and background at several z) with a tool in
+    `tools/`; result appended to `docs/reconstruction_order.md`; the offline default stays unchanged.
+
+- [ ] P17: Numerical aberration compensation (found during B5) [phase: B]
+  - Priority: low | Size: M | Depends on: P15
+  - Done when: a numerical parametric lens / Zernike fit for use without a background hologram
+    (Colomb et al., J. Opt. Soc. Am. A 23, 3177 (2006)) is evaluated on synthetic and real data against
+    background compensation; source: `docs/reconstruction_order.md` §6.
 
 ## Items of `docs/realtime/todo_realtime.txt` and where they went
 
@@ -489,6 +484,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
 
+
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
 
@@ -502,4 +498,5 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 - [x] Specification and reference skeleton moved to `docs/realtime/` — 2026-11-13 — commits: `e57eed4`
 - [x] C1–C12, C14: Realtime kernel (`realtime/`: configuration, calibration, demodulation with crop, piston correction, background and compensation factor, accumulators, compensation and propagation per result, outputs, unwrapping options, tests of gates G1.1–G1.6 on the CPU, benchmark, noise-vs-N tool) — 2026-11-13 — commits: `a446653`, `cfdb038`, `c6ab76e`, `d47eab8`, `885d513`, `a9e5466`, `0656e4f`, `c63d328`, `5a435c9`, `bd44a73`, `f36035a`
 - [x] G1.8 (first part): Unwrapping comparison tool and first report — 2026-11-13 — Least Squares deviates 0.65–2.3 rad RMS from Fast 2D on developed structures; Fast 2D stays the default. — commits: `3790c7e`
+- [x] B5: Repository hygiene — 2026-11-16 — Legacy scripts, old todo notes and planning inputs moved to `attic/` (with `git mv`; `attic/` stays gitignored), `console.log` deleted, README tree current, `Notes_reconstruction_order.txt` versioned as `docs/reconstruction_order.md`; the maintainer keeps `.git`, `.venv` and `build/` in the Seafile folder knowingly (G9). — commits: `ed74765`, `04e5030`, `5c18e66`, `083fcd4`, `8223404`, `8755f70`
 - [x] K1: Finish the scope change in the documents — 2026-11-16 — Project files (`CLAUDE.md`, `TODO.md`, `WORKLOG.md`, system plan) created; `todo_realtime.txt` marked historical and `anweisung_realtime.txt` §4, §7, §8, §10 point to DHMConnect; no todo here asks for network or camera code. — commits: `b247181`, `ee39f40`
