@@ -22,6 +22,7 @@ Project files:
 - `docs/realtime/unwrapping_comparison.md`: first report Fast 2D vs. Least Squares (G1.8).
 - `docs/realtime/reference/holo_gpu_pipeline.py`: CPU-validated reference skeleton, kept verbatim (excluded from black and ruff).
 - `attic/`: archived material (B5): `legacy_tests/` (the former `tests/test/` scripts and their data), `ToDos.txt` (the maintainer's old todo notes; their items are in `TODO.md`, group P), `planning_2026-11-15/` (the planning inputs of `CLAUDE.md`, `TODO.md` and `docs/system/`). `attic/` is in `.gitignore`: files moved there with `git mv` stay versioned, new files there stay local.
+- `docs/stitching_and_averaging.md`: open problem collection on reference masks, piston phase, averaging within and across positions and stitching; decisions SA1–SA7 for the cross-repository planning session (K18).
 - `docs/reconstruction_order.md`: why compensation happens in the hologram plane before propagation, the padding trick of the propagation, numerical tests and the focus measured on real data (formerly the local `Notes_reconstruction_order.txt`; original in `attic/notes/`).
 
 ## Commands
