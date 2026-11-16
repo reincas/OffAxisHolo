@@ -220,6 +220,14 @@ Seitenbands, dx = Pixelabstand in der Objektebene.
 --------------------------------------------------------------------------------
 4. KOMPONENTEN UND VERANTWORTLICHKEITEN
 --------------------------------------------------------------------------------
+[NOTE 2026-11-16] Scope change: only the computational kernel (config.py,
+core.py, accumulators.py, kernels.py, calibration, unwrapping) lives in
+OffAxisHolo. camera/, service/ and clients/dhmclient/ are specified and built
+in DHMConnect now: camera gateway incl. simulated and replay camera DL-B1,
+acquisition DL-B2, state machine DL-B3, GPU worker DL-B4 (calls the entry
+points of K6 here), network layer DL-B5, archive DL-B7, client DL-C1, real
+camera driver DL-H2. See TODO.md and docs/system/SOFTWARE_PLAN_OVERVIEW.md.
+
 Vorgeschlagenes Layout (Namen sind Vorschläge; die Trennung der Schichten ist
 verbindlich und entspricht Notes_guteHandhabung.txt: DATA / PIPELINE / IO /
 PROCESSING strikt getrennt):
@@ -316,6 +324,10 @@ Verantwortlichkeiten:
 --------------------------------------------------------------------------------
 7. ZUSTANDSAUTOMAT (Dienst)
 --------------------------------------------------------------------------------
+[NOTE 2026-11-16] Specified and built in DHMConnect now (state machine
+DL-B3, live mode DL-B10). OffAxisHolo provides only the stateful kernel
+session it drives (OffAxisPipeline, later ReconstructionSession, K6).
+
  STARTING -> IDLE        (Kamera + GPU initialisiert, Konfiguration geladen,
                           Warm-up der FFT-Pläne und Kernels abgeschlossen)
  IDLE  -> BACKGROUND     acquire_background(n_bg, ...)
@@ -337,6 +349,11 @@ Verantwortlichkeiten:
 --------------------------------------------------------------------------------
 8. PROTOKOLL v1 (Entwurf)
 --------------------------------------------------------------------------------
+[NOTE 2026-11-16] Specified and built in DHMConnect now (protocol DL-A2,
+DL-A4; client DL-C1; network and authentication decisions D4, D5). Shared
+message contracts are defined in dhmconnect/schemas/ (decision G2) and
+vendored here under tests/contracts/.
+
 8.1 Transport und Sicherheit
     - ZeroMQ (empfohlen): Request/Reply für Kommandos (ROUTER/DEALER oder REQ/REP
       mit Zeitüberschreitung), optional PUB/SUB oder PUSH/PULL für den Live-Strom.
@@ -411,6 +428,11 @@ werden nicht ungefragt umgeschrieben.
 --------------------------------------------------------------------------------
 10. KAMERA-ABSTRAKTION UND TESTBARKEIT OHNE HARDWARE
 --------------------------------------------------------------------------------
+[NOTE 2026-11-16] The FrameSource interface and SimCamera, FileReplayCamera
+and the real driver are specified and built in DHMConnect now (DL-B1,
+DL-H2). Kernel tests here use synthetic holograms from
+tests/realtime/synthetic_dhm.py; the replay reader for stored data is K12.
+
  FrameSource (Schnittstelle): start(), stop(), grab() -> Frame(data, frame_id,
  t_camera, t_host), Eigenschaften (Form, dtype), Fehlerbehandlung (Timeout,
  verlorene Frames erkennen über Lücken in frame_id).
