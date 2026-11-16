@@ -50,7 +50,7 @@ from ..reconstruction.numericalPropagation import (
     plane_wave_factor,
     transfer_function,
 )
-from .accumulators import make_accumulator
+from .accumulators import FieldStore, make_accumulator
 from .config import RealtimeConfig
 from .metrics import (
     MetricsRecorder,
@@ -150,9 +150,20 @@ class OffAxisPipeline:
     Stage timings of the current measurement are in ``pipe.timer.timings()``
     (realtime.timing); ``profile=True`` synchronises the device for exact GPU
     stage times and must not be used in production runs.
+
+    ``keep_fields=True`` (block mode only) keeps the corrected field of every
+    frame until ``apply_selection(mask)`` rebuilds the average from the used
+    frames (frame selection, realtime.selection); memory ``n_obj * n**2``
+    complex values.
     """
 
-    def __init__(self, config: RealtimeConfig, xp=None, profile: bool = False):
+    def __init__(
+        self,
+        config: RealtimeConfig,
+        xp=None,
+        profile: bool = False,
+        keep_fields: bool = False,
+    ):
         self.config = config.validate()
         self.config_hash = config.config_hash()
         self.xp = xp if xp is not None else backend.namespace(config.backend)
@@ -199,6 +210,12 @@ class OffAxisPipeline:
         self._transfer_cache = {}
         self._acc = make_accumulator(xp, config.averaging)
         self.timer = StageTimer(xp, profile=profile)
+        if keep_fields and config.averaging.mode != "block":
+            raise ValueError(
+                "keep_fields (frame selection) needs averaging mode 'block'; "
+                "sliding and EMA can only gate frames by fixed thresholds."
+            )
+        self._fields = FieldStore(xp, config.averaging.n_obj) if keep_fields else None
         m = config.metrics
         if m.enabled:
             a = config.averaging
@@ -356,6 +373,8 @@ class OffAxisPipeline:
         self.timer.reset()
         if self._metrics is not None:
             self._metrics.reset()
+        if self._fields is not None:
+            self._fields.reset()
         self._piston_obj = _PhasorStats(self.xp)
 
     def push(self, frame):
@@ -380,6 +399,8 @@ class OffAxisPipeline:
             self._piston_obj.add(unit)
             t = timer.lap("piston", t)
         self._acc.add(U)
+        if self._fields is not None:
+            self._fields.add(U)
         t = timer.lap("averaging", t)
         if self._metrics is not None:
             self._record_metrics(frame, real_frame, crop, raw, unit, correction)
@@ -415,6 +436,46 @@ class OffAxisPipeline:
     @property
     def n_frames(self) -> int:
         return self._acc.count
+
+    def apply_selection(self, mask):
+        """Rebuild the block average from the used frames only.
+
+        Parameters
+        ----------
+        mask : sequence of bool
+            One entry per frame pushed since the last reset (for example
+            ``Selection.mask``); True = used.
+
+        Raises
+        ------
+        RuntimeError
+            Without ``keep_fields=True``.
+        ValueError
+            Wrong length or no used frame.
+
+        Notes
+        -----
+        The piston statistics keep all frames. Calling it again with another
+        mask is allowed (the stored fields are not changed).
+        """
+        if self._fields is None:
+            raise RuntimeError(
+                "apply_selection needs OffAxisPipeline(keep_fields=True)."
+            )
+        mask = [bool(m) for m in mask]
+        if len(mask) != self._fields.count:
+            raise ValueError(
+                f"Mask of {len(mask)} entries for {self._fields.count} frames."
+            )
+        if not any(mask):
+            raise ValueError("The selection must keep at least one frame.")
+        timer = self.timer
+        t = timer.start()
+        self._acc.reset()
+        for index, used in enumerate(mask):
+            if used:
+                self._acc.add(self._fields[index])
+        timer.lap("averaging", t)
 
     def frame_metrics(self) -> list[tuple[int, dict]]:
         """Metrics of the frames since the last reset, oldest first (host
