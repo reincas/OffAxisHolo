@@ -1,0 +1,432 @@
+================================================================================
+TODO: Was am Ordner OffAxisHolo geändert werden muss, damit die Echtzeit-
+      Architektur (siehe anweisung.txt) nutzbar wird
+================================================================================
+Stand:   2026-11-13
+Methode: Ordner read-only durchgesehen (keine Datei verändert). Gelesen: README,
+         pyproject.toml, backend.py, __init__.py, utils.py, io/loader.py,
+         pipeline/reconstruction_pipeline.py, reconstruction/{base_class,
+         hologram_class, processor_class, numericalPropagation,
+         phaseUnwrapping}.py, single_functions/functions.py, config/DHM_preset/
+         Zeiss_63x.json, tests/{test_backend,benchmark_backend}.py, ToDos.txt,
+         Notes_reconstruction_order.txt, Notes_guteHandhabung.txt, attic/future_todo.
+         NUR ÜBERFLOGEN / NICHT INHALTLICH GEPRÜFT: io/structure.py,
+         reconstruction/plotter_class.py, simulation/simulate.py,
+         reconstruction/__init__.py, Zeiss_20x.json, SZ2080.json, tests/test/*,
+         scripts/clean.py, .gitignore, data/. -> Aussagen dazu sind markiert (?).
+Legende: [ ] offen   Aufwand S (<0,5 Tag) / M (0,5-2 Tage) / L (>2 Tage)
+         Abhängigkeiten in Klammern. "Datei:" = bestehende Datei, die angefasst
+         wird; "NEU:" = neue Datei.
+
+
+================================================================================
+A. BEFUND IN KURZ
+================================================================================
+Was schon passt (nicht neu bauen):
+  + Backend-Abstraktion NumPy/CuPy (backend.py, Array-API), Präzision single/double.
+  + Rekonstruktionsreihenfolge physikalisch richtig: Filterung -> Kompensation in
+    der Hologrammebene -> Propagation (processor_class.run, Notes_reconstruction_order).
+  + Bandbegrenzte ASM inkl. Padding-Trick (numericalPropagation.angularSpectrum).
+  + Least-Squares-Entfalten per DCT, GPU-fähig (phaseUnwrapping.phase_unwrapping_ls_dct).
+  + CPU/GPU-Paritätstests vorhanden (tests/test_backend.py) - aber GPU-Teil nie auf
+    echter CUDA-Hardware gelaufen (skipif ohne GPU; ToDos.txt bestätigt das).
+  + Presets, Simulation (simulate.py), Container-IO (scidatacontainer).
+
+Warum die Bibliothek so NICHT als Echtzeitkern taugt (Kern des Befunds):
+  (1) Objektorientiert pro Bild: pro Messung werden Hologram, ReferenceHologram,
+      HologramProcessor (inkl. DHMPlotter -> matplotlib) neu gebaut; Zustand wird
+      in ~15 Attributen je Lauf abgelegt. Kein Strom-/Akkumulator-Konzept.
+  (2) Nichts wird zwischengespeichert: angularSpectrum baut je Aufruf fftfreq,
+      meshgrid, kz, exp, Bandmaske neu; circularMask baut je Aufruf ein Meshgrid;
+      der Hintergrund wird je Lauf neu rekonstruiert (ReferenceHologram.reconstruct)
+      und conj(Ub)/(|Ub|^2+eps) je Lauf neu berechnet.
+  (3) IFFT immer über das volle N x N (holo2field), nicht über den ausgeschnittenen
+      Seitenbandbereich. fftshift/roll/ifftshift über das ganze Bild.
+  (4) Host-Synchronisationen im Pfad: bool(xp.min(holo) < 0) in holo2field und
+      locate_order, to_numpy der Kandidaten in locate_order, locate_order wird
+      sogar je Hologramm ausgeführt, wenn first_diffraction_order_pos fehlt.
+  (5) Keine Mittelung (weder Hintergrund noch Objekt), keine Kolbenphasen-
+      korrektur, keine Referenzregion.
+  (6) Entfalten 'Fast 2D' erzwingt GPU -> CPU -> GPU (phase_unwrapping_fast2d).
+  (7) Import-Gewicht: `import offaxisholo` zieht über __init__.py alles: cv2,
+      scidatacontainer, tkinter (reconstruction_pipeline.py), matplotlib
+      (Plotter/phaseUnwrapping), scikit-image. Auf einem Dienst-Rechner ohne
+      Display bricht `from tkinter import ...` evtl. schon beim Import (?).
+  (8) GUI-Dialoge (tkinter messagebox/filedialog) mitten in
+      ReconstructionPipeline.__init__ -> blockiert in einem Dienst.
+  (9) backend._state ist modulglobal und nicht thread-sicher (use_backend()
+      ändert global) - unvereinbar mit Netzwerk-/Akquisitions-/Worker-Threads.
+ (10) Kein Kamera-, Dienst-, Protokoll-, Client-Code, keine Zustandsmaschine.
+ (11) Kompensations-eps zu klein für Echtzeit: eps = finfo.eps * max|Eref|^2 ist
+      nur ein Division-durch-Null-Schutz, keine Wiener-Regularisierung.
+
+
+================================================================================
+B. BLOCKER / HYGIENE (zuerst, billig, entkoppelt Rest)
+================================================================================
+[ ] B1  Lazy Imports in __init__.py (S)
+        Datei: src/offaxisholo/__init__.py
+        Schwere Importe (DataLoader -> cv2/scidatacontainer; ReconstructionPipeline
+        -> tkinter/scidatacontainer; HologramProcessor -> matplotlib/skimage) per
+        PEP-562 __getattr__ erst bei Zugriff laden. Ziel: `import offaxisholo.realtime`
+        lädt weder tkinter noch matplotlib noch skimage noch cv2.
+        Test: NEU tests/test_import_hygiene.py (Subprozess, sys.modules prüfen).
+        Öffentliche API (__all__) unverändert lassen.
+
+[ ] B2  tkinter-Dialoge aus ReconstructionPipeline trennen (M)
+        Datei: src/offaxisholo/pipeline/reconstruction_pipeline.py
+        - `from tkinter import filedialog, messagebox` nur noch lokal in einer
+          GUI-Hilfsfunktion; __init__ darf nie blockieren. Fehlende Entscheidung
+          = klare Ausnahme oder explizites Argument (z. B. interactive=False als
+          Default) statt Dialog.
+        - __main__-Block enthält hartkodierte persönliche Pfade
+          (C:\Users\hanne\...), importiert `get_logger` aus offaxisholo, das dort
+          nicht exportiert ist -> entfernen/in scripts/ verschieben.
+        - _run_reconstruction: kwargs-Aliasketten (propagation_distance / prop_dist /
+          prop_distance usw.) NICHT für den Dienst übernehmen; der Dienst nutzt
+          typisierte Konfiguration (C2). Alte API kompatibel lassen (Default-
+          Verhalten gleich).
+        Hinweis: Vorhandene API-Verhalten nicht ändern; nur die Dialoge abkoppeln.
+
+[ ] B3  Abhängigkeiten aufteilen (S)
+        Datei: pyproject.toml
+        Heute: opencv, matplotlib, scikit-image, scidatacontainer sind harte
+        Abhängigkeiten. Vorschlag:
+          core      : numpy, scipy, array-api-compat
+          offline   : opencv-python, matplotlib, scikit-image, scidatacontainer
+                      (bleibt Default-Install, damit Verhalten gleich bleibt)
+          gpu       : cupy-cuda12x oder -13x (CUDA-Version des Mess-PCs klären, Q2)
+          realtime  : pyzmq (+ ggf. msgpack), pynvml (optional)
+          camera-*  : Hersteller-SDK (Q1)
+          dev       : pytest, ruff, black (+ pytest-benchmark optional)
+        Neue Einstiegspunkte: [project.scripts] dhm-server = offaxisholo.realtime.
+        service.__main__:main
+        Prüfen: Sehr junge Mindestversionen (numpy>=2.4.5, scipy>=1.17.1,
+        scikit-image>=0.25.2) - auf dem Mess-PC installierbar? Mess-PC-Python-
+        Version festhalten.
+        Pytest-Marker deklarieren (gpu, slow, hardware) - tool.pytest.ini_options
+        ergänzen.
+
+[ ] B4  Thread-Regel für das Backend dokumentieren und durchsetzen (S/M)
+        Datei: src/offaxisholo/backend.py (nur Doku + ggf. kleine Ergänzung)
+        _state ist global; use_backend() ändert global. Regel: im Dienst nur der
+        GPU-Worker nutzt Backend/CuPy; Backend wird einmal beim Start gesetzt.
+        Zusätzlich nötig: Geräteauswahl (device_id), Pinned-Memory-/Stream-/
+        Memory-Pool-Helfer. Empfehlung: Echtzeit-Kern bekommt `xp` explizit
+        (keine Abhängigkeit von _state); backend.py nur um Hilfsfunktionen
+        erweitern (z. B. pinned_empty, device-Kontext) - rückwärtskompatibel.
+
+[ ] B5  Repository-Hygiene (S, teilweise Entscheidung des Nutzers)
+        - .venv, .git und build/ liegen in einem Seafile-Sync-Ordner: Seafile und
+          .git/.venv vertragen sich schlecht (Konflikte, Korruptionsrisiko).
+          Empfehlung: Git-Remote nutzen, .venv außerhalb des Sync-Ordners.
+        - data/ (Beispiel-tif/png, reconstruction_*-Ergebnisse): Größe prüfen;
+          nicht ins Git (oder LFS), Testdaten als kleine, versionierte Fixture
+          (?; .gitignore nicht geprüft).
+        - ToDos.txt und Notes_*.txt liegen INNERHALB des Pakets
+          (src/offaxisholo/); gehören nach docs/ (siehe attic/future_todo:
+          "Dokumentationen gehören unter docs/").
+        - Veraltetes: tests/test/ablage.py, "ablage 2.py" (Leerzeichen im Namen),
+          test_docker.py, test_filedialog.py, test_zernike.py, test_4_einheit.py
+          -> Entscheidung Nutzer: behalten/archivieren (nichts löschen ohne OK).
+        - OffAxisHolo_projectStructure_18052026.txt ist ein Schnappschuss; nach
+          den Änderungen aktualisieren oder Generator-Skript nutzen.
+        - Zeiss_63x.json: "name" = "Zeiss 63X" (großes X) vs. Preset-Schlüssel
+          "Zeiss 63x"; doppelte Schlüssel (xPixelSizeUm/yPixelSizeUm vs.
+          pixelPitch; wavelengthUm vs. wavelength). Nur dokumentieren und im
+          NEUEN Konfig-Loader robust behandeln; JSON nicht ungefragt ändern.
+        - Preset-Ladecode doppelt vorhanden (functions.py::_load_preset und
+          reconstruction_pipeline.py): im neuen config-Modul bündeln; alte Stellen
+          später darauf umstellen (separater Schritt, Verhalten gleich).
+
+[ ] B6  CUDA-Hardwarelauf der vorhandenen Tests/Benchmarks (S, auf dem Mess-PC)
+        `pytest tests/test_backend.py -v` und `python tests/benchmark_backend.py
+        1024 2048` auf der echten GPU laufen lassen; Ergebnis (Zeiten, Fehler)
+        im Repo festhalten (docs/benchmarks/<datum>_<gpu>.txt). Das ist Voraussetzung
+        für alle Aussagen "single reicht" (ToDos.txt, Abschnitt GPU).
+
+
+================================================================================
+C. PHASE 1 - GPU-ECHTZEITKERN  (NEU: src/offaxisholo/realtime/)
+================================================================================
+Referenz-Skelett: holo_gpu_pipeline.py (CPU-validiert; Klasse OffAxisPipeline). Es
+wird als Ausgangspunkt übernommen, aber an die Konventionen der Bibliothek
+angepasst (Dtypes, Naming, Tests, Parität zu HologramProcessor).
+
+[ ] C1  Paketgerüst realtime/ (S)  (B1)
+        NEU: realtime/__init__.py (leicht), core.py, accumulators.py, config.py,
+        kernels.py (zunächst leer/optional).
+
+[ ] C2  Konfiguration (M)
+        NEU: realtime/config.py
+        Dataclasses (siehe anweisung.txt Abschnitt 9), Validierung, Laden aus
+        JSON/TOML, Ableitung aus bestehendem DHM-Preset (pixelPitch,
+        wavelength, dcRadius), Konfig-Hash. Fehler früh und klar (z. B. n nicht
+        gerade, Ordnung außerhalb Spektrum -> gleiche Prüfungen wie
+        Hologram._calc_radius_mask).
+
+[ ] C3  Kalibrierung der Ordnung außerhalb des Hot Paths (S)  (C2)
+        Einmalig: locate_order (bestehend) auf einem Hintergrundbild -> (fx, fy,
+        rmax) in Konfiguration schreiben. Im Streaming wird locate_order NIE
+        aufgerufen. Hologram selbst nicht ändern; nur nutzen.
+        Zusatz: Qualitätsmaß (Gewicht des Peaks, Stabilität über mehrere Frames)
+        und Warnung bei Abweichung zwischen Läufen.
+
+[ ] C4  Demodulation ohne Overhead (L)  (C1,C2)
+        NEU: core.py
+        - Rohbild uint8/uint16 -> GPU (Pinned, async) -> float32 auf der GPU.
+        - FFT2 voll (N x N), danach Ausschnitt n x n um (fx, fy) per
+          vorberechneter Indextabelle (kein roll/fftshift/ifftshift auf voller
+          Fläche), Maske/Fenster vorberechnet, IFFT2 nur n x n.
+        - Pixelabstand dx' = dx*N/n an Propagation weiterreichen.
+        - Paritätsmodus (n = N, kreisförmige Maske wie circularMask, keine
+          Fenster) = Verhalten von Hologram.holo2field.
+        - KEIN bool(xp.min(...)): Positivitätsprüfung nur im Debug-Modus bzw. auf
+          dem Host für den ersten Frame.
+        Entscheidungen offen: Seitenband-Fensterform (Tukey/Hann/Kreis),
+        rfft2-Optimierung (nach Profil).
+
+[ ] C5  Kolbenphasenkorrektur (M)  (C4)
+        NEU: in core.py
+        Maskiertes komplexes Skalarprodukt über Referenzregion, 0-d-Geräte-
+        Skalar, Reduktion in float64, Korrektur U *= conj(p/|p|). Referenzregion
+        konfigurierbar (Rand), Prüfung: Region darf kein Objekt enthalten
+        (Diagnosewert: Streuung von |p|). Statistik von arg(p) in Metadaten.
+
+[ ] C6  Hintergrundaufnahme (M)  (C4,C5)
+        NEU: core.py::set_background(frames)
+        - Hintergrundframes demodulieren, auf ersten Frame phasenausrichten
+          (Kolbenkorrektur), Mittel Ub.
+        - K = conj(Ub)/(|Ub|^2 + eps_rel*max|Ub|^2) einmal berechnen und halten.
+          (Ersetzt das bisherige Compensate-Verfahren; eps_rel = 1e-3 Start,
+          konfigurierbar; für Paritätstest = finfo.eps.)
+        - Qualitätskennzahlen: Streuung der Kolbenphase, Rest-Rauschen des
+          Hintergrunds (z. B. Split-Half), Min/Max |Ub|, Anzahl dunkler Pixel.
+
+[ ] C7  Akkumulatoren (M)  (C4)
+        NEU: realtime/accumulators.py
+        Block, Sliding (Ringpuffer, S += neu - ältestes, periodische
+        Neu-Summation gegen Drift), EMA (N_eff = (2-a)/a). Alle auf Geräte-
+        Arrays fester Größe, ohne Allokation pro Frame; Zähler als Geräte- oder
+        Host-Integer ohne Synchronisation.
+
+[ ] C8  Kompensation + Propagation je Ergebnis (M)  (C6,C7)
+        NEU: core.py::result(z)
+        E_comp = mean * K; Propagation mit gecachtem H(z).
+        Cache: H(z) je (Form, dx', Wellenlänge, n_medium, z, Dtype, Padding,
+        Bandlimit). Basis: Formeln aus numericalPropagation.angularSpectrum
+        (NICHT neu erfinden; als Quelle der Wahrheit testen), jedoch
+        zerlegt in "H berechnen" und "H anwenden".
+        Datei (optional, nur Refactoring, rückwärtskompatibel): numericalPropagation.py
+        -> Funktion transfer_function(shape, dx, dy, wavelength, z, n_medium,
+        band_limit, dtype) herausziehen, angularSpectrum ruft sie auf. Dann
+        teilen sich Offline- und Echtzeitpfad EXAKT denselben Code. (Parität
+        bleibt per Test gesichert.)
+        Padding-Option (Randmittelwert-Trick) übernehmen; Entscheidung ob nötig
+        per Abschätzung der Randbandbreite |z|*tan(asin(NA/n))/dx' und Messung.
+        Mehrere z: eine FFT, mehrere H-Multiplikationen.
+
+[ ] C9  Ausgaben (S)  (C8)
+        phase_wrapped (float32), amplitude / Intensität (linear oder dB wie
+        HologramCore.intensity), optional Höhe (wie phase_to_height; ist heute
+        eine Methode von HologramProcessor -> als reine Funktion herauslösen,
+        Verhalten gleich).
+
+[ ] C10 Entfalten im Echtzeitpfad (M)
+        Dateien: reconstruction/phaseUnwrapping.py (nur lesen/nutzen)
+        - Standard: wrapped Phase ausgeben.
+        - Optionen: (a) 'Fast 2D' als CPU-Nachverarbeitung in eigenem Thread;
+          (b) 'Least Squares' auf GPU nach Validierung (B6, G1.8); (c) zeitliches
+          Entfalten phi_t = phi_{t-1} + angle(U_t*conj(U_{t-1})) für Live-Tracking.
+        - Hinweis: phaseUnwrapping.py importiert matplotlib und skimage auf
+          Modulebene -> für den Dienst nur lazy (B1) oder Import in
+          Funktionen verlagern (rückwärtskompatibel).
+        - 'Least Squares' liefert Mittelwert-freie Phase (phi_hat_00 = 0) und kann
+          Stufenhöhen unterschätzen (siehe Docstring) -> Vergleich auf realen
+          Daten in data/ + synthetischen Stufen, Ergebnis dokumentieren.
+
+[ ] C11 Tests Phase 1 (L)  (C4-C9)
+        NEU: tests/realtime/ (conftest mit Fixtures aus test_backend.py:
+        _synthetic_hologram, _bump)
+        - Parität gegen HologramProcessor.run (CPU double; GPU single/double).
+        - Linearität (Mittel vor/nach Propagation).
+        - Kolbenphase: Amplitudenverlust exp(-sigma^2/2) ohne, kein Verlust mit
+          Korrektur.
+        - Rauschskalierung 1/sqrt(N) mit Hintergrundboden (Monte-Carlo mit
+          synthetischem Rauschen).
+        - Sliding/EMA gegen naive Referenz.
+        - Hot-Path-Wächter: Monkeypatch auf cupy.ndarray.get / .item / __array__ /
+          __bool__ im Kern -> Fehler bei versteckter Synchronisation.
+        - Keine Allokation nach Warm-up (cupy Memory-Pool-Zähler).
+        - Fehlerfälle: falsche Form, ungerade Größe, Ordnung außerhalb, leerer
+          Hintergrund, Ergebnis vor Hintergrund.
+        - Marker: gpu (benötigt CUDA), sonst NumPy-Pfad auf CPU.
+
+[ ] C12 Benchmark/Profil (M)  (C8, B6, auf dem Mess-PC)
+        Datei: tests/benchmark_backend.py (erweitern, ohne Bestehendes zu ändern)
+        oder NEU: tests/benchmark_realtime.py
+        Gemessen werden muss nicht nur Einzelschritt-Median, sondern Durchsatz im
+        eingeschwungenen Zustand mit CUDA-Events je Stufe, mit/ohne Padding,
+        single/double, Ausschnitt n. Ergebnis -> Entscheidung zu Fusion (kernels.py),
+        CUDA Graphs, rfft2.
+
+[ ] C13 Optimierungen nach Profil (L, optional)  (C12)
+        Fusionierte Kernels (Fenster+Shift+Maske+Kolbenphase+Akku), CUDA Graphs,
+        Streams (Upload/Compute/Download überlappen), Pinned-Puffer, rfft2.
+        NICHT vorab.
+
+[ ] C14 Rauschmessung (S/M)  (C11)
+        NEU: scripts/noise_vs_N.py
+        Misst sigma_phi vs. N_obj, N_bg an Realdaten (leere Region) und zeigt den
+        Hintergrundboden -> liefert die Zahlen für sinnvolle Standardwerte von
+        n_bg und n_obj.
+
+
+================================================================================
+D. PHASE 2 - KAMERA
+================================================================================
+[ ] D1  FrameSource-Schnittstelle (S)
+        NEU: realtime/camera/base.py (Frame: data, frame_id, t_camera, t_host;
+        start/stop/grab; Fehlertypen; Lückenerkennung über frame_id).
+
+[ ] D2  SimCamera + FileReplayCamera (M)  (D1)
+        NEU: camera/sim.py, camera/replay.py
+        SimCamera: Hologramme synthetisch (Modell aus tests/test_backend.py bzw.
+        Wiederverwendung simulation/simulate.py - dessen Eignung (?) noch prüfen,
+        Datei nicht gelesen), steuerbare Kolbenphase, Rauschen (Schrot-/
+        Ausleserauschen), Drift, bewegtes Objekt. FileReplayCamera: tif/png aus
+        data/ (nutzt vorhandenen DataLoader.load_image-Verhalten: Rohbittiefe
+        erhalten).
+
+[ ] D3  Akquisitions-Thread + Pinned-Ringpuffer (M)  (D1,B4)
+        NEU: service/acquisition.py
+        Feste Pufferzahl, Zähler (empfangen/verworfen), Zeitstempel, kein
+        Wachstum; Überlauf = zählen + melden (Protokoll). Test mit künstlich
+        langsamem Worker.
+
+[ ] D4  Echter Kameratreiber (L, abhängig von Q1)
+        NEU: camera/<hersteller>.py
+        ROI quadratisch+gerade, Bittiefe, Belichtung, Software-Trigger,
+        settle_frames, Wiederverbinden nach Fehler. Erst nach Klärung von
+        Kamera/SDK.
+
+
+================================================================================
+E. PHASE 3 - DIENST + PROTOKOLL
+================================================================================
+[ ] E1  Protokoll-Definition (M)
+        NEU: clients/dhmclient/dhmclient/protocol.py (Versionskonstante,
+        Nachrichtenschemata, Fehlercodes, Serialisierung JSON + binär mit
+        dtype/shape-Header; nie pickle). Server importiert diese Datei.
+        Test: Roundtrip, kaputte Nachrichten, zu große Nachrichten, falsche
+        Version.
+
+[ ] E2  Zustandsautomat (M)
+        NEU: service/state.py - reine Logik (ohne Netz/GPU) -> vollständig
+        unit-testbar: Tabelle Zustand x Kommando, Fehler/Recovery, Abort.
+
+[ ] E3  GPU-Worker (M)  (C8,D3,E2)
+        NEU: service/worker.py - einziger CUDA-Thread, nimmt Aufträge aus
+        beschränkter Queue, führt Kern aus, liefert Ergebnis + Metadaten (Zeit je
+        Stufe, verworfene Frames). Fehler (OOM, Kamera) -> ERROR-Zustand mit
+        Ursache.
+
+[ ] E4  Netzwerk-Schicht (M)  (E1,E2)
+        NEU: service/server.py - ZeroMQ, ein Thread, Bind nur an konfiguriertes
+        Interface, Timeouts, saubere Fehlerantworten, keine Exceptions nach
+        außen.
+
+[ ] E5  Live-Modus (M)  (E3,E4,C7)
+        live_start/live_stop, Sliding/EMA, Rate-Limit, "neuester Stand" vs. Strom.
+        Rückstau-Strategie: neuester Stand gewinnt, Verwurf wird gezählt.
+
+[ ] E6  Asynchrone Archivierung (M)
+        NEU: service/archive.py - eigener Thread, .zdc via scidatacontainer
+        (Abhängigkeit realtime-Extra) oder float32+JSON; Rechenpfad wartet nie
+        auf die Platte; Rückstau begrenzen.
+
+[ ] E7  Logging/Telemetrie (S)
+        Datei: utils.py::get_logger nutzen oder erweitern (heute: Konsole+Datei,
+        DEBUG immer an, Logger-Name = Logdateipfad). Für den Dienst: rotierende
+        Logs, Auftrags-ID im Format, kein INFO pro Frame. Bestehendes Verhalten
+        nicht ändern (neue Funktion statt Änderung).
+
+[ ] E8  Tests Phase 3 (L)
+        NEU: tests/service/ - Zustandsautomat, Protokoll, End-to-End mit
+        SimCamera + NumPy-Kern auf CPU (kein GPU nötig), Lastszenarien,
+        Verbindungsabbruch, falsche Reihenfolge der Kommandos.
+
+
+================================================================================
+F. PHASE 4 - ANBINDUNG (Steuer-PC)
+================================================================================
+[ ] F1  dhmclient-Paket (M)  (E1)
+        NEU: clients/dhmclient/ (eigene pyproject.toml; Abhängigkeiten nur numpy +
+        pyzmq). API: DHMClient(addr).hello/status/config/acquire_background/
+        measure/result/abort/live_start/live_stop/shutdown; Zeitüberschreitung,
+        Wiederverbindung, klare Ausnahmen, Versionsprüfung.
+
+[ ] F2  Beispielskript + Dokumentation (S)  (F1)
+        NEU: clients/dhmclient/examples/measure_once.py, docs/realtime.md
+        (README-Abschnitt "Echtzeit" fehlt heute; README sagt, Anwendungsbeispiele
+        folgen).
+
+[ ] F3  Integration mit echtem Steuer-Skript (M)  (F1)
+        Zusammen mit dem Nutzer: das tatsächliche Skript auf dhmclient umstellen;
+        Entscheidungen Q4-Q9 festschreiben.
+
+[ ] F4  Referenzmessung (M)
+        Bekanntes Objekt (Stufe/Linse) offline (HologramProcessor) und über den
+        Dienst auswerten, Abweichung dokumentieren (Abnahme G4.2).
+
+
+================================================================================
+G. PHASE 5 - BETRIEB
+================================================================================
+[ ] G1  Autostart/Watchdog (S/M) - Windows-Dienst/Task Scheduler (Mess-PC-OS
+        klären; Pfade im Code deuten auf Windows) oder NSSM; automatischer
+        Neustart, Log-Rotation.
+[ ] G2  Versionsstand in jedem Ergebnis (git-Hash, Konfig-Hash) (S).
+[ ] G3  Runbook: Start/Stop, Kalibrierung (fx, fy), Fehlersuche, Firewall/Port (S).
+[ ] G4  Langzeittest (Stunden): Speicherstabilität, keine verlorenen Frames,
+        Temperatur/Taktung der GPU (S).
+[ ] G5  Sicherheit: Bind-Adresse, Firewall-Regel, optional Authentifizierung (Q7).
+
+
+================================================================================
+H. FACHLICH OFFEN (müssen vor Phase 4 geklärt sein, beeinflussen Konfiguration)
+================================================================================
+(aus Notes_reconstruction_order.txt und ToDos.txt; hier nur wiedergegeben)
+[ ] H1  Soll das Ergebnis in der Hologramm- oder Fokusebene geliefert werden?
+[ ] H2  Propagationsmedium (n_medium) und Vorzeichenkonvention (Phase/Höhe).
+[ ] H3  Preset-Propagationsdistanz 1.1e-7 m (0,11 um) vs. gemessener Fokus
+        ca. -2,6 um: welches z gilt je Setup/Auftrag?
+[ ] H4  'single' auf echter Hardware validieren (B6/C11).
+[ ] H5  'Least Squares' vs. 'Fast 2D' bewerten (C10).
+[ ] H6  Sprachlich/Struktur: "Mode print" laut ToDos.txt "bad" - ob für den
+        Dienst relevant (n_medium=Harz) mit Nutzer klären.
+
+
+================================================================================
+I. VORGESCHLAGENE REIHENFOLGE (kritischer Pfad)
+================================================================================
+ 1. B1, B3, B4 (Importe, Abhängigkeiten, Thread-Regel)     - 1-2 Tage
+ 2. B6 (GPU-Lauf der bestehenden Tests/Benchmarks)          - parallel, Mess-PC
+ 3. C1-C11 (Kern + Tests)                                   - Gate Phase 1
+ 4. C12-C14 (Messung, Entscheidungen)                       - Gate Phase 1
+ 5. D1-D3, E1-E2, E8 (ohne echte Kamera/GPU entwickelbar)   - parallel zu C
+ 6. D4 (Treiber) sobald Q1 geklärt
+ 7. E3-E7, F1-F3, G*                                        - Gates Phase 3-5
+ Schätzung gesamt (unverändert zur Roadmap): ca. 3,5-6 Wochen, stark abhängig von
+ Kamera-SDK (Q1) und Verfügbarkeit des Mess-PCs für Messungen.
+
+================================================================================
+J. OFFENE FRAGEN AN DICH (kurz, Details in anweisung.txt Abschnitt 12)
+================================================================================
+ Q1 Kamera/SDK?        Q2 GPU/CUDA-Version?   Q3 N, n, Bildrate, Ziel-Latenz?
+ Q4 Ebene und z?       Q5 n_medium/Vorzeichen? Q6 Entfaltung im Dienst?
+ Q7 Netz/Auth/Clients? Q8 Hintergrund-Lebensdauer? Q9 Live-Strom nutzen?
+
+================================================================================
+ENDE TODO
+================================================================================

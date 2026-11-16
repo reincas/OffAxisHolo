@@ -1,0 +1,509 @@
+================================================================================
+ANWEISUNG: Echtzeit-Off-Axis-DHM auf der GPU  (Projekt OffAxisHolo)
+================================================================================
+Stand:      2026-11-13
+Zweck:      Detaillierte Beschreibung des ZIELS. Dieses Dokument ist so geschrieben,
+            dass es einem Entwickler (oder Claude Code) als Arbeitsauftrag gegeben
+            werden kann. Die konkrete Änderungsliste steht in todo.txt (gleicher
+            Ordner). Beide Dateien gehören zusammen: anweisung.txt = WAS und WARUM,
+            todo.txt = WO und WIE.
+Grundlage:  Roadmap- und Architektur-Dokument (Claude Doc), Referenz-Skelett
+            holo_gpu_pipeline.py (CPU-validiert), Durchsicht dieses Ordners.
+Wichtig:    Beim Erstellen dieser beiden Dateien wurde KEINE bestehende Datei
+            verändert.
+
+
+--------------------------------------------------------------------------------
+0. LESEHINWEIS / ARBEITSREGELN FÜR DIE UMSETZUNG
+--------------------------------------------------------------------------------
+R1  Die bestehende Offline-Bibliothek (Hologram, HologramProcessor,
+    ReconstructionPipeline, reconstruct_hologram, ...) bleibt lauffähig und
+    verhält sich mit ihren Defaults unverändert. Sie dient als
+    GOLDEN REFERENCE für die neuen Echtzeit-Komponenten.
+R2  Neuer Code kommt in NEUE Module (Vorschlag: src/offaxisholo/realtime/ und
+    ein separates leichtgewichtiges Client-Paket). Bestehende Dateien werden nur
+    angefasst, wenn es in todo.txt ausdrücklich als Änderung steht (z. B.
+    Lazy-Imports in __init__.py).
+R3  Test zuerst: Jede neue Komponente bekommt einen Test, der gegen die
+    Offline-Referenz (CPU, double) oder gegen analytische Fälle prüft, BEVOR
+    optimiert wird. Optimierungen (Streams, Fusion, CUDA Graphs) erst nach
+    Messung (Profil), nicht nach Vermutung.
+R4  Nichts löschen. Veraltetes (attic/, tests/test/ablage*.py, ...) wird nur
+    verschoben oder in todo.txt zur Entscheidung durch den Nutzer markiert.
+R5  Keine eigene Physik erfinden: Vorzeichenkonvention, Ebene (Hologramm- vs.
+    Fokusebene), Propagationsmedium und Propagationsdistanz sind OFFENE Punkte
+    (siehe Abschnitt 12) und müssen als Konfiguration herauskommen, nicht als
+    fest verdrahtete Annahme.
+R6  Hot-Path-Regeln (siehe 6.3) sind verbindlich: keine Host-Synchronisation,
+    keine Allokation, kein Logging pro Frame im Schleifenkern.
+R7  Alle Zahlen zur Leistung (Frames/s, Latenz) sind ZIELGRÖSSEN, die auf dem
+    echten Mess-PC gemessen werden müssen. In diesem Dokument stehen bewusst
+    keine erfundenen Messwerte.
+
+
+--------------------------------------------------------------------------------
+1. ZIEL IN EINEM ABSATZ
+--------------------------------------------------------------------------------
+Auf dem Mess-PC (Kamera + NVIDIA-GPU im selben Rechner) läuft ein Dauerdienst, der
+Off-Axis-Hologramme von der Kamera übernimmt und komplett auf der GPU
+rekonstruiert: Seitenband-Filterung -> Hintergrundkompensation -> numerische
+Propagation (Angular Spectrum) -> Mittelung mehrerer Hintergrund- UND mehrerer
+Objekthologramme zur Verringerung des zeitlichen Rauschens. Ein anderes Skript
+auf dem Steuer-PC spricht den Dienst über TCP/IP an (Hintergrund aufnehmen,
+Messung auslösen, Ergebnis abholen, optional Live-Strom) und bekommt Phase,
+Amplitude/Intensität und Metadaten zurück. Die gesamte Entscheidungslogik (wann
+wird gemessen, was passiert mit dem Ergebnis, Regelkreis) bleibt im Steuer-Skript;
+der Dienst ist ein reiner "Mess- und Rechenknecht" mit klar definiertem Protokoll.
+
+
+--------------------------------------------------------------------------------
+2. SYSTEMKONTEXT UND ARCHITEKTUR (entspricht dem Echtzeit-Diagramm)
+--------------------------------------------------------------------------------
+Zwei Rechner, ein Protokoll:
+
+  STEUER-PC                                        MESS-PC
+  +--------------------------+   TCP/IP    +-------------------------------------+
+  | Steuer-Skript            |  Protokoll  | Netzwerk-Schicht (ZeroMQ, ein Thread)|
+  |   |                      |     v1      |        |                             |
+  | dhmclient (Bibliothek)   |<----------->|        v                             |
+  |  - connect/hello         |             | Zustandsautomat                      |
+  |  - acquire_background    |             |  IDLE/BACKGROUND/READY/MEASURING/ERR |
+  |  - measure -> job_id     |             |        |                             |
+  |  - result(job_id)        |             |        v                             |
+  |  - live_start/stop       |             | GPU-Worker  (EINZIGER CUDA-Thread)   |
+  +--------------------------+             |        ^                             |
+                                           |        | Pinned-Ringpuffer (bounded) |
+                                           | Akquisitions-Thread  <--  Kamera     |
+                                           +-------------------------------------+
+
+Kernprinzipien (Begründung in Klammern):
+ P1  EIN Prozess besitzt Kamera UND CUDA-Kontext (Kamera-SDK und CUDA im selben
+     Prozess vermeiden Kopien über Prozessgrenzen; Kamera-Handle ist exklusiv).
+ P2  Genau ein GPU-Worker-Thread führt alle CUDA-Aufrufe aus (kein
+     Thread-Safety-Problem mit globalem Backend-Zustand; vorhersehbare Reihenfolge).
+ P3  Entkopplung durch beschränkte Warteschlangen: Netzwerk <-> Zustandsautomat <->
+     Worker, Akquisition -> Worker über Ringpuffer fester Größe. Läuft der Worker
+     hinterher, werden Frames GEZÄHLT und als verworfen gemeldet, nicht stillschweigend
+     gepuffert (kein unbegrenztes Wachstum, ehrliche Metadaten).
+ P4  Asynchrones Auftragsmodell: measure liefert sofort eine job_id; das Ergebnis
+     wird per result/status abgeholt. Kein langes blockierendes Request/Reply.
+ P5  Der Dienst kennt keine Messlogik. Er hat Zustand (Hintergrund, Konfiguration),
+     aber keine Strategie.
+ P6  Versioniertes Protokoll: Handshake prüft Protokollversion UND Konfig-Hash.
+
+
+--------------------------------------------------------------------------------
+3. VERARBEITUNGSKETTE (mathematische Spezifikation)
+--------------------------------------------------------------------------------
+Notation: I = Kamerabild (N x N, uint8/uint16), fx, fy = Position der -1. Ordnung
+(ganzzahlig, wie locate_order sie liefert), n = Kantenlänge des ausgeschnittenen
+Seitenbands, dx = Pixelabstand in der Objektebene.
+
+3.1 Demodulation (je Frame)
+    F  = FFT2(w * I)                 w = optionales Fenster (Standard: keins =
+                                         Parität zur Offline-Bibliothek)
+    Fs = F um (fx, fy) zyklisch verschoben, so dass die Trägerfrequenz auf (0,0)
+         liegt (ganzzahliger Shift, entfernt den Träger bis auf Restneigung
+         unterhalb eines Bins; diese Restneigung hebt sich in der
+         Hintergrunddivision auf, weil Objekt und Hintergrund identisch behandelt
+         werden)
+    Fc = Ausschnitt von Fs: n x n um (0,0), mit kreisförmiger Maske (Radius r wie
+         in Hologram._calc_radius_mask) bzw. glattem Seitenband-Fenster
+    U  = IFFT2(Fc)   (n x n)         ~ O * conj(R)  (Objektwelle mal konjugierte
+                                         Referenzwelle)
+    WICHTIG: IFFT erst NACH dem Ausschneiden (n x n statt N x N). Das spart den
+    größten Teil der Rechenzeit, ändert aber den Pixelabstand der Ergebnisse:
+        dx' = dx * N / n        (Sichtfeld bleibt gleich, Abtastung gröber)
+    Alle späteren Schritte (Propagation) müssen dx' benutzen.
+    Der Modus "crop = None / n = N" muss das bisherige Verhalten der
+    Offline-Bibliothek exakt reproduzieren (Paritätsmodus für Tests).
+
+3.2 Vorzeichenkonvention
+    Das Offline-Verfahren wählt per locate_order die Ordnung auf der linken
+    Spektrumshälfte (negatives fx) und erhält damit O*conj(R) (positive
+    Phasenkonvention des Setups wird dadurch festgelegt). Der Echtzeit-Kern übernimmt
+    fx, fy EINMAL aus der Kalibrierung (locate_order auf einem Hintergrundbild) und
+    benutzt sie für Hintergrund und Objekt identisch. Eine pro-Frame-Suche
+    (locate_order) im laufenden Betrieb findet NICHT statt (Host-Synchronisation,
+    Instabilität).
+
+3.3 Kolbenphase (Piston, globales Phasenzittern)
+    Zwischen Frames ändert sich die absolute Phase global (Vibration, Laserdrift).
+    Mittelt man ohne Korrektur komplexe Felder, sinkt die Amplitude des Mittels um
+    den Faktor exp(-sigma^2/2) (sigma = Phasenzittern in rad), die Phase wird
+    verfälscht. Daher je Frame:
+        p = SUM_{Referenzregion M} ( U * conj(U_ref) )      (komplexes Skalarprodukt,
+                                                             maskiert)
+        U <- U * conj(p/|p|)
+    Referenzregion M = Bereich ohne Objekt (z. B. Randstreifen), konfigurierbar.
+    Für Hintergrundframes ist U_ref der erste (oder bereits gemittelte)
+    Hintergrundframe; für Objektframes das Hintergrundmittel Ub. p bleibt eine
+    0-d-Geräte-Größe (kein .item()). Reduktion in float64 akkumulieren.
+    Die Statistik von arg(p) (Standardabweichung über den Auftrag) wird als
+    Diagnosewert in die Metadaten geschrieben.
+
+3.4 Mittelung (Phasoren, nicht Phasen)
+    Es werden komplexe, kolbenkorrigierte Felder gemittelt - NIE Phasen
+    (Phasen mitteln scheitert an Sprüngen bei +-pi). Gemittelt wird NACH der
+    Demodulation und NACH der Kolbenkorrektur, aber VOR Kompensation und
+    Propagation, weil alle Schritte linear sind:
+        mean_k( ASM{ U_obj,k * K } ) = ASM{ mean_k(U_obj,k) * K }
+        mit K = conj(Ub) / (|Ub|^2 + eps)  (fest)
+    Folge: pro Frame fallen nur Demodulation + Kolbenkorrektur + Akkumulation an;
+    Kompensation und Propagation (inkl. 2 zusätzlicher FFTs) werden nur EINMAL pro
+    ausgegebenem Ergebnis ausgeführt, nicht pro Frame.
+    Verworfene Alternative: Rohhologramme VOR der Demodulation mitteln. Das ist nur
+    korrekt, wenn die Streifenphase zwischen den Frames stabil ist - tatsächlich
+    nicht gegeben (Kolbenphase). Nicht verwenden.
+
+    Modi:
+      "block"   : N Frames sammeln, Summe, durch N teilen, Ergebnis, Zähler
+                  zurücksetzen.
+      "sliding" : Ringpuffer der letzten N Felder (Summe S += neu - ältestes);
+                  Ergebnis in jedem Schritt verfügbar; N Felder im GPU-Speicher
+                  (N * n^2 * 8 Byte bei complex64). Numerische Drift der laufenden
+                  Summe: gelegentlich (z. B. alle M Schritte) aus dem Puffer neu
+                  summieren.
+      "ema"     : S <- (1-a)*S + a*U; kein Puffer; effektive Mittelungszahl
+                  N_eff = (2-a)/a.
+    Hintergrund: immer "block" (Mittel über N_bg Frames, einmal bei
+    acquire_background), danach FEST. Das Hintergrundmittel hat ein eigenes
+    Rauschen, das sich als fester Fehler in jedes Ergebnis überträgt:
+        sigma^2 ~= sigma_obj^2 / N_obj + sigma_bg^2 / N_bg
+    -> Mehr Objektframes helfen nur bis zum "Hintergrundboden". N_bg sollte
+    mindestens so groß wie das größte benutzte N_obj sein (Messung siehe 11).
+
+3.5 Kompensation (Hologrammebene, VOR der Propagation)
+    Hintergrund-Vorberechnung (einmal, nach acquire_background):
+        K = conj(Ub) / (|Ub|^2 + eps),     eps = eps_rel * max(|Ub|^2)
+    Je Ergebnis:   E_comp = mean(U_obj) * K
+    Wiener-ähnliche Regularisierung statt reiner Division: dort, wo der
+    Hintergrund dunkel ist (Randabschattung, Staub), explodiert die Division
+    sonst. eps_rel = 1e-3 ist der Startwert für den Echtzeit-Betrieb; der
+    Offline-Wert (finfo.eps * max|Eref|^2) ist praktisch nur ein
+    Division-durch-Null-Schutz. Für Paritätstests wird eps_rel passend gesetzt.
+    Referenz: Colomb et al., Opt. Express 14, 4300 (2006).
+
+3.6 Propagation (Angular Spectrum, bandbegrenzt)
+    E_z = IFFT2( FFT2(E_comp) * H(fx, fy; z) )
+    H = exp(i*kz*z) für propagierende Anteile, 0 für evaneszente; zusätzlich
+    Bandbegrenzung nach Matsushima/Shimobaba (Opt. Express 17, 19662 (2009)),
+    kz = 2*pi*sqrt((n_med/lambda0)^2 - fx^2 - fy^2).
+    - H(z) wird EINMAL je (Form, dx', Wellenlänge, n_med, z, Genauigkeit, Padding)
+      berechnet und auf der GPU gehalten (Cache). Pro Ergebnis nur Multiplikation.
+    - Padding-Variante der Offline-Bibliothek (Randmittelwert c abziehen, Rest auf
+      doppelte Größe nullauffüllen, propagieren, beschneiden, c*exp(2*pi*i*n*z/
+      lambda0) wieder addieren) ist als Option "propagation_padding" verfügbar,
+      kostet aber 4x FFT-Fläche. Ob sie bei den realen kleinen z nötig ist, wird
+      ABGESCHÄTZT (Randbandbreite ~ |z| * tan(asin(NA/n)) / dx') und per Messung
+      entschieden - nicht pauschal.
+    - Mehrere z (z-Scan) teilen sich dieselbe FFT von E_comp: ein FFT, mehrere
+      H-Multiplikationen + IFFTs.
+
+3.7 Ausgaben
+    phase_wrapped = arg(E_z)                         (rad, float32)
+    amplitude/intensität: |E_z| bzw. |E_z|^2 (relative Transmission, weil
+                          kompensiert ist; optional dB wie in der Offline-
+                          Bibliothek: 10*log10(I + 1e-12))
+    Entfaltung (Unwrapping) ist NICHT Teil des Standard-Echtzeitpfads:
+      - 'Fast 2D' (scikit-image) läuft nur auf der CPU -> optional als
+        nachgelagerter CPU-Schritt in eigenem Thread, blockiert den GPU-Worker nicht.
+      - 'Least Squares' (DCT, bereits implementiert) ist GPU-fähig, aber noch nicht
+        für DHM-Daten validiert -> erst nach Vergleich einsetzen.
+      - Zeitliches Entfalten im Live-Strom:
+        phi_t = phi_{t-1} + angle(U_t * conj(U_{t-1})) (Pixelweise, GPU-trivial,
+        driftet aber bei Rauschen/Phasenwindungen -> nur für Tracking).
+    Höhe: h = lambda0 * phi_unwrapped / (2*pi*(n_struktur - n_medium)); wie
+    HologramProcessor.phase_to_height. Optional, nur wenn entfaltet.
+
+
+--------------------------------------------------------------------------------
+4. KOMPONENTEN UND VERANTWORTLICHKEITEN
+--------------------------------------------------------------------------------
+Vorgeschlagenes Layout (Namen sind Vorschläge; die Trennung der Schichten ist
+verbindlich und entspricht Notes_guteHandhabung.txt: DATA / PIPELINE / IO /
+PROCESSING strikt getrennt):
+
+  src/offaxisholo/realtime/
+    __init__.py            (leicht; keine schweren Imports)
+    config.py              RealtimeConfig (Dataclasses), Laden/Validieren aus JSON,
+                           Ableitung aus DHM-Preset, Konfig-Hash
+    core.py                OffAxisPipeline: reiner Rechenkern (xp-agnostisch),
+                           KEIN Logging, KEIN File-IO, KEINE Plots, KEIN Netzwerk
+    accumulators.py        Block-/Sliding-/EMA-Akkumulator
+    kernels.py             optionale fusionierte CuPy-Kernels (erst nach Profil)
+    camera/
+      base.py              FrameSource (Protocol/ABC), Frame (Daten + id + Zeitstempel)
+      sim.py               SimCamera (synthetisch; Kolbenphase, Rauschen, Drift)
+      replay.py            FileReplayCamera (Frames aus tif/png/zdc)
+      <hersteller>.py      echter Treiber (offen: welche Kamera/SDK, siehe 12)
+    service/
+      server.py            Netzwerk-Schicht, Hauptschleife
+      state.py             Zustandsautomat
+      worker.py            GPU-Worker-Thread
+      acquisition.py       Akquisitions-Thread + Pinned-Ringpuffer
+      archive.py           asynchrones Archivieren (.zdc), eigener Thread
+      __main__.py          Einstiegspunkt (dhm-server)
+  clients/dhmclient/       EIGENES, leichtgewichtiges Paket (nur numpy + pyzmq;
+                           ohne cupy, tkinter, opencv, skimage, matplotlib), das
+                           auf dem Steuer-PC installiert wird. Enthält auch die
+                           Protokolldefinition (protocol.py), die der Server
+                           importiert (Monorepo, zwei Distributionen).
+
+Verantwortlichkeiten:
+ core.py          set_background(frames) / push(frame) / result(z) / reset();
+                  hält alle GPU-Puffer und Caches (H(z), K, Fensterfunktionen,
+                  Index-Tabellen für den Ausschnitt); kennt weder Kamera noch Netz.
+ accumulators.py  Zustand der Mittelung; kein Wissen über Physik.
+ service/*        Orchestrierung, Zustände, Warteschlangen, Fehlerbehandlung,
+                  Protokoll; kein Physik-Code.
+ dhmclient        synchrone, einfache API nach außen (siehe 8.3); versteckt
+                  ZeroMQ, Serialisierung und Wiederverbindung.
+ Offline-Bibliothek (Hologram, HologramProcessor, ...) bleibt unverändert und
+                  liefert die Referenzergebnisse für Tests.
+
+
+--------------------------------------------------------------------------------
+5. BACKEND, PRÄZISION, GPU-STACK
+--------------------------------------------------------------------------------
+ - GPU-Stack: CuPy (cupyx.scipy.fft für FFT mit Plan-Cache). PyTorch/JAX nur,
+   wenn CuPy messbar nicht genügt; C++/CUDA nur, wenn das Profil es verlangt.
+ - Der Kern ist xp-agnostisch (NumPy oder CuPy per Übergabe), damit alle Tests
+   auch ohne GPU auf der CPU laufen. Der Kern HÄNGT NICHT von dem globalen
+   Zustand in backend.py ab (siehe 6.4), nutzt aber dessen Konzepte (Array-API,
+   array-api-compat) und, wo passend, dessen Hilfsfunktionen.
+ - Präzision: float32/complex64 im Hot Path (Offline-Test zeigt ~1e-6 rad Fehler
+   bei synthetischen Daten). Ausnahme: Reduktionen über viele Pixel (Kolbenphase,
+   Statistik) mit float64 akkumulieren. "single" ist im Offline-Code noch nicht
+   auf Hardware validiert (ToDos.txt) -> Teil von Phase 1.
+ - Eingabeformat: Kamerabilder in Rohdatentyp (uint8/uint16) per H2D übertragen
+   und erst auf der GPU in float32 wandeln (halbe/viertel Übertragungsmenge).
+ - Speicher: Pinned Host Memory für den Ringpuffer, asynchrones cudaMemcpyAsync
+   auf eigenem Stream; Speicher-Pool von CuPy nicht pro Frame neu anfordern.
+
+
+--------------------------------------------------------------------------------
+6. LEISTUNGSVORGABEN FÜR DEN HOT PATH
+--------------------------------------------------------------------------------
+6.1 Ziele (Zahlen sind am Mess-PC festzulegen und zu messen):
+      - Durchsatz: Worker verarbeitet dauerhaft >= Kamera-Bildrate (kein Aufstauen).
+      - Latenz measure -> Ergebnis: Ziel vom Nutzer festzulegen (offen, Abschnitt 12);
+        wird in jedem Ergebnis gemessen (Zeitstempel je Stufe).
+6.2 Messmethodik: CUDA-Events je Stufe (Upload, Demod, Kolbenphase, Akku,
+    Kompensation, Propagation, Download), Median/Streuung über viele Läufe nach
+    Warm-up; zusätzlich Gesamt-Durchsatz im eingeschwungenen Zustand
+    (tests/benchmark_backend.py misst bisher nur Einzelschritte hintereinander).
+6.3 Regeln im Schleifenkern (verbindlich):
+      a) Alle Puffer, Index-Tabellen, Fenster, H(z), K beim Konfigurieren vorbelegen.
+      b) Keine Host-Synchronisation: kein .item(), kein bool(device_array), kein
+         Bool-Indexing, kein xp.nonzero, keine Python-Entscheidung auf Geräte-Werten.
+         (Beispiele in der Offline-Bibliothek: bool(xp.min(holo) < 0) in
+         Hologram.holo2field, to_numpy in locate_order - dort für den
+         Offline-Betrieb ok, im Hot Path verboten.)
+      c) Kein Logging über Debug-Niveau pro Frame, keine f-Strings im Schleifenkern.
+      d) Ausschnitt per Indexarithmetik (zyklischer Shift ohne fftshift/ifftshift/
+         roll über das ganze Bild); IFFT nur n x n.
+      e) Weniger Speicherdurchgänge: einfache Operationsketten (Fenster, Shift,
+         Maske, Kolbenphase, Akku) erst nach Profil mit ElementwiseKernel/
+         RawKernel fusionieren; CUDA Graphs, wenn Kernel-Start-Overhead dominiert.
+      f) Optional rfft2 (nur halbes Spektrum) - erst nach Profil.
+6.4 Thread-Regel für Backend-Zustand: backend._state ist ein modulglobales Dict;
+    use_backend() verändert es global und ist NICHT thread-sicher. Im Dienst wird
+    das Backend einmal beim Start gesetzt (oder der Kern bekommt xp explizit) und
+    danach nur vom GPU-Worker benutzt.
+
+
+--------------------------------------------------------------------------------
+7. ZUSTANDSAUTOMAT (Dienst)
+--------------------------------------------------------------------------------
+ STARTING -> IDLE        (Kamera + GPU initialisiert, Konfiguration geladen,
+                          Warm-up der FFT-Pläne und Kernels abgeschlossen)
+ IDLE  -> BACKGROUND     acquire_background(n_bg, ...)
+ BACKGROUND -> READY     Hintergrund fertig (Ub, K, Kolben-Statistik berechnet)
+ READY -> MEASURING      measure(n_obj, z, ...)   (job_id wird vergeben)
+ MEASURING -> READY      Ergebnis fertig (abholbar per result(job_id))
+ * -> ERROR              Kamerafehler, GPU-Fehler (OOM), Timeout; Fehlerursache im
+                         status; recover() / neuer acquire_background führt zurück
+ abort(job_id)           bricht laufenden Auftrag ab -> READY bzw. IDLE
+ live_start/live_stop    kontinuierlicher Modus (READY <-> LIVE), nur mit gültigem
+                         Hintergrund; sliding/ema; Ergebnisse als Strom oder
+                         "neuester Stand" abrufbar
+ Unzulässige Kommandos im falschen Zustand: klare Fehlerantwort mit Code, kein
+ stilles Ignorieren. Ein Hintergrund wird mit Konfig-Hash, Zeitstempel und
+ Qualitätskennzahlen versehen; measure ohne gültigen Hintergrund ist ein Fehler.
+ (Optional: Hintergrund-Alter/Drift-Warnung - Schwelle vom Nutzer festzulegen.)
+
+
+--------------------------------------------------------------------------------
+8. PROTOKOLL v1 (Entwurf)
+--------------------------------------------------------------------------------
+8.1 Transport und Sicherheit
+    - ZeroMQ (empfohlen): Request/Reply für Kommandos (ROUTER/DEALER oder REQ/REP
+      mit Zeitüberschreitung), optional PUB/SUB oder PUSH/PULL für den Live-Strom.
+    - Nachrichten: JSON-Header + optionale binäre Puffer mit Header
+      {dtype, shape, byte_order, ...}. NIEMALS pickle.
+    - Dienst bindet nur an die Schnittstelle des Labornetzes (nicht 0.0.0.0).
+      Keine Authentifizierung nötig? -> Entscheidung des Nutzers (Abschnitt 12);
+      mindestens Firewall-Regel + Port aus Konfiguration.
+8.2 Kommandos
+    hello          Handshake: Protokollversion, Dienstversion, Konfig-Hash, Kamera-
+                   Info (Auflösung, Bittiefe), unterstützte Optionen.
+    status         Zustand, Auftragsliste, Zähler (empfangen/verarbeitet/
+                   verworfene Frames), Temperatur/Speicher, letzte Fehler.
+    config         Konfiguration lesen / (nur in IDLE) kontrolliert ändern.
+    acquire_background {n_bg, settle_frames, ...}      -> Quittung; Fortschritt per status
+    measure        {n_obj, z | z_list, mode, outputs, settle_frames, trigger, ...}
+                                                       -> {job_id}
+    result         {job_id, wait_ms?}  -> Metadaten + Datenpuffer (oder "noch nicht fertig")
+    abort          {job_id}
+    live_start / live_stop   {mode, n, outputs, rate_limit}
+    shutdown       geordnetes Beenden
+8.3 Client-API (dhmclient), bewusst klein und synchron nutzbar:
+        c = DHMClient("tcp://messpc:5555", timeout=...)
+        c.hello()
+        c.acquire_background(n=64)
+        job = c.measure(n=16, z=0.0, outputs=("phase", "amplitude"))
+        res = c.result(job, timeout=5.0)    # res.phase, res.amplitude, res.meta
+    Automatisches Wiederverbinden; Zeitüberschreitungen führen zu klaren
+    Ausnahmen; keine Kenntnis der GPU.
+8.4 Ergebnis
+    - Daten: phase_wrapped (float32), amplitude (float32), optional height/
+      phase_unwrapped; binär.
+    - Metadaten (JSON): job_id, Zustand, N_obj, N_bg, Modus, z, dx', n, Präzision,
+      Backend, Konfig-Hash, Software-Version (git-Hash), Zeitstempel (Kamera-,
+      Eingang-, Fertig-Zeit), Latenz je Stufe, verworfene/übersprungene Frames,
+      Kolbenphasen-Streuung, optional geschätztes Restrauschen.
+    - Archivierung: asynchron (eigener Thread) als .zdc (scidatacontainer) bzw.
+      float32 + JSON; der Rechenpfad wartet nie auf die Platte.
+8.5 Triggerung
+    Software-Trigger zuerst (einfach, messbar). Hardware-Trigger später optional.
+    "settle_frames": nach Konfigurationsänderungen/Auslösen die ersten k Frames
+    verwerfen (Belichtung, Verschluss, Stage-Bewegung).
+
+
+--------------------------------------------------------------------------------
+9. KONFIGURATION
+--------------------------------------------------------------------------------
+Eine Konfigurationsdatei (JSON/TOML) + typisierte Dataclasses mit Validierung
+(statt der heutigen kwargs-Aliaskette in ReconstructionPipeline._run_reconstruction).
+Inhalt (Auswahl):
+  camera:       Treiber, ROI (muss quadratisch und gerade sein), Bittiefe,
+                Belichtung, Verstärkung, Triggermodus
+  dhm:          Preset-Name oder Werte (Wellenlänge, Pixelpitch Objektebene,
+                dcRadius), n_medium (Propagationsmedium)
+  demod:        fx, fy (aus Kalibrierung), crop n, Maskenform/-radius,
+                Fensterfunktion, edge_alpha, sideband_alpha
+  compensation: eps_rel, Referenzregion für die Kolbenphase
+  averaging:    n_bg, n_obj, mode (block/sliding/ema), ema_alpha
+  propagation:  z (oder Liste), Padding ja/nein, band_limit
+  precision:    "single"/"double"
+  service:      Bind-Adresse, Port, Warteschlangengrößen, Ringpuffergröße,
+                Archivpfad, Logging
+  output:       Standardausgaben, Entfaltung (aus/Methode)
+Die Konfiguration ist die einzige Quelle für diese Werte; ihr Hash steht in
+Handshake und Ergebnis, damit Steuer-PC und Dienst nachweislich dieselbe Auslegung
+benutzen. Presets (config/DHM_preset/*.json) bleiben erhalten; doppelte
+Schlüssel (xPixelSizeUm vs. pixelPitch, wavelengthUm vs. wavelength) werden im
+neuen Konfigurationsladen konsistent behandelt, aber die vorhandenen JSON-Dateien
+werden nicht ungefragt umgeschrieben.
+
+
+--------------------------------------------------------------------------------
+10. KAMERA-ABSTRAKTION UND TESTBARKEIT OHNE HARDWARE
+--------------------------------------------------------------------------------
+ FrameSource (Schnittstelle): start(), stop(), grab() -> Frame(data, frame_id,
+ t_camera, t_host), Eigenschaften (Form, dtype), Fehlerbehandlung (Timeout,
+ verlorene Frames erkennen über Lücken in frame_id).
+ Implementierungen:
+   SimCamera        synthetische Hologramme (Wiederverwendung der Simulation in
+                    simulation/simulate.py oder einfaches Modell wie in
+                    tests/test_backend.py), mit einstellbarer Kolbenphase, Rauschen,
+                    Drift, Objekt; ermöglicht ALLE Tests ohne Kamera.
+   FileReplayCamera Frames aus data/ (tif/png/zdc), mit Bildrate.
+   <Hersteller>     echter Treiber.
+ Ohne GPU läuft der Kern über NumPy; die GPU-Tests tragen die Markierung "gpu"
+ und laufen auf dem Mess-PC.
+
+
+--------------------------------------------------------------------------------
+11. VALIDIERUNG UND ABNAHME (GATES)
+--------------------------------------------------------------------------------
+Phase 1  GPU-KERN (Gate: alles unten erfüllt)
+    G1.1 Parität: Echtzeit-Kern im Paritätsmodus (n = N, keine Fenster, passendes
+         eps) stimmt mit HologramProcessor.run (padding wie in Test) überein:
+         Phase max. Abweichung <= Schwelle (CPU double: ~1e-9 rad; GPU single:
+         <= 1e-3 rad, wie im vorhandenen Test).
+    G1.2 Linearität: Mittel-vor-Propagation == Propagation-vor-Mittel (Test mit
+         Zufallsfeldern).
+    G1.3 Kolbenphase: synthetisch zufällige Kolbenphasen (sigma = 0.5, 1.0 rad):
+         Amplitude des Mittels ohne Korrektur fällt wie exp(-sigma^2/2), mit
+         Korrektur nicht; Restphasenfehler unter Schwelle.
+    G1.4 Rauschskalierung: Phasenrauschen (Std. in einer leeren Region) sinkt mit
+         1/sqrt(N_obj) bis zum Hintergrundboden; Boden skaliert mit 1/sqrt(N_bg).
+    G1.5 Sliding/EMA: beide Modi gegen Referenzimplementierung (naives Mittel
+         der letzten N) bzw. analytische N_eff.
+    G1.6 Hot-Path-Prüfung: im Test werden .get()/.item()/__array__/bool() von
+         Geräte-Arrays im Kern zum Fehler gemacht -> Test grün = keine versteckte
+         Host-Synchronisation. Zusätzlich: nach Warm-up keine neuen Allokationen.
+    G1.7 Messung auf dem Mess-PC: Stufenzeiten, Durchsatz, Speicherbedarf; "single"
+         vs. "double" auf echter Hardware; Entscheidung zu Padding, rfft2, Fusion
+         nur anhand dieser Zahlen.
+    G1.8 Entfalten: 'Least Squares' vs. 'Fast 2D' auf realen Daten (data/) und
+         synthetischen Stufen verglichen; Empfehlung dokumentiert.
+Phase 2  KAMERA
+    G2.1 SimCamera- und Replay-Lauf Ende-zu-Ende durch den Kern.
+    G2.2 Echter Treiber: Bildrate stabil, Lücken in frame_id werden erkannt und
+         gemeldet, Pinned-Ringpuffer ohne Überlauf bei Dauerlast (Stunden).
+Phase 3  DIENST + PROTOKOLL
+    G3.1 Zustandsautomat: Tabelle aller (Zustand x Kommando) getestet inkl.
+         Fehlerfälle (Kamera weg, OOM, Abbruch mitten im Auftrag).
+    G3.2 Protokoll: Versionsabweichung wird beim Handshake abgelehnt; kaputte/
+         abgeschnittene Nachrichten führen nie zum Absturz.
+    G3.3 Lasttest: Steuer-Skript-Simulator schickt Kommandos parallel zu Live-Betrieb;
+         Latenz und Verwürfe in den Metadaten stimmen mit dem Zähler überein.
+Phase 4  ANBINDUNG
+    G4.1 Echtes Steuer-Skript spricht über dhmclient mit dem Dienst im Labornetz;
+         Wiederverbinden nach Netzwerkunterbrechung und Neustart des Dienstes.
+    G4.2 Ergebnisse: Referenzmessung (bekanntes Objekt, z. B. Stufenhöhe) stimmt
+         mit der Offline-Rekonstruktion derselben Rohdaten überein.
+Phase 5  BETRIEB
+    G5.1 Autostart/Watchdog, rotierende Logs, Versions- und Konfigurationsstand
+         in jedem Ergebnis, Dokumentation (README-Abschnitt "Echtzeit"), Runbook.
+
+
+--------------------------------------------------------------------------------
+12. OFFENE FRAGEN (Entscheidungen des Nutzers, beeinflussen die Konfiguration)
+--------------------------------------------------------------------------------
+Q1  Welche Kamera / welches SDK? (bestimmt Treiber, Trigger, Bildformat,
+    Bildrate, Fenster/ROI.)
+Q2  Welche GPU, wie viel Speicher, welche CUDA-Version auf dem Mess-PC?
+    (cupy-cuda12x vs. cupy-cuda13x, Größe des Sliding-Puffers.)
+Q3  Bildgröße N und gewünschter Ausschnitt n? Zielbildrate und Ziel-Latenz?
+Q4  Ebene: Soll das Ergebnis in der Fokusebene (Propagation um z) oder in der
+    Hologrammebene geliefert werden? Welches z (Preset: 0.11 um; gemessener
+    Fokus laut Notes_reconstruction_order.txt ca. -2.6 um)? Statisch oder je
+    Auftrag?
+Q5  Propagationsmedium (n_medium: Luft/Harz) für den Echtzeit-Betrieb, und welche
+    Vorzeichenkonvention (Phase bzw. Höhe positiv) erwartet das Steuer-Skript?
+Q6  Soll der Dienst Entfaltung/Höhenkarte liefern oder nur wrapped Phase +
+    Amplitude (Entfalten im Client)?
+Q7  Netzwerk: Authentifizierung nötig? Ein oder mehrere gleichzeitige Clients?
+Q8  Hintergrund-Lebensdauer: Wie oft wird neu aufgenommen, braucht es eine
+    Drift-Überwachung?
+Q9  Soll das Steuer-Skript auch den Live-Strom nutzen (Regelung) oder nur
+    Einzelmessungen?
+
+
+--------------------------------------------------------------------------------
+13. WAS DIESES ZIEL AUSDRÜCKLICH NICHT UMFASST
+--------------------------------------------------------------------------------
+ - Keine Steuerung von Stage, Laser oder Drucker im Dienst (bleibt im Steuer-Skript).
+ - Keine Änderung der Offline-Rekonstruktion, Plots, Container-Formate oder der
+   bestehenden Presets ohne eigene Freigabe.
+ - Keine neue Phasenentfaltungs-Forschung; vorhandene Verfahren werden verglichen
+   und eingeordnet.
+ - Keine Mehr-Nutzer-/Cloud-Funktionalität.
+
+================================================================================
+ENDE ANWEISUNG
+================================================================================
