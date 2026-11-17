@@ -337,3 +337,19 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
     reference.
 - **Next todos:** K18 (planning session), then K8; phase 2 (K12 replay reader, K15 public API) can start
   independently.
+
+### 2026-11-17 15:58 CET — [P18] Translate the remaining German documentation in active code
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/utils.py`: comment in `get_logger` translated.
+  - `src/offaxisholo/reconstruction/hologram_class.py`: docstring of `_locate_order` translated and made
+    descriptive.
+  - `TODO.md`: P18 added directly to Done.
+- **Tests:** `python -m pytest`: 187 passed, 12 skipped (GPU / optional), unchanged; pre-commit black and
+  ruff passed.
+- **Commits:** `ca07542` docs(utils): translate the last German comment and docstring [P18]; bookkeeping in
+  the following `docs(todo)` commit.
+- **Follow-ups:** German that stays on purpose: the maintainer's notes in `src/offaxisholo/io/structure.py`
+  (lines 6, 9), the commented-out `print("Gleich")` in `hologram_class.py`,
+  `docs/realtime/reference/holo_gpu_pipeline.py` (verbatim), `docs/realtime/anweisung_realtime.txt` and
+  `todo_realtime.txt`, the attic. The cross-repository overview of this session lives in `../_system/`.
