@@ -275,7 +275,8 @@ class Hologram(HologramCore):
 
     def _locate_order(self):
         """
-        Internal Methode.
+        Internal method: locate the first diffraction order and store the
+        filtered spectrum and its position.
         """
         if self.logger:
             self.logger.info("Starting to locate position of first order diffraction.")

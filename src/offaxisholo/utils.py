@@ -30,7 +30,7 @@ def get_logger(logfile=None):
     logger = logging.getLogger(name)
 
     if logger.handlers:
-        return logger  # schon konfiguriert, direkt zurück
+        return logger  # already configured, return it as is
 
     logger.setLevel(logging.DEBUG)
 
