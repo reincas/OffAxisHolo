@@ -113,6 +113,9 @@ All decisions O1–O11 and the global decisions that block todos here were taken
       buffer `intensity` renamed to **`intensity_rel`** (BREAKING CHANGE, meaning documented), z with
       `propagation_index`, `config_hash` + parameter-set id, quality keys `reference_source`,
       `reference_fraction`, `phase_noise_rad` (`null` without a mask).
+  - Contracts available 2026-11-18: DHMConnect `fc85f5c` (DL-A3). Changes against draft 0.3 in
+    `DHMConnect/docs/CONTRACTS.md` §4; vendor with `python -m dhmconnect.schemas.export tests/contracts
+    --only ReconstructionResult,FrameRecord --commit fc85f5c`. `ParameterSet` 0.1 is the draft for K9.
 
 - [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
   - Priority: low
@@ -222,6 +225,8 @@ All decisions O1–O11 and the global decisions that block todos here were taken
       `wavelength`, name `"Zeiss 63X"` against key `"Zeiss 63x"`) are cleaned without breaking the
       offline loader;
     - values that are not measured yet (63x pixel size, z) are marked `unverified`.
+  - `ParameterSet` draft 0.1 and `parameter_set_hash` exist in DHMConnect `fc85f5c` (DL-A3); K9 finalises
+    the schema there and must reproduce the hash of the vendored example.
 
 - [ ] K10: z handling and focus sweep (G4) [phase: 4]
   - Priority: high
