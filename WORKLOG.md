@@ -365,3 +365,15 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `tests/test_offline_golden.py`, `tests/test_import_hygiene.py`: 29 passed; full suite before the changes: 187 passed, 12 skipped.
 - **Commits:** `d834c31` Merge branch 'docs/translate-german' into Holo_HR [P18], `e994707` docs(system): copy master plan v0.4 unchanged [X-D], `63def7b` docs(todo): derive the todos from the decisions of 2026-11-18, plus the `docs(todo)` commit of this entry.
 - **Follow-ups:** the 28 files in `attic/` are still tracked although `.gitignore` ignores `attic/`; decision X-B covers only new moves → question to the maintainer.
+
+### 2026-11-18 20:57 CET — [B5-X, X-B] Remove the B5 attic files from Git
+- **Status:** done
+- **Changes:**
+  - `docs/ATTIC_INDEX.md` (new): path in Git, original path before B5, last commit and reason of every file
+  - `CLAUDE.md`: `attic/` is local and Git-ignored, points to the index
+  - `README.md`: tree comment for `attic/`
+  - `attic/ToDos.txt`, `attic/legacy_tests/**` (15 files), `attic/planning_2026-11-15/**` (12 files): removed from Git with `git rm --cached`, kept locally unchanged
+  - `TODO.md`, `WORKLOG.md`: bookkeeping
+- **Tests:** `tests/test_offline_golden.py`, `tests/test_import_hygiene.py`: 29 passed.
+- **Commits:** `22fc2c5` chore(attic): remove the B5 attic files from Git [X-B], plus the `docs(todo)` commit of this entry; merged into `Holo_HR`.
+- **Follow-ups:** none; resolves the question of the previous entry.
