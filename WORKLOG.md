@@ -407,3 +407,13 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` (Python 3.12.3): 206 passed, 12 skipped (incl. golden and import hygiene).
 - **Commits:** `906f9b8` feat(reconstruction): phase <-> height with explicit indices in fieldops [K20]
 - **Follow-ups:** MIRA MI-51 imports or mirrors the two functions; the legacy positional `phase_to_height` (metres) and `HologramProcessor.phase_to_height` (default `n_medium = N_AIR`) stay for the offline path and could delegate later (P4).
+
+### 2026-11-18 21:55 CET — [K19] Reference-mask rasteriser
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/realtime/reference_mask.py` (new): `reference_mask`, `pixel_positions_um`
+  - `src/offaxisholo/realtime/__init__.py`: lazy export of `reference_mask`
+  - `tests/realtime/test_reference_mask.py` (new): 13 tests
+- **Tests:** `python -m pytest` (Python 3.12.3): 219 passed, 12 skipped. Correction to the K20 entry above: `tests/test_phase_height.py` has 11 tests, not 13.
+- **Commits:** `2c2666d` feat(realtime): rasterise the a-priori reference mask from occupied_um [K19]
+- **Follow-ups:** K8 can now compute the phase noise on the mask; DHMConnect DL-B4 calls it per capture. The image → stage orientation (possible flips of camera axes) is part of the calibration T104 / MI-41; until then identity.
