@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.dhmconnect.invalid/ReconstructionResult.schema.json",
+  "title": "ReconstructionResult",
+  "description": "Product of one hologram stack from offaxisholo (draft 0.3 of 2026-11-16 plus the DL-A3 decisions: intensity_rel, propagation_index, pixel_um [y, x], parameter_set_id, D13 quality keys). Buffers: phase_rad (float32, wrapped), intensity_rel (float32, I_object / I_background, dimensionless, 1.0 = empty substrate), field (complex64, only on request).",
+  "x-schema-version": "1.0",
+  "type": "object",
+  "properties": {
+    "message_type": {
+      "const": "ReconstructionResult"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Version of this contract (major.minor). This file defines 1.0."
+    },
+    "created_utc": {
+      "$ref": "common.schema.json#/$defs/utc_time"
+    },
+    "pixel_um": {
+      "$ref": "common.schema.json#/$defs/yx_um",
+      "description": "Pixel size [y, x] of the product after the sideband crop."
+    },
+    "z_um": {
+      "type": "number",
+      "description": "Propagation distance used."
+    },
+    "propagation_index": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Index of the propagation medium for z_um."
+    },
+    "wavelength_um": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "parameter_set_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "config_hash": {
+      "$ref": "common.schema.json#/$defs/hash"
+    },
+    "config": {
+      "type": "object",
+      "description": "Full configuration; optional, it travels once per hash (DL-A3 a)."
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "$ref": "FrameRecord.schema.json"
+      }
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "n_obj": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_effective": {
+          "type": "number"
+        },
+        "n_bg": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "piston_std_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selection_policy": {
+          "type": "string"
+        },
+        "n_frames_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_frames_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reference_source": {
+          "$ref": "common.schema.json#/$defs/reference_source"
+        },
+        "reference_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "phase_noise_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null without a reference mask (D13)."
+        },
+        "background_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "background_age_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "n_obj",
+        "n_effective",
+        "n_bg",
+        "piston_std_rad",
+        "selection_policy",
+        "n_frames_total",
+        "n_frames_used",
+        "reference_source",
+        "reference_fraction",
+        "phase_noise_rad",
+        "background_id"
+      ],
+      "description": "Quality numbers; further keys allowed (sideband SNR, autofocus estimate, ...)."
+    },
+    "timings_s": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "timings_profiled": {
+      "type": "boolean"
+    },
+    "versions": {
+      "$ref": "common.schema.json#/$defs/versions"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "buffers": {
+      "$ref": "common.schema.json#/$defs/buffers"
+    }
+  },
+  "required": [
+    "message_type",
+    "schema_version",
+    "created_utc",
+    "pixel_um",
+    "z_um",
+    "propagation_index",
+    "wavelength_um",
+    "parameter_set_id",
+    "config_hash",
+    "frames",
+    "quality",
+    "timings_s",
+    "timings_profiled",
+    "versions",
+    "warnings",
+    "buffers"
+  ]
+}
