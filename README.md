@@ -143,7 +143,7 @@ OffAxisHolo/
 │   └── system/                # Plan of the four cooperating repositories
 ├── tools/                     # Measurement / comparison scripts
 ├── tests/                     # pytest (realtime/, golden/ = golden data generator)
-├── attic/                     # Archived legacy scripts and planning inputs
+├── attic/                     # Local only (gitignored): archived legacy files, see docs/ATTIC_INDEX.md
 └── scripts/                   # Local only (gitignored): clean.py
 ```
 
