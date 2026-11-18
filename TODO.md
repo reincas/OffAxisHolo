@@ -92,14 +92,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
 
 ### Phase 0 — Scope, repository hygiene, dependencies
 
-- [ ] K21: Python baseline 3.12 / 3.14 (G9) [phase: 0]
-  - Priority: medium
-  - Size: S
-  - Depends on: –
-  - Done when:
-    - `requires-python >= 3.12` (today ≥ 3.11); classifiers 3.12 and 3.14; the test suite has passed on
-      Python 3.12 and 3.14 (versions and date in `WORKLOG.md`); `cupy-cuda13x` resolves for cp314.
-
 ### Phase 1 — Product interface (no hardware)
 
 - [ ] K16: Validate `ReconstructionResult` against the shared contract (follow-up of K4) [phase: 1]
@@ -536,6 +528,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K21: Python baseline 3.12 / 3.14 (G9) — 2026-11-18 — `requires-python >= 3.12` with classifiers 3.12 / 3.14; the suite passed on CPython 3.12.3 and 3.14.10 (187 passed, 12 skipped each); `cupy-cuda13x` 14.2.0 resolves as a cp314 Windows wheel — commits: `dbfee72`.
 - [x] K18: Cross-repository planning: reference mask, averaging and stitching — 2026-11-18 — Decision session 2026-11-17/18: SA1–SA7 decided (G10), recorded in master plan v0.4 (`e994707`) and the "Decided" tables; resulting todos K8 (unblocked), K19, MIRA MI-40/41, nanofactorysystem T104, DHMConnect DL-B4/B9.
 - [x] P5: Mode "print" of the e-field calculation — 2026-11-18 — Dropped: O11 removes the modes; explicit parameters and parameter sets instead (K9).
 - [x] L6: DHM operation panel — 2026-11-18 — Dropped: O9 makes the GUI a pure observer; DHM + stage operation moves to the nanofactorysystem system GUI (F15).
