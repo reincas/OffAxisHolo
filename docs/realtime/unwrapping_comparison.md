@@ -37,3 +37,41 @@ Generated 2026-11-13 with `tools/compare_unwrapping.py` (CPU, NumPy, double prec
 - Steps larger than pi between neighbouring pixels violate the sampling condition; no unwrapping method can recover them.
 - Real holograms without 2 pi jumps (wrapped phase already continuous) are trivially identical for both methods and do not discriminate them.
 - Decision on the default method: user (see ToDos.txt). Until then 'Fast 2D' stays the default.
+
+## K11-T — test plan: temporal vs. spatial unwrapping
+
+Added 2026-11-18 from the decision session of 2026-11-17/18 (O5, work package 7). Executed by K11.
+
+**Rationale.** Spatial unwrapping fails first at steep walls and at steps > π between neighbouring
+pixels. Between two layers the phase changes little, so unwrapping the difference to the previous layer
+avoids the ambiguity: φₙ = φₙ₋₁ + wrap(φₙ − φₙ₋₁) (`TemporalUnwrapper`). Printed structures are ≤ 15 µm
+high; with SZ2080 in-situ (Δn = 0.012 at 674.994 nm) the phase stays ≤ ≈ 1.7 rad < π, so **no 2π
+ambiguity is expected in-situ**. Jumps appear in-situ only for Δn > λ/(2h) ≈ 0.0225 (h = 15 µm). The
+question matters for materials with a higher Δn, for the general choice of method, and for developed
+structures in air (Δn ≈ 0.52 → ≈ 72 rad at 15 µm).
+
+**Preconditions.** A fixed mosaic grid per structure, registration between layers (MIRA), and the
+previous-layer state per structure on the DHM-PC.
+
+**Data.**
+- Synthetic layer sequences: stairs, pillars, a DOE profile, steep walls; final height ≤ 15 µm;
+  Δn 0.01–0.05; noise 0.05–0.6 rad; coherent pattern noise; one missing layer and one mis-registered
+  layer.
+- Real in-situ series with `keep_raw = all`, plus an ex-situ reference (Sensofar / AFM) of the developed
+  structure.
+- Developed structures in air for `fast2d` vs. least squares.
+
+**Methods.** `fast2d` per layer; least squares (`congruent=True` and `False`); `temporal`; `temporal`
+with re-anchoring (spatial re-anchor every N layers or when the consistency check fails).
+
+**Metrics.** RMS error against the truth, step-height error, error at walls, drift over the layer count,
+recovery after a bad layer, residues, runtime per tile; real data: agreement of the final layer with the
+ex-situ reference and layer-to-layer smoothness.
+
+**Risk.** Errors propagate in `temporal` → re-anchoring and consistency checks; during the study store
+the spatial **and** the temporal result per layer.
+
+**Criterion.** `temporal` becomes the in-situ default only if it is never worse than `fast2d`, is clearly
+better at walls / tall structures, shows no drift above the noise over the full layer count, and recovers
+from a bad layer by re-anchoring. Least squares becomes a default only if the same comparison shows it
+better than `fast2d` on developed structures.

@@ -353,3 +353,15 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
   (lines 6, 9), the commented-out `print("Gleich")` in `hologram_class.py`,
   `docs/realtime/reference/holo_gpu_pipeline.py` (verbatim), `docs/realtime/anweisung_realtime.txt` and
   `todo_realtime.txt`, the attic. The cross-repository overview of this session lives in `../_system/`.
+
+### 2026-11-18 17:42 CET — [X-J, X-D, K18] Merge, plan v0.4 and revision after the decision session 2026-11-18
+- **Status:** done
+- **Changes:**
+  - `docs/system/SOFTWARE_PLAN_OVERVIEW.md`: unchanged copy of master v0.4
+  - `TODO.md`: "Open decisions" reduced to the deferred points, new table "Decided" (O1–O11, G2, G7, G10, DL-A3 b); rewritten K8 (unblocked), K9 (parameter sets, O11), K10, K11, K14, K16, L0, L5, P3, B3; new K19, K20, K21, L9; K18 done, P5 and L6 dropped
+  - `docs/realtime/unwrapping_comparison.md`: new section "K11-T — test plan: temporal vs. spatial unwrapping"
+  - `CLAUDE.md`: SA1–SA7 decided, DHM-PC facts of 2026-11-18, rule 6 (explicit parameters), new rule 7 (scope after G5-new), rules renumbered
+  - `WORKLOG.md`: this entry
+- **Tests:** `tests/test_offline_golden.py`, `tests/test_import_hygiene.py`: 29 passed; full suite before the changes: 187 passed, 12 skipped.
+- **Commits:** `d834c31` Merge branch 'docs/translate-german' into Holo_HR [P18], `e994707` docs(system): copy master plan v0.4 unchanged [X-D], `63def7b` docs(todo): derive the todos from the decisions of 2026-11-18, plus the `docs(todo)` commit of this entry.
+- **Follow-ups:** the 28 files in `attic/` are still tracked although `.gitignore` ignores `attic/`; decision X-B covers only new moves → question to the maintainer.
