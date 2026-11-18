@@ -377,3 +377,11 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `tests/test_offline_golden.py`, `tests/test_import_hygiene.py`: 29 passed.
 - **Commits:** `22fc2c5` chore(attic): remove the B5 attic files from Git [X-B], plus the `docs(todo)` commit of this entry; merged into `Holo_HR`.
 - **Follow-ups:** none; resolves the question of the previous entry.
+
+### 2026-11-18 21:34 CET — [K21] Python baseline 3.12 / 3.14
+- **Status:** done
+- **Changes:**
+  - `pyproject.toml`: `requires-python >= 3.12` (was 3.11), classifiers for Python 3.12 and 3.14
+- **Tests:** `python -m pytest` on the Office PC, 2026-11-18: CPython 3.12.3 (repository `.venv`) 187 passed, 12 skipped; CPython 3.14.10 (fresh venv `%LOCALAPPDATA%\Temp\oah314`, `pip install -e ".[dev]"`) 187 passed, 12 skipped. `uv pip compile` of `cupy-cuda13x>=13.6` for Python 3.14 / `x86_64-pc-windows-msvc` with `--only-binary :all:` resolves to `cupy-cuda13x==14.2.0` (+ `cuda-pathfinder`, `numpy`).
+- **Commits:** `dbfee72` build(packaging): raise requires-python to 3.12 and name 3.12 / 3.14 [K21]
+- **Follow-ups:** B3 still waits for the install check on the DHM-PC (DL-H1 / K14), DL-C1 (`live` extra) and L1 (script entry); the `gui` extra could be added now.

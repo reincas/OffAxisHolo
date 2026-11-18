@@ -8,7 +8,13 @@ name = "offaxisholo"
 version = "0.1.0"
 description = "Numerical function library for reconstruction of holograms captured with an off-axis transmissive digital holographic microscope (DHM)."
 readme = "README.md"
-requires-python = ">=3.11"
+# Baseline G9 (2026-11-18): >= 3.12, tested on 3.12 and 3.14 (DHM-PC: 3.14).
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+]
 
 dependencies = [
     "array-api-compat>=1.11",
