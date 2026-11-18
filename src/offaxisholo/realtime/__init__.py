@@ -34,6 +34,7 @@ _LAZY = {
     "select_frames": ".selection",
     "ReconstructionSession": ".api",
     "reconstruct_frames": ".api",
+    "reference_mask": ".reference_mask",
     "BackgroundModel": ".background",
     "BlockAccumulator": ".accumulators",
     "SlidingAccumulator": ".accumulators",
