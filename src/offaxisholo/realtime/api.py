@@ -41,12 +41,14 @@ from .core import OffAxisPipeline
 from .result import FrameRecord, ReconstructionResult
 from .selection import SelectionPolicy, select_frames
 
-OUTPUTS = ("phase", "intensity", "field")
+OUTPUTS = ("phase", "intensity_rel", "field")
+# Accepted for callers written before the contract 1.0 (K16).
+_OUTPUT_ALIASES = {"intensity": "intensity_rel"}
 
 
 def _check_outputs(outputs) -> bool:
     """Validate ``outputs``; returns whether the complex field is requested."""
-    outputs = tuple(outputs)
+    outputs = tuple(_OUTPUT_ALIASES.get(name, name) for name in outputs)
     unknown = set(outputs) - set(OUTPUTS)
     if unknown:
         raise ValueError(f"Unknown outputs {sorted(unknown)}. Possible: {OUTPUTS}.")
@@ -63,8 +65,9 @@ class ReconstructionSession:
     selection : SelectionPolicy, optional
         Frame selection applied in :meth:`result`; default policy ``all``.
     outputs : sequence of str, optional
-        Products of every result: ``"phase"`` and ``"intensity"`` are always
-        included, ``"field"`` adds the complex field.
+        Products of every result: ``"phase"`` and ``"intensity_rel"`` are
+        always included, ``"field"`` adds the complex field (``"intensity"`` is
+        accepted as an old name of ``"intensity_rel"``).
     metrics : bool, optional
         Compute the per-frame metrics (default True). Overrides
         ``config.metrics.enabled``; the stored configuration shows the value
@@ -76,6 +79,9 @@ class ReconstructionSession:
     background_max_age_s : float or None, optional
         Results get a warning when the background is older (decision O6);
         None (default) disables the check. A background never expires.
+    parameter_set_id : str, optional
+        Id of the parameter set, stored in every result (DL-A3 a); default
+        ``"config-<hash>"`` of the configuration.
 
     Notes
     -----
@@ -88,12 +94,14 @@ class ReconstructionSession:
         config: RealtimeConfig,
         *,
         selection: SelectionPolicy | None = None,
-        outputs=("phase", "intensity"),
+        outputs=("phase", "intensity_rel"),
         metrics: bool = True,
         xp=None,
         profile: bool = False,
         background_max_age_s: float | None = None,
+        parameter_set_id: str = "",
     ):
+        self.parameter_set_id = parameter_set_id
         self.selection = (selection or SelectionPolicy()).validate()
         self.background_max_age_s = background_max_age_s
         self._include_field = _check_outputs(outputs)
@@ -225,6 +233,7 @@ class ReconstructionSession:
             timings_s=timings_s,
             selection=selection,
             warnings=warnings,
+            parameter_set_id=self.parameter_set_id,
         )
         infos = dict(self._infos)
         if result.frames:
@@ -245,12 +254,13 @@ def reconstruct_frames(
     config: RealtimeConfig,
     *,
     selection: SelectionPolicy | None = None,
-    outputs=("phase", "intensity"),
+    outputs=("phase", "intensity_rel"),
     frame_info=None,
     metrics: bool = True,
     z: float | None = None,
     xp=None,
     background_max_age_s: float | None = None,
+    parameter_set_id: str = "",
 ) -> ReconstructionResult:
     """Reconstruct one measurement from its object and background frames.
 
@@ -267,8 +277,8 @@ def reconstruct_frames(
     selection : SelectionPolicy, optional
         Frame selection; default policy ``all``.
     outputs : sequence of str, optional
-        ``"phase"`` and ``"intensity"`` are always included; ``"field"`` adds
-        the complex field.
+        ``"phase"`` and ``"intensity_rel"`` are always included; ``"field"``
+        adds the complex field.
     frame_info : sequence of dict, optional
         Acquisition values per object frame, passed through unchanged.
     metrics : bool, optional
@@ -279,6 +289,8 @@ def reconstruct_frames(
         Array namespace; default from ``config.backend``.
     background_max_age_s : float or None, optional
         Warn when a stored background is older (O6); None disables it.
+    parameter_set_id : str, optional
+        Id of the parameter set, stored in the result (DL-A3 a).
 
     Returns
     -------
@@ -301,6 +313,7 @@ def reconstruct_frames(
         metrics=metrics,
         xp=xp,
         background_max_age_s=background_max_age_s,
+        parameter_set_id=parameter_set_id,
     )
     if isinstance(background, BackgroundModel):
         session.use_background(background)

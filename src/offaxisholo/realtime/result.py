@@ -6,8 +6,9 @@ no file IO, no network. A result is built once per measurement from a
 ``RealtimeResult`` of ``OffAxisPipeline`` (``ReconstructionResult.from_realtime``);
 this is the only place where the device arrays are copied to the host.
 
-Message form (decision G2: the shared contract will be defined in DHMConnect,
-``dhmconnect/schemas/``; until then this is draft ``schema_version`` 0.x):
+Message form: contract ``ReconstructionResult`` 1.0 of DHMConnect
+(``dhmconnect/schemas/``, DL-A3, commit ``fc85f5c``; decision G2). The vendored
+examples live in ``tests/contracts/`` (K16):
 
     header, buffers = result.to_message()
     # header: JSON-able dict, buffers: list of (name, C-contiguous little-endian
@@ -32,14 +33,25 @@ from typing import Any
 
 import numpy as np
 
-SCHEMA_VERSION = "0.3"  # 0.2: timings_profiled (K5); 0.3: warnings (K7)
+# 0.2: timings_profiled (K5); 0.3: warnings (K7); 1.0: shared contract (K16):
+# intensity -> intensity_rel, pixel_pitch_um (x, y) -> pixel_um (y, x),
+# n_medium -> propagation_index, parameter_set_id, reference quality keys.
+SCHEMA_VERSION = "1.0"
 MESSAGE_TYPE = "ReconstructionResult"
 
 # name of the buffer -> dtype in the message
 _BUFFER_DTYPES = {
     "phase_rad": np.dtype("<f4"),
-    "intensity": np.dtype("<f4"),
+    "intensity_rel": np.dtype("<f4"),
     "field": np.dtype("<c8"),
+}
+# Quality keys of decision D13 that every result carries. Without a reference
+# mask the kernel aligns on the whole field, so the reference fraction is 0 and
+# no honest phase noise exists (null); K8 / K19 fill them from a mask.
+REFERENCE_QUALITY_DEFAULTS = {
+    "reference_source": "whole_field",
+    "reference_fraction": 0.0,
+    "phase_noise_rad": None,
 }
 _DTYPE_NAMES = {np.dtype("<f4"): "float32", np.dtype("<c8"): "complex64"}
 
@@ -134,28 +146,36 @@ class ReconstructionResult:
     ----------
     phase_rad : numpy.ndarray
         Wrapped phase in rad, shape (n, n), stored as float32.
-    intensity : numpy.ndarray
-        Linear intensity ``|E|^2`` of the compensated field (relative to the
-        background), shape (n, n), stored as float32.
-    pixel_pitch_um : tuple of float
-        Pixel pitch (dx along axis 1, dy along axis 0) of the result grid in µm,
-        i.e. after the sideband crop (``dx' = dx * N / n``).
+    intensity_rel : numpy.ndarray
+        Relative intensity ``|E_comp|^2 = I_object / I_background`` of the
+        compensated field, dimensionless (1.0 = empty substrate), shape (n, n),
+        stored as float32. The compensation divides the object field by the
+        background field, so amplitudes divide and phases subtract (DL-A3 b).
+    pixel_um : tuple of float
+        Pixel size ``(dy, dx)`` (axis 0, axis 1) of the result grid in µm, i.e.
+        after the sideband crop (``dx' = dx * N / n``); order ``(y, x)`` as at
+        every contract boundary (X-G).
     z_um : float
         Propagation distance in µm (0 = hologram plane).
     wavelength_um : float
         Vacuum wavelength in µm.
-    n_medium : float
-        Refractive index of the propagation medium.
+    propagation_index : float
+        Refractive index of the propagation medium that belongs to ``z_um``
+        (G4); kernel configuration ``propagation.n_medium``.
     config_hash : str
         sha256 of the kernel configuration (``RealtimeConfig.config_hash``).
+    parameter_set_id : str, optional
+        Id of the parameter set the configuration came from (DL-A3 a). When
+        empty, ``"config-<first 12 hex digits of config_hash>"`` is used, which
+        still identifies the configuration uniquely.
     field : numpy.ndarray or None, optional
         Compensated (and propagated) complex field, complex64; only when
         requested, because it doubles the message size.
     frames : list of FrameRecord, optional
         One record per object frame (filled by the entry points, K6).
     quality : dict, optional
-        Quality numbers, e.g. ``n_obj``, ``n_bg``, ``piston_std_rad`` (K8 adds
-        more).
+        Quality numbers, e.g. ``n_obj``, ``n_bg``, ``piston_std_rad`` and the
+        reference keys of :data:`REFERENCE_QUALITY_DEFAULTS` (K8 adds more).
     timings_s : dict, optional
         Stage timings in seconds (K5): cumulative per stage of
         ``realtime.timing.STAGES``, ``total`` and caller-supplied values.
@@ -176,12 +196,13 @@ class ReconstructionResult:
     """
 
     phase_rad: np.ndarray
-    intensity: np.ndarray
-    pixel_pitch_um: tuple[float, float]
+    intensity_rel: np.ndarray
+    pixel_um: tuple[float, float]
     z_um: float
     wavelength_um: float
-    n_medium: float
+    propagation_index: float
     config_hash: str
+    parameter_set_id: str = ""
     field: np.ndarray | None = None
     frames: list[FrameRecord] = dc_field(default_factory=list)
     quality: dict[str, Any] = dc_field(default_factory=dict)
@@ -195,14 +216,14 @@ class ReconstructionResult:
 
     def __post_init__(self):
         self.phase_rad = np.ascontiguousarray(self.phase_rad, dtype=np.float32)
-        self.intensity = np.ascontiguousarray(self.intensity, dtype=np.float32)
+        self.intensity_rel = np.ascontiguousarray(self.intensity_rel, dtype=np.float32)
         if self.phase_rad.ndim != 2:
             raise ValueError(
                 f"phase_rad must be 2-D, got shape {self.phase_rad.shape}."
             )
-        if self.intensity.shape != self.phase_rad.shape:
+        if self.intensity_rel.shape != self.phase_rad.shape:
             raise ValueError(
-                f"intensity shape {self.intensity.shape} != phase shape "
+                f"intensity_rel shape {self.intensity_rel.shape} != phase shape "
                 f"{self.phase_rad.shape}."
             )
         if self.field is not None:
@@ -212,21 +233,26 @@ class ReconstructionResult:
                     f"field shape {self.field.shape} != phase shape "
                     f"{self.phase_rad.shape}."
                 )
-        dx, dy = self.pixel_pitch_um
-        self.pixel_pitch_um = (float(dx), float(dy))
+        dy, dx = self.pixel_um
+        self.pixel_um = (float(dy), float(dx))
         self.z_um = float(self.z_um)
         self.wavelength_um = float(self.wavelength_um)
-        self.n_medium = float(self.n_medium)
+        self.propagation_index = float(self.propagation_index)
+        if not self.parameter_set_id:
+            self.parameter_set_id = f"config-{self.config_hash[:12]}"
         # metadata is kept in its JSON form (lists, plain scalars, NaN -> None),
         # so a result and its message round trip compare equal
-        self.quality = to_jsonable(dict(self.quality))
+        self.quality = to_jsonable({**REFERENCE_QUALITY_DEFAULTS, **self.quality})
         self.timings_s = to_jsonable(dict(self.timings_s))
         self.versions = to_jsonable(dict(self.versions))
         if self.config is not None:
             self.config = to_jsonable(dict(self.config))
         if not self.created_utc:
-            self.created_utc = datetime.now(timezone.utc).isoformat(
-                timespec="milliseconds"
+            # UTC ISO 8601 with "Z" as required by the contracts
+            self.created_utc = (
+                datetime.now(timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z")
             )
 
     # ------------------------------------------------------------ properties
@@ -253,6 +279,7 @@ class ReconstructionResult:
         versions: dict[str, Any] | None = None,
         selection=None,
         warnings: list[str] | None = None,
+        parameter_set_id: str = "",
     ) -> ReconstructionResult:
         """Build the product result from a kernel result.
 
@@ -285,6 +312,8 @@ class ReconstructionResult:
             its summary into ``quality``.
         warnings : list of str, optional
             Warnings to pass on (e.g. ``BackgroundModel.warnings``).
+        parameter_set_id : str, optional
+            Id of the parameter set (see the class parameters).
 
         Notes
         -----
@@ -296,6 +325,8 @@ class ReconstructionResult:
         -------
         ReconstructionResult
         """
+        # Kernel product names; the kernel's "intensity" is |E_comp|^2, i.e. the
+        # relative intensity of the contract (intensity_rel).
         outputs = (
             ("phase", "intensity", "field") if include_field else ("phase", "intensity")
         )
@@ -333,19 +364,26 @@ class ReconstructionResult:
         }
         if selection is not None:
             quality.update(selection.quality())
+        else:
+            quality.update(
+                selection_policy="all",
+                n_frames_total=int(pipeline.n_frames),
+                n_frames_used=int(pipeline.n_frames),
+            )
         background = pipeline.background_model()
         quality["background_id"] = background.model_id
         quality["background_created_utc"] = background.created_utc
         quality["background_age_s"] = background.age_s()
         return cls(
             phase_rad=host["phase"],
-            intensity=host["intensity"],
+            intensity_rel=host["intensity"],
             field=host.get("field"),
-            pixel_pitch_um=(dx * 1e6, dy * 1e6),
+            pixel_um=(dy * 1e6, dx * 1e6),
             z_um=float(result.z) * 1e6,
             wavelength_um=config.dhm.wavelength * 1e6,
-            n_medium=config.propagation.n_medium,
+            propagation_index=config.propagation.n_medium,
             config_hash=pipeline.config_hash,
+            parameter_set_id=parameter_set_id,
             frames=list(frames or []),
             quality=quality,
             timings_s=timings,
@@ -369,10 +407,10 @@ class ReconstructionResult:
             JSON-able metadata; ``header["buffers"]`` lists ``name``, ``dtype``,
             ``shape`` and ``byte_order`` of every buffer in order.
         buffers : list of (str, numpy.ndarray)
-            C-contiguous little-endian arrays: ``phase_rad``, ``intensity`` and,
-            if present, ``field``.
+            C-contiguous little-endian arrays: ``phase_rad``, ``intensity_rel``
+            and, if present, ``field``.
         """
-        arrays = [("phase_rad", self.phase_rad), ("intensity", self.intensity)]
+        arrays = [("phase_rad", self.phase_rad), ("intensity_rel", self.intensity_rel)]
         if self.field is not None:
             arrays.append(("field", self.field))
         buffers = []
@@ -394,10 +432,11 @@ class ReconstructionResult:
                 "message_type": MESSAGE_TYPE,
                 "schema_version": self.schema_version,
                 "created_utc": self.created_utc,
-                "pixel_pitch_um": self.pixel_pitch_um,
+                "pixel_um": self.pixel_um,
                 "z_um": self.z_um,
+                "propagation_index": self.propagation_index,
                 "wavelength_um": self.wavelength_um,
-                "n_medium": self.n_medium,
+                "parameter_set_id": self.parameter_set_id,
                 "config_hash": self.config_hash,
                 "frames": [record.to_dict() for record in self.frames],
                 "quality": self.quality,
@@ -479,18 +518,19 @@ class ReconstructionResult:
             if array.shape != shape:
                 raise ValueError(f"Buffer {name!r}: shape {array.shape} != {shape}.")
             arrays[name] = array
-        missing = {"phase_rad", "intensity"} - set(arrays)
+        missing = {"phase_rad", "intensity_rel"} - set(arrays)
         if missing:
             raise ValueError(f"Missing buffers: {sorted(missing)}.")
         return cls(
             phase_rad=arrays["phase_rad"],
-            intensity=arrays["intensity"],
+            intensity_rel=arrays["intensity_rel"],
             field=arrays.get("field"),
-            pixel_pitch_um=tuple(header["pixel_pitch_um"]),
+            pixel_um=tuple(header["pixel_um"]),
             z_um=header["z_um"],
             wavelength_um=header["wavelength_um"],
-            n_medium=header["n_medium"],
+            propagation_index=header["propagation_index"],
             config_hash=header["config_hash"],
+            parameter_set_id=header["parameter_set_id"],
             frames=[FrameRecord.from_dict(d) for d in header.get("frames", [])],
             quality=dict(header.get("quality") or {}),
             timings_s=dict(header.get("timings_s") or {}),

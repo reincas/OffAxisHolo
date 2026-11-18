@@ -57,7 +57,7 @@ def test_reconstruct_frames_matches_the_kernel():
 
     assert isinstance(res, ReconstructionResult)
     np.testing.assert_allclose(res.phase_rad, kernel["phase"], atol=1e-6)
-    np.testing.assert_allclose(res.intensity, kernel["intensity"], rtol=1e-6)
+    np.testing.assert_allclose(res.intensity_rel, kernel["intensity"], rtol=1e-6)
     assert res.z_um == pytest.approx(Z * 1e6)
     assert res.field is None
 
@@ -78,7 +78,9 @@ def test_metrics_can_be_switched_off():
     res = reconstruct_frames(_objects(3), _background(), _config(), metrics=False)
     assert res.frames == []
     assert res.config["metrics"]["enabled"] is False
-    assert "selection_policy" not in res.quality
+    # contract 1.0 always carries the selection summary (no metrics: all frames used)
+    assert res.quality["selection_policy"] == "all"
+    assert res.quality["n_frames_used"] == res.quality["n_frames_total"] == 3
 
 
 def test_frame_info_is_passed_through():

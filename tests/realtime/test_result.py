@@ -66,18 +66,18 @@ def test_from_realtime_matches_kernel(dhm):
 
     assert res.shape == (64, 64)
     assert res.phase_rad.dtype == np.float32
-    assert res.intensity.dtype == np.float32
+    assert res.intensity_rel.dtype == np.float32
     assert res.field.dtype == np.complex64
     # float32 storage of double results: tolerance of the cast
     np.testing.assert_allclose(res.phase_rad, host["phase"], atol=1e-6)
-    np.testing.assert_allclose(res.intensity, host["intensity"], rtol=1e-6)
+    np.testing.assert_allclose(res.intensity_rel, host["intensity"], rtol=1e-6)
     np.testing.assert_allclose(res.field, host["field"], rtol=1e-6, atol=1e-7)
 
     # crop 128 -> 64 doubles the pitch; metres -> micrometres
-    assert res.pixel_pitch_um == pytest.approx((2 * PITCH * 1e6, 2 * PITCH * 1e6))
+    assert res.pixel_um == pytest.approx((2 * PITCH * 1e6, 2 * PITCH * 1e6))
     assert res.z_um == pytest.approx(Z * 1e6)
     assert res.wavelength_um == pytest.approx(WAVELENGTH * 1e6)
-    assert res.n_medium == 1.0
+    assert res.propagation_index == 1.0
     assert res.config_hash == pipe.config_hash
     assert RealtimeConfig.from_dict(res.config).config_hash() == pipe.config_hash
     assert res.quality["n_obj"] == 6
@@ -85,7 +85,7 @@ def test_from_realtime_matches_kernel(dhm):
     assert res.quality["piston_std_rad"] > 0
     assert res.versions["offaxisholo"]
     assert res.versions["numpy"] == np.__version__
-    assert res.created_utc.endswith("+00:00")
+    assert res.created_utc.endswith("Z")  # UTC ISO 8601 with Z (contract 1.0)
     assert res.schema_version == SCHEMA_VERSION
 
 
@@ -94,8 +94,8 @@ def test_field_is_optional(dhm):
     res = ReconstructionResult.from_realtime(pipe.result(), pipe)
     assert res.field is None
     header, buffers = res.to_message()
-    assert [name for name, _ in buffers] == ["phase_rad", "intensity"]
-    assert [d["name"] for d in header["buffers"]] == ["phase_rad", "intensity"]
+    assert [name for name, _ in buffers] == ["phase_rad", "intensity_rel"]
+    assert [d["name"] for d in header["buffers"]] == ["phase_rad", "intensity_rel"]
 
 
 def test_header_is_plain_json(result):
@@ -118,13 +118,14 @@ def test_header_is_plain_json(result):
 
 def _assert_same(a, b):
     np.testing.assert_array_equal(a.phase_rad, b.phase_rad)
-    np.testing.assert_array_equal(a.intensity, b.intensity)
+    np.testing.assert_array_equal(a.intensity_rel, b.intensity_rel)
     np.testing.assert_array_equal(a.field, b.field)
     for name in (
-        "pixel_pitch_um",
+        "pixel_um",
         "z_um",
         "wavelength_um",
-        "n_medium",
+        "propagation_index",
+        "parameter_set_id",
         "config_hash",
         "timings_s",
         "versions",
@@ -164,7 +165,7 @@ def test_round_trip_with_named_arrays(result):
     "change, message",
     [
         (lambda h, b: h.update(message_type="FrameRecord"), "Not a"),
-        (lambda h, b: h.update(schema_version="1.0"), "Incompatible schema_version"),
+        (lambda h, b: h.update(schema_version="2.0"), "Incompatible schema_version"),
         (lambda h, b: b.pop(), "buffers described"),
         (lambda h, b: h["buffers"][0].update(shape=[32, 32]), "values for shape"),
         (lambda h, b: h["buffers"][0].update(dtype="float64"), "dtype"),
@@ -188,15 +189,15 @@ def test_from_message_rejects_swapped_named_buffers(result):
 
 def test_minor_schema_versions_are_accepted(result):
     header, buffers = result.to_message()
-    header["schema_version"] = "0.99"
+    header["schema_version"] = "1.99"
     header["future_field"] = {"ignored": True}
     same = ReconstructionResult.from_message(header, buffers)
-    assert same.schema_version == "0.99"
+    assert same.schema_version == "1.99"
 
 
 def test_shape_validation():
     phase = np.zeros((4, 4))
-    with pytest.raises(ValueError, match="intensity shape"):
+    with pytest.raises(ValueError, match="intensity_rel shape"):
         ReconstructionResult(phase, np.zeros((4, 5)), (0.1, 0.1), 0, 0.675, 1, "h")
     with pytest.raises(ValueError, match="field shape"):
         ReconstructionResult(
