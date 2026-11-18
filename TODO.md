@@ -118,18 +118,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
     every result (K2, K3, K4); open are the noise after plane removal and the sideband SNR, which need the
     reference region.
 
-- [ ] K19: Reference-mask rasteriser helper (G10 SA2) [phase: 1]
-  - Priority: high
-  - Size: S
-  - Depends on: –
-  - Done when:
-    - a pure function turns `occupied_um` polygons (stage µm; or a `uint8` raster), the capture's actual
-      position, `pose_tolerance_um`, `optical_margin_um`, the pixel size `(y, x)` in µm and an optional
-      stage ↔ DHM mapping (rotation, scale, shear; default identity) into a boolean reference mask on the
-      reconstruction grid (true = structure-free);
-    - tested on synthetic polygons (exact area within one pixel, margin dilation, rotation); no Qt, no
-      CuPy needed; used by DHMConnect DL-B4 and by K8.
-
 ### Phase 2 — Replay, N-study, public API
 
 - [ ] K12: Replay reader for experiment files and the raw archive [phase: 2]
@@ -488,6 +476,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K19: Reference-mask rasteriser helper (G10 SA2) — 2026-11-18 — `offaxisholo.realtime.reference_mask`: pure NumPy function from `occupied_um` polygons (or a `uint8` raster), actual position, `pose_tolerance_um` + `optical_margin_um`, pixel size (y, x) and an optional image → stage matrix to a boolean mask (True = structure-free); tested for exact area, margin, rotation and raster parity — commits: `2c2666d`.
 - [x] K20: Phase ↔ height in `fieldops` with explicit indices (G4) — 2026-11-18 — `phase_to_height_um` / `height_to_phase_rad` with keyword-only `n_structure`, `n_surround`, `wavelength_um`, `phase_sign`, no defaults, documented as the owner of the formulas for MIRA MI-51; tested on an analytic 15 µm step (SZ2080 Δn 0.012 in-situ, 0.52 developed) — commits: `906f9b8`.
 - [x] K4: `ReconstructionResult` and `FrameRecord` — 2026-11-18 — Dataclasses, `to_message()` / `from_message()` and round trips since `43b772f`; the remaining criterion (validation against the vendored examples) was met by K16 — commits: `43b772f`, `84bb939`.
 - [x] K16: Validate `ReconstructionResult` against the shared contract — 2026-11-18 — Result follows contract 1.0 of DHMConnect `fc85f5c`: `intensity_rel`, `pixel_um` (y, x), `propagation_index`, `parameter_set_id`, D13 reference keys, `created_utc` with `Z`, `schema_version` 1.0 (BREAKING CHANGE); schema and examples vendored in `tests/contracts/`, `tests/realtime/test_contract.py` checks them — commits: `adae46d`, `84bb939`, `5d01b8e`.
