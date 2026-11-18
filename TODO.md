@@ -232,16 +232,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
     - the test plan K11-T in `docs/realtime/unwrapping_comparison.md` §"K11-T" is run on synthetic data;
       the comparison decides whether least squares or `temporal` may become a default (criterion there).
 
-- [ ] K20: Phase ↔ height in `fieldops` with explicit indices (G4) [phase: 4]
-  - Priority: high
-  - Size: S
-  - Depends on: –
-  - Done when:
-    - `fieldops` converts phase ↔ height with explicit `n_structure`, `n_surround`, wavelength and
-      `phase_sign` (more optical path → positive phase); no default index; documented as the owner of the
-      formulas (MIRA imports it or mirrors it with a parity test, MI-51);
-    - tested against an analytic step (SZ2080: Δn = 0.012 in-situ, 0.52 developed in air).
-
 ### Phase 5 — Optimisation after profiling
 
 - [ ] C13: Optimisations after profiling (carried over) [phase: 5]
@@ -498,6 +488,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K20: Phase ↔ height in `fieldops` with explicit indices (G4) — 2026-11-18 — `phase_to_height_um` / `height_to_phase_rad` with keyword-only `n_structure`, `n_surround`, `wavelength_um`, `phase_sign`, no defaults, documented as the owner of the formulas for MIRA MI-51; tested on an analytic 15 µm step (SZ2080 Δn 0.012 in-situ, 0.52 developed) — commits: `906f9b8`.
 - [x] K4: `ReconstructionResult` and `FrameRecord` — 2026-11-18 — Dataclasses, `to_message()` / `from_message()` and round trips since `43b772f`; the remaining criterion (validation against the vendored examples) was met by K16 — commits: `43b772f`, `84bb939`.
 - [x] K16: Validate `ReconstructionResult` against the shared contract — 2026-11-18 — Result follows contract 1.0 of DHMConnect `fc85f5c`: `intensity_rel`, `pixel_um` (y, x), `propagation_index`, `parameter_set_id`, D13 reference keys, `created_utc` with `Z`, `schema_version` 1.0 (BREAKING CHANGE); schema and examples vendored in `tests/contracts/`, `tests/realtime/test_contract.py` checks them — commits: `adae46d`, `84bb939`, `5d01b8e`.
 - [x] K21: Python baseline 3.12 / 3.14 (G9) — 2026-11-18 — `requires-python >= 3.12` with classifiers 3.12 / 3.14; the suite passed on CPython 3.12.3 and 3.14.10 (187 passed, 12 skipped each); `cupy-cuda13x` 14.2.0 resolves as a cp314 Windows wheel — commits: `dbfee72`.

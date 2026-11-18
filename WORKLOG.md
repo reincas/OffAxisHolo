@@ -398,3 +398,12 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` (Python 3.12.3, repository venv; contains `test_offline_golden.py` and `test_import_hygiene.py`): 195 passed, 12 skipped. The contract test found that `created_utc` used `+00:00` instead of `Z` (fixed in `adae46d`).
 - **Commits:** `adae46d` feat(realtime): align ReconstructionResult with the shared contract 1.0 [K16], `84bb939` test(realtime): validate the result header against the vendored contract [K16], `5d01b8e` docs(realtime): describe the result as contract 1.0 [K16]
 - **Follow-ups:** K4 closed with K16 (its open part was the validation against the vendored examples). `config.propagation.n_medium` keeps its kernel name until K9 introduces the parameter set. `BackgroundModel.created_utc` still uses `+00:00` (not part of the contract; changing it would change new model ids only).
+
+### 2026-11-18 21:53 CET — [K20] Phase ↔ height with explicit indices
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/reconstruction/fieldops.py`: `phase_to_height_um`, `height_to_phase_rad` (keyword-only, no default index, sign convention of G4 with `phase_sign`), parameter check
+  - `tests/test_phase_height.py` (new): 13 tests
+- **Tests:** `python -m pytest` (Python 3.12.3): 206 passed, 12 skipped (incl. golden and import hygiene).
+- **Commits:** `906f9b8` feat(reconstruction): phase <-> height with explicit indices in fieldops [K20]
+- **Follow-ups:** MIRA MI-51 imports or mirrors the two functions; the legacy positional `phase_to_height` (metres) and `HologramProcessor.phase_to_height` (default `n_medium = N_AIR`) stay for the offline path and could delegate later (P4).
