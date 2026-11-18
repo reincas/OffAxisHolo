@@ -1,0 +1,18 @@
+{
+  "index": 0,
+  "used": true,
+  "reject_reason": null,
+  "metrics": {
+    "saturated_count": 0,
+    "black_count": 12,
+    "sideband_fraction": 0.081,
+    "piston_rad": 0.12,
+    "phase_noise_rad": null
+  },
+  "acquisition": {
+    "frame_id": 1201,
+    "exposure_us": 16800,
+    "camera_time_s": 1021.334,
+    "host_utc": "2026-11-18T09:12:03.201Z"
+  }
+}

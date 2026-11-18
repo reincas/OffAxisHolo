@@ -1,0 +1,84 @@
+{
+  "message_type": "ReconstructionResult",
+  "schema_version": "1.0",
+  "created_utc": "2026-11-18T09:12:03.950Z",
+  "pixel_um": [
+    0.1738,
+    0.1738
+  ],
+  "z_um": -2.4,
+  "propagation_index": 1.508,
+  "wavelength_um": 0.674994,
+  "parameter_set_id": "zeiss63x-insitu-v1",
+  "config_hash": "af2c68e689d640b9bbfd8f9e0cdaa6923aab578f591682466bbd4bdf5ec8a38f",
+  "frames": [
+    {
+      "index": 0,
+      "used": true,
+      "reject_reason": null,
+      "metrics": {
+        "saturated_count": 0,
+        "black_count": 12,
+        "sideband_fraction": 0.081,
+        "piston_rad": 0.12,
+        "phase_noise_rad": null
+      },
+      "acquisition": {
+        "frame_id": 1201,
+        "exposure_us": 16800,
+        "camera_time_s": 1021.334,
+        "host_utc": "2026-11-18T09:12:03.201Z"
+      }
+    }
+  ],
+  "quality": {
+    "n_obj": 1,
+    "n_effective": 1.0,
+    "n_bg": 10,
+    "piston_std_rad": 0.0,
+    "selection_policy": "all",
+    "n_frames_total": 1,
+    "n_frames_used": 1,
+    "selection_min_frames": 1,
+    "selection_min_frames_enforced": false,
+    "reference_source": "mask_a_priori",
+    "reference_fraction": 0.71,
+    "phase_noise_rad": 0.042,
+    "background_id": "bg-0008",
+    "background_created_utc": "2026-11-18T09:05:00Z",
+    "background_age_s": 423.9
+  },
+  "timings_s": {
+    "upload": 0.001,
+    "demodulation": 0.004,
+    "total": 0.012,
+    "grab": 0.27
+  },
+  "timings_profiled": false,
+  "versions": {
+    "offaxisholo": "0.4.0",
+    "numpy": "2.3.0",
+    "cupy": null
+  },
+  "warnings": [],
+  "buffers": [
+    {
+      "name": "phase_rad",
+      "dtype": "float32",
+      "shape": [
+        512,
+        512
+      ],
+      "byte_order": "little"
+    },
+    {
+      "name": "intensity_rel",
+      "dtype": "float32",
+      "shape": [
+        512,
+        512
+      ],
+      "byte_order": "little"
+    }
+  ]
+}

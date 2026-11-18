@@ -385,3 +385,16 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` on the Office PC, 2026-11-18: CPython 3.12.3 (repository `.venv`) 187 passed, 12 skipped; CPython 3.14.10 (fresh venv `%LOCALAPPDATA%\Temp\oah314`, `pip install -e ".[dev]"`) 187 passed, 12 skipped. `uv pip compile` of `cupy-cuda13x>=13.6` for Python 3.14 / `x86_64-pc-windows-msvc` with `--only-binary :all:` resolves to `cupy-cuda13x==14.2.0` (+ `cuda-pathfinder`, `numpy`).
 - **Commits:** `dbfee72` build(packaging): raise requires-python to 3.12 and name 3.12 / 3.14 [K21]
 - **Follow-ups:** B3 still waits for the install check on the DHM-PC (DL-H1 / K14), DL-C1 (`live` extra) and L1 (script entry); the `gui` extra could be added now.
+
+### 2026-11-18 21:41 CET — [K16, K4] Contract 1.0 for `ReconstructionResult`
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/realtime/result.py`: `intensity` → `intensity_rel`, `pixel_pitch_um` (x, y) → `pixel_um` (y, x), `n_medium` → `propagation_index`, new `parameter_set_id` (default `config-<hash12>`), `REFERENCE_QUALITY_DEFAULTS` (`whole_field`, 0.0, null), selection summary without metrics, `created_utc` with `Z`, `SCHEMA_VERSION` 1.0
+  - `src/offaxisholo/realtime/api.py`: `OUTPUTS` with `intensity_rel` (alias `intensity`), `parameter_set_id` in `ReconstructionSession` and `reconstruct_frames`
+  - `tests/realtime/test_result.py`, `tests/realtime/test_api.py`: new names; major / minor version checks with 2.0 / 1.99; timestamp with `Z`; selection summary without metrics
+  - `tests/contracts/` (new): `ReconstructionResult` / `FrameRecord` schema + example, `common.schema.json`, `MANIFEST.json` (DHMConnect `fc85f5c`)
+  - `tests/realtime/test_contract.py` (new): 8 tests (manifest, required fields, values, full validation with dhmconnect / jsonschema when installed, vendored example, default id, `intensity_rel` = 1 on an empty stack)
+  - `CLAUDE.md`: description of `result.py`
+- **Tests:** `python -m pytest` (Python 3.12.3, repository venv; contains `test_offline_golden.py` and `test_import_hygiene.py`): 195 passed, 12 skipped. The contract test found that `created_utc` used `+00:00` instead of `Z` (fixed in `adae46d`).
+- **Commits:** `adae46d` feat(realtime): align ReconstructionResult with the shared contract 1.0 [K16], `84bb939` test(realtime): validate the result header against the vendored contract [K16], `5d01b8e` docs(realtime): describe the result as contract 1.0 [K16]
+- **Follow-ups:** K4 closed with K16 (its open part was the validation against the vendored examples). `config.propagation.n_medium` keeps its kernel name until K9 introduces the parameter set. `BackgroundModel.created_utc` still uses `+00:00` (not part of the contract; changing it would change new model ids only).

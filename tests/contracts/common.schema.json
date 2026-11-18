@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.dhmconnect.invalid/common.schema.json",
+  "title": "common",
+  "description": "Definitions shared by the DHMConnect contracts (DL-A3). Conventions: units in names, image axis 0 = y and axis 1 = x, pixel sizes and in-plane vectors as [y, x] in um, stage positions as {x, y, z} in um, timestamps UTC ISO 8601 with Z.",
+  "x-schema-version": "1.0",
+  "$defs": {
+    "utc_time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "UTC ISO 8601 time with Z."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque identifier."
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Hex digest (SHA-256, 64 lowercase hex digits)."
+    },
+    "yx_um": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "In-plane vector [y, x] in um."
+    },
+    "yx_px": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "In-plane integer vector [y, x] in pixels."
+    },
+    "shape_yx": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Array shape [ny, nx]."
+    },
+    "stage_position_um": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false,
+      "description": "Stage position in um (Aerotech axes)."
+    },
+    "polygon_um": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/yx_um"
+      },
+      "minItems": 3,
+      "description": "Closed polygon in stage um: list of [y, x] vertices (first vertex not repeated)."
+    },
+    "grid": {
+      "type": "object",
+      "properties": {
+        "origin_um": {
+          "$ref": "#/$defs/yx_um",
+          "description": "Stage position [y, x] of the centre of pixel (0, 0)."
+        },
+        "pixel_um": {
+          "$ref": "#/$defs/yx_um",
+          "description": "Pixel size [y, x] in um."
+        },
+        "shape": {
+          "$ref": "#/$defs/shape_yx"
+        }
+      },
+      "required": [
+        "origin_um",
+        "pixel_um",
+        "shape"
+      ],
+      "additionalProperties": false,
+      "description": "Regular image grid in stage coordinates."
+    },
+    "buffer_descriptor": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dtype": {
+          "enum": [
+            "uint8",
+            "uint16",
+            "int32",
+            "uint32",
+            "int64",
+            "float32",
+            "float64",
+            "complex64",
+            "complex128"
+          ]
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "byte_order": {
+          "const": "little"
+        },
+        "compression": {
+          "const": "none",
+          "description": "Reserved (D9); absent or 'none' in v1.0."
+        }
+      },
+      "required": [
+        "name",
+        "dtype",
+        "shape",
+        "byte_order"
+      ],
+      "additionalProperties": false,
+      "description": "Descriptor of one binary buffer (PROTOCOL_v1 3.3)."
+    },
+    "buffers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/buffer_descriptor"
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "description": "Package versions, e.g. {'dhmconnect': '0.1.0', 'offaxisholo': '...', 'numpy': '...'}; absent packages are null."
+    },
+    "material_state": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Refractive index at wavelength_nm."
+        },
+        "source": {
+          "type": "string",
+          "description": "Where the value comes from (measurement, datasheet, ...)."
+        }
+      },
+      "required": [
+        "n"
+      ],
+      "description": "Optical data of one material state."
+    },
+    "material_snapshot": {
+      "type": "object",
+      "properties": {
+        "material_id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "registry_version": {
+          "type": "string",
+          "description": "Version of the nanofactorysystem material registry (G7)."
+        },
+        "wavelength_nm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Wavelength the indices refer to."
+        },
+        "states": {
+          "type": "object",
+          "properties": {
+            "uncured": {
+              "$ref": "#/$defs/material_state"
+            },
+            "cured_in_resin": {
+              "$ref": "#/$defs/material_state"
+            },
+            "cured_developed": {
+              "$ref": "#/$defs/material_state"
+            }
+          },
+          "required": [
+            "uncured",
+            "cured_in_resin",
+            "cured_developed"
+          ]
+        }
+      },
+      "required": [
+        "material_id",
+        "name",
+        "wavelength_nm",
+        "states"
+      ],
+      "description": "Snapshot of the material registry entry (G7); no silent defaults."
+    },
+    "reference_source": {
+      "enum": [
+        "mask_a_priori",
+        "mask_a_posteriori",
+        "border_ring",
+        "whole_field"
+      ],
+      "description": "Source of the structure-free reference region (D13 / SA4)."
+    },
+    "unwrap_method": {
+      "enum": [
+        "fast2d",
+        "least_squares",
+        "none",
+        "temporal"
+      ],
+      "description": "Phase unwrapping method (O5)."
+    }
+  }
+}

@@ -94,21 +94,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
 
 ### Phase 1 — Product interface (no hardware)
 
-- [ ] K16: Validate `ReconstructionResult` against the shared contract (follow-up of K4) [phase: 1]
-  - Priority: high
-  - Size: S
-  - Depends on: G2, DHMConnect DL-A3
-  - Done when:
-    - the example messages of `ReconstructionResult` and `FrameRecord` from `dhmconnect/schemas/` are
-      vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
-    - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0):
-      buffer `intensity` renamed to **`intensity_rel`** (BREAKING CHANGE, meaning documented), z with
-      `propagation_index`, `config_hash` + parameter-set id, quality keys `reference_source`,
-      `reference_fraction`, `phase_noise_rad` (`null` without a mask).
-  - Contracts available 2026-11-18: DHMConnect `fc85f5c` (DL-A3). Changes against draft 0.3 in
-    `DHMConnect/docs/CONTRACTS.md` §4; vendor with `python -m dhmconnect.schemas.export tests/contracts
-    --only ReconstructionResult,FrameRecord --commit fc85f5c`. `ParameterSet` 0.1 is the draft for K9.
-
 - [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
   - Priority: low
   - Size: M
@@ -492,21 +477,6 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
 
-- [ ] K4: `ReconstructionResult` and `FrameRecord` [phase: 1]
-  - Priority: high
-  - Size: M
-  - Depends on: G2 (final schema); start with the fields below
-  - Done when:
-    - dataclasses wrap `RealtimeResult` with: phase, intensity, optional complex field, pixel pitch
-      after the sideband crop, z, wavelength, medium, a `FrameRecord` per frame (metrics, used or
-      rejected, reason), quality numbers, timings, configuration hash, versions, `schema_version`;
-    - `to_message()` returns a JSON-able header and a list of named NumPy buffers; `from_message()`
-      reverses it;
-    - a round-trip test passes and the header validates against the shared example messages
-      (vendored under `tests/contracts/`).
-  - Status 2026-11-16: dataclasses, `to_message()` / `from_message()` and round-trip tests done
-    (`realtime/result.py`, `43b772f`; draft `schema_version` now 0.3 after K5 and K7); open: validation against the vendored
-    examples, see K16.
 
 
 ## Blocked
@@ -528,6 +498,8 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K4: `ReconstructionResult` and `FrameRecord` — 2026-11-18 — Dataclasses, `to_message()` / `from_message()` and round trips since `43b772f`; the remaining criterion (validation against the vendored examples) was met by K16 — commits: `43b772f`, `84bb939`.
+- [x] K16: Validate `ReconstructionResult` against the shared contract — 2026-11-18 — Result follows contract 1.0 of DHMConnect `fc85f5c`: `intensity_rel`, `pixel_um` (y, x), `propagation_index`, `parameter_set_id`, D13 reference keys, `created_utc` with `Z`, `schema_version` 1.0 (BREAKING CHANGE); schema and examples vendored in `tests/contracts/`, `tests/realtime/test_contract.py` checks them — commits: `adae46d`, `84bb939`, `5d01b8e`.
 - [x] K21: Python baseline 3.12 / 3.14 (G9) — 2026-11-18 — `requires-python >= 3.12` with classifiers 3.12 / 3.14; the suite passed on CPython 3.12.3 and 3.14.10 (187 passed, 12 skipped each); `cupy-cuda13x` 14.2.0 resolves as a cp314 Windows wheel — commits: `dbfee72`.
 - [x] K18: Cross-repository planning: reference mask, averaging and stitching — 2026-11-18 — Decision session 2026-11-17/18: SA1–SA7 decided (G10), recorded in master plan v0.4 (`e994707`) and the "Decided" tables; resulting todos K8 (unblocked), K19, MIRA MI-40/41, nanofactorysystem T104, DHMConnect DL-B4/B9.
 - [x] P5: Mode "print" of the e-field calculation — 2026-11-18 — Dropped: O11 removes the modes; explicit parameters and parameter sets instead (K9).

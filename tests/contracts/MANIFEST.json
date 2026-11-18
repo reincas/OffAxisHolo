@@ -1,0 +1,16 @@
+{
+  "source": "dhmconnect.schemas",
+  "dhmconnect_version": "0.1.0.dev0",
+  "dhmconnect_commit": "fc85f5c",
+  "schema_versions": {
+    "ReconstructionResult": "1.0",
+    "FrameRecord": "1.0"
+  },
+  "files": {
+    "ReconstructionResult.example.json": "0ffa0dac970c66679ddf3e5f76c797a4eec074c169a6730ad61d173d70d495b9",
+    "FrameRecord.example.json": "b06e7f6bbacc7abeba803e3383036bc72d1c1ce35543e2fae0662a32b325c557",
+    "common.schema.json": "6725fad9abdacd4e53fcaa09bbd831d76558f68ecd77e1f8ecd5969ade417729",
+    "ReconstructionResult.schema.json": "f88fb81844df7548a116b5bf9646cef9603117bd561ad1559c775a21c7b6dc5d",
+    "FrameRecord.schema.json": "580a5914fff85b35128a56bb58b24706de1a8e8faafd357e8bcbefba09a95f08"
+  }
+}

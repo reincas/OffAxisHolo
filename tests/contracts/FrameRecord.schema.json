@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.dhmconnect.invalid/FrameRecord.schema.json",
+  "title": "FrameRecord",
+  "description": "One object frame of a measurement (OffAxisHolo draft 0.3). Embedded in ReconstructionResult.frames, where message_type and schema_version are omitted.",
+  "x-schema-version": "1.0",
+  "type": "object",
+  "properties": {
+    "message_type": {
+      "const": "FrameRecord"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Version of this contract (major.minor). This file defines 1.0."
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "0-based position in the measurement."
+    },
+    "used": {
+      "type": "boolean",
+      "description": "True if the frame entered the average."
+    },
+    "reject_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null for used frames; reason otherwise (also 'forced by min_frames: ...')."
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "description": "Per-frame metrics (saturated_count, sideband_fraction, piston_rad, phase_noise_rad, ...); NaN is sent as null."
+    },
+    "acquisition": {
+      "type": "object",
+      "description": "Acquisition settings and times passed through unchanged (exposure_us, frame_id, camera and host time)."
+    }
+  },
+  "required": [
+    "index",
+    "used",
+    "reject_reason",
+    "metrics",
+    "acquisition"
+  ]
+}
