@@ -26,17 +26,19 @@ a GUI covers offline analysis, the experiment browser and live operation.
 
 | Phase | Topic | Todos | Gate before the dependent todos start |
 |---|---|---|---|
-| 0 | Scope, repository hygiene, dependencies | K1, B5, B3 | – |
-| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K17, K7, K18, K8 | G2 for the final schema of K4 |
+| 0 | Scope, repository hygiene, dependencies | K1, B5, B3, K21 | – |
+| 1 | Product interface (no hardware) | K4, K16, K5, K2, K3, K6, K17, K7, K18 (done), K8, K19 | DHMConnect DL-A3 for the final schema (K16) |
 | 2 | Replay, N-study, public API | K12, K13, K15 | – |
 | 3 | Validation on the DHM-PC (hardware) | K14 | access to the DHM-PC |
-| 4 | Physics parameters (decision driven) | K9, K10, K11 | decisions O1, O2, O5 (G4, G7) |
+| 4 | Physics parameters and parameter sets | K9, K10, K11, K20 | – (O1, O2, O5, O11, G4, G7 decided 2026-11-18) |
 | 5 | Optimisation after profiling | C13 | K14 numbers exist |
-| 6 | GUI | L0, L1, L2, L3, L4, L5, L6, L7, L8 | L0 approved by the maintainer; L5/L6 need DHMConnect DL-C1, DL-B8, DL-B10 |
+| 6 | GUI (observer only, O8 / O9) | L0, L1, L2, L3, L4, L5, L7, L8, L9 | L0 approved by the maintainer; L5 needs DHMConnect DL-C1, DL-B10 |
 | B | Package backlog (offline library) | P1–P17 | – |
 
-Phase 6 can start in parallel to phases 2–5 once K6 exists. Phase 4 todos may be started for their
-independent part (structure, hashing) and kept "In Progress" until the decisions arrive.
+Phase 6 can start in parallel to phases 2–5 once K6 exists. Target: Release V1.0 as defined by the
+decision session of 2026-11-17/18 (master plan v0.4). Since G5-new this package runs inside the DHM
+service on the DHM-PC (compute node) and offline / in the GUI on any PC; it reconstructs **one hologram
+stack** and leaves registration, unwrapping across tiles, fusion, stitching and levelling to MIRA.
 
 ### Working rules for Claude Code (in addition to CLAUDE.md)
 1. Pick the first open todo of the lowest unfinished phase whose dependencies are done. Take phase B
@@ -57,25 +59,46 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
 
 ## Open decisions (maintainer)
 
-| ID | Decision | Recommendation | Blocks |
-|---|---|---|---|
-| O1 | Result plane and z per objective (old H1, H3): preset 0.11 µm against measured about −2.6 µm. Same as G4. | z comes with the request; default from the parameter set. | K9, K10 |
-| O2 | Medium index and sign convention phase to height (old H2). Same as G4. | – | K9 |
-| O3 | Default frame selection policy and thresholds. | **Decided 2026-11-16 (maintainer, as recommended):** default policy `all` until the N-study (K13) is evaluated; all policies are implemented. In the entry points (K6) the frame metrics are on by default (re-evaluate after K14). | K3, K6 |
-| O4 | Reference region for piston phase and noise. | **Reopened 2026-11-16:** the decision of the same day (mask per objective, border ring fallback) does not hold, because every print has another structure and large structures are stitched. Superseded by SA1–SA7 in `docs/stitching_and_averaging.md` (planning session K18). | K8, K18 |
-| O5 | Unwrapping in the product (old H5). First report: Least Squares deviates strongly on developed structures; in-situ examples need no unwrapping. | Wrapped phase by default, unwrapping optional, `fast2d` stays the default method. Least Squares may become a default only after a systematic comparison with Fast 2D (simulated and real holograms, noise, phase residues, steps / discontinuities, height error, `congruent=True/False`; maintainer note in `attic/ToDos.txt`). | K11 |
-| O6 | Lifetime of a background and drift monitoring (old Q8). | **Decided 2026-11-16 (maintainer, as recommended):** the background model stores time, config hash and quality; a configurable maximum age (default: none) only adds a warning to the result. Limits after a drift measurement (Masterplan V4). | K7 |
-| O7 | GUI framework (G3) and whether the GUI lives in this repository. | PySide6 + pyqtgraph; subpackage `offaxisholo.gui` with extra `[gui]`. | L0 |
-| O8 | Live view: reconstruction in the service on the DHM-PC, or locally in the GUI from raw preview frames. | Service side; local reconstruction as fallback. | L5 |
-| O9 | Stage control in this GUI (the legacy GUI has a positioning widget). | No. Stage control belongs to the system GUI of nanofactorysystem (F15). | L6 |
-| O10 | Minimum versions and CuPy package for the DHM-PC. Partly decided 2026-11-16: the driver supports CUDA 13 → `cupy-cuda13x`; Python is installed there from scratch; `requires-python` aligned to ≥ 3.11 (numpy 2.4.5 / scipy 1.17.1 have no Python 3.10 wheels). Open: confirm the install on the DHM-PC. | Install Python 3.12 (as on the development machine); keep the minimums unless the install fails. | B3, K14 |
-| O11 | Mode "print" of the e-field / height calculation (old H6, maintainer note "not good"): what should it compute (n_medium = liquid resin)? | – | P5 |
-| G2 | Home of the shared contracts. | **Decided 2026-11-16 (maintainer, as recommended):** JSON Schema plus example messages in `dhmconnect/schemas/`, vendored here under `tests/contracts/`. To be recorded in the master system plan. | K16 |
-| G7 | Single source of truth for material data. | Material registry in nanofactorysystem; presets here stay a fallback for offline use. | K9, P3 |
+All decisions O1–O11 and the global decisions that block todos here were taken in the decision session of
+2026-11-17/18 (master plan v0.4 §6). Still deferred and relevant here:
+
+| Point | When / by what | Blocks |
+|---|---|---|
+| Least squares or `temporal` as the default unwrapping method (O5) | after K11 and the test plan K11-T | default of K11 |
+| Final default z per objective (G4) | focus study K10 | parameter-set default of K9 |
+| Border band width discarded after propagation (G10 SA6) | study (depends on z, effective NA of the sideband filter) | default of `optical_margin_um` / border band in K9 |
+| `single` precision as GPU default | K14 on the DHM-PC | K14 |
+
+## Decided
+
+| ID | Date | Result |
+|---|---|---|
+| G2 | 2026-11-16 | JSON Schema plus example messages in `dhmconnect/schemas/`, vendored here under `tests/contracts/`. |
+| O3 | 2026-11-16 | Default frame selection `all` until the N-study K13; frame metrics on by default in the entry points (re-evaluate after K14). |
+| O6 | 2026-11-16 | A background never expires; a configurable maximum age only warns (DHMConnect default 3600 s). |
+| O1, O2 (G4) | 2026-11-18 | Separate parameters `propagation_index` and `n_surround`; z always given and stored with its `propagation_index`; `n_structure` from the material snapshot; in-situ only resin indices (surround = liquid resin, structure = cured in resin), developed: surround = air; z of an experiment from the corner-marker focus (nanofactorysystem T107, sweep K10), fallback per objective from the parameter set, provisional 63x **−2.6 µm at n = 1.0**; per-capture autofocus only reported in `quality`; sign: more optical path → positive phase, n_structure > n_surround → positive height, `phase_sign` (±1) in the parameter set, verified once against Sensofar / AFM. |
+| O4 | 2026-11-18 | Superseded by G10 (SA7): "mask per objective" is dropped; a-priori mask per capture from `occupied_um` (K19). |
+| O5 | 2026-11-18 | A single `ReconstructionResult` stays wrapped; unwrapping happens in the group step per tile (MIRA plug-in) with `fast2d`; methods `fast2d`, `least_squares`, `none`, `temporal`; quality data in the product; least squares only after K11; test plan K11-T. Printed structures are ≤ 15 µm high → in-situ with SZ2080 the phase stays ≤ ≈ 1.7 rad, no 2π ambiguity; `temporal` low priority. |
+| O7 (G3) | 2026-11-18 | PySide6 + pyqtgraph; `offaxisholo.gui` with extra `[gui]`; napari evaluated in L0 as an option for the offline analysis GUI. |
+| O8 | 2026-11-18 | Live view computed in the service (reduced hologram / phase / intensity, binning, rate limit, live socket 27185, below measurement jobs); local reconstruction only on the pre-release PC or for replay. The GUI runs on the Work-PC and the DHM-PC and takes **only images** as input (L9 "image source" adapters). |
+| O9 | 2026-11-18 | No stage control and no DHM operation in this GUI: it is a pure observer. DHM + stage operation is part of the nanofactorysystem system GUI (F15). L6 is dropped. |
+| O10 (G9) | 2026-11-18 | DHM-PC: Python 3.14 (Python install manager, `uv`), `cupy-cuda13x` (CuPy 14 has cp314 wheels); repositories `requires-python >= 3.12`, tests on 3.12 and 3.14 (K21). |
+| O11 | 2026-11-18 | The modes "print" / "developed" are dropped. Explicit parameters (`n_structure`, `n_surround`, `propagation_index`) and named, saveable JSON configurations (`ParameterSet`) for camera, objective (pixel pitch in the object plane never from Koala) and reconstruction (default z, stored `OrderCalibration` of the first order, mask shape and size, crop, `eps`), loaded by DHMConnect `configure`. Removing `mode` from the offline API is a BREAKING CHANGE; the golden reference is kept by a parameter set with the old values (K9). P5 is obsolete. |
+| G7 | 2026-11-18 | Material registry in nanofactorysystem = master; its versioned JSON export is the source of the material presets here (K9); no silent defaults (a missing index raises or warns with the source). One DHM wavelength 0.674994 µm. |
+| G10 | 2026-11-18 | SA1 a-priori mask (default) from `occupied_um` + `pose_tolerance_um` (context) + `optical_margin_um` (parameter set), rasterised by a helper here (K19); SA3 no second pass; SA4 `reference_source` ladder; SA5 this package only aligns the frames of one measurement. |
+| DL-A3 b | 2026-11-18 | `intensity` → `intensity_rel` = I_object / I_background (dimensionless, 1.0 = empty substrate), because compensation divides the fields (K16). |
 
 ## Open
 
 ### Phase 0 — Scope, repository hygiene, dependencies
+
+- [ ] K21: Python baseline 3.12 / 3.14 (G9) [phase: 0]
+  - Priority: medium
+  - Size: S
+  - Depends on: –
+  - Done when:
+    - `requires-python >= 3.12` (today ≥ 3.11); classifiers 3.12 and 3.14; the test suite has passed on
+      Python 3.12 and 3.14 (versions and date in `WORKLOG.md`); `cupy-cuda13x` resolves for cp314.
 
 ### Phase 1 — Product interface (no hardware)
 
@@ -86,7 +109,10 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
   - Done when:
     - the example messages of `ReconstructionResult` and `FrameRecord` from `dhmconnect/schemas/` are
       vendored under `tests/contracts/` and a test validates the header of `to_message()` against them;
-    - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0).
+    - field names, units and `schema_version` of `realtime/result.py` match the contract (bump to 1.0):
+      buffer `intensity` renamed to **`intensity_rel`** (BREAKING CHANGE, meaning documented), z with
+      `propagation_index`, `config_hash` + parameter-set id, quality keys `reference_source`,
+      `reference_fraction`, `phase_noise_rad` (`null` without a mask).
 
 - [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
   - Priority: low
@@ -97,16 +123,32 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
     - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
 
-- [ ] K18: Cross-repository planning: reference mask, averaging and stitching (found during K8) [phase: 1]
-  - Priority: high
-  - Size: M
-  - Depends on: planning session with the maintainer and access to MIRA, nanofactorysystem and DHMConnect
+- [ ] K8: Quality numbers [phase: 1]
+  - Priority: medium
+  - Size: S
+  - Depends on: K4, K19
   - Done when:
-    - decisions SA1–SA7 of `docs/stitching_and_averaging.md` are taken by the maintainer and recorded
-      there, in the master system plan and in the todo lists of the affected repositories;
-    - the resulting todos exist (here at least: per-measurement reference mask in the entry points,
-      K8 unblocked; MIRA / nanofactorysystem / DHMConnect as decided).
-  - Note: design todo; ends with the decisions in the document (working rule 2).
+    - phase noise in the reference region after plane removal, number of frames used, piston standard
+      deviation and sideband signal-to-noise ratio are in every result;
+    - the reference region follows the ladder of SA4: a-priori mask (K19) → `border_ring` → `whole_field`
+      with `reference_fraction = 0`; `quality` reports `reference_source`, `reference_fraction` and
+      `phase_noise_rad` = `null` without a mask, and warns below `min_reference_fraction`;
+    - tested on synthetic data with known noise.
+  - Note 2026-11-16: number of frames used, piston standard deviation and selection summary are already in
+    every result (K2, K3, K4); open are the noise after plane removal and the sideband SNR, which need the
+    reference region.
+
+- [ ] K19: Reference-mask rasteriser helper (G10 SA2) [phase: 1]
+  - Priority: high
+  - Size: S
+  - Depends on: –
+  - Done when:
+    - a pure function turns `occupied_um` polygons (stage µm; or a `uint8` raster), the capture's actual
+      position, `pose_tolerance_um`, `optical_margin_um`, the pixel size `(y, x)` in µm and an optional
+      stage ↔ DHM mapping (rotation, scale, shear; default identity) into a boolean reference mask on the
+      reconstruction grid (true = structure-free);
+    - tested on synthetic polygons (exact area within one pixel, margin dilation, rotation); no Qt, no
+      CuPy needed; used by DHMConnect DL-B4 and by K8.
 
 ### Phase 2 — Replay, N-study, public API
 
@@ -152,41 +194,71 @@ independent part (structure, hashing) and kept "In Progress" until the decisions
       `tests/benchmark_realtime.py` (with and without `--metrics`) have run on the DHM-PC;
     - single against double precision is compared on real holograms (phase and height maps), and
       the maintainer decides from it whether `"single"` becomes the GPU default;
-    - GPU, memory, CUDA version, driver, operating system, Python version and all numbers are recorded
-      in `docs/realtime/benchmarks.md`;
+    - GPU, memory, CUDA version, driver, operating system, Python version (3.14, G9) and all numbers are
+      recorded in `docs/realtime/benchmarks.md`; kernels stay short (the DHM-PC shows repeated GPU TDR
+      events, LiveKernelEvent 141; checked together with DHMConnect DL-H1, TCC-mode test);
     - closes B6 (CUDA run of the existing tests) and H4 (validate single precision); gives the input
       for O10.
 
-### Phase 4 — Physics parameters (decision driven)
+### Phase 4 — Physics parameters and parameter sets
 
-- [ ] K9: Parameter sets per objective [phase: 4]
+- [ ] K9: Parameter sets and saveable configurations (O11) [phase: 4]
   - Priority: high
-  - Size: M
-  - Depends on: O1, O2, G7 and a calibrated pixel size for 63x
+  - Size: L
+  - Depends on: DHMConnect DL-A3 (schema home); nanofactorysystem T108 (material JSON export)
   - Done when:
-    - a named parameter set per objective holds explicit pixel size, wavelength, order calibration,
-      crop, z, medium and reference region; name and hash go into every result;
+    - a `ParameterSet` schema with named, saveable and loadable JSON configurations exists for camera
+      (pixel pitch, ROI, bit depth, exposure as metadata), objective (magnification, NA, pixel pitch in
+      the object plane — never from Koala) and reconstruction (default z with its `propagation_index`,
+      `OrderCalibration` = stored position of the first order so that `locate_order` does not run for
+      every capture, recalibration on request, freely definable mask shape and size, crop size, `eps`,
+      unwrapping method, `optical_margin_um`), plus `phase_sign`, wavelength 0.674994 µm, `n_surround`;
+      name, id and hash go into every result;
+    - the modes "print" / "developed" are removed from the offline API (BREAKING CHANGE); the golden
+      reference test passes with a parameter set that holds the old values;
+    - material presets are generated from the registry JSON export of nanofactorysystem (G7); no silent
+      default for any index (missing → error or warning naming the source);
     - the preset JSON inconsistencies (duplicate keys `xPixelSizeUm` / `pixelPitch`, `wavelengthUm` /
       `wavelength`, name `"Zeiss 63X"` against key `"Zeiss 63x"`) are cleaned without breaking the
-      offline loader (golden test unchanged);
-    - partial result allowed: structure and hashing done, values marked `unverified`.
+      offline loader;
+    - values that are not measured yet (63x pixel size, z) are marked `unverified`.
 
-- [ ] K10: z handling [phase: 4]
+- [ ] K10: z handling and focus sweep (G4) [phase: 4]
+  - Priority: high
+  - Size: M
+  - Depends on: –
+  - Done when:
+    - z from the request (always with its `propagation_index`), a list of z values (one FFT, several
+      transfer functions) and a z sweep with a sharpness metric of the reconstructed amplitude (default:
+      minimum of std / mean) exist and are tested on synthetic defocused fields; used by
+      nanofactorysystem T107 (focus from the corner markers);
+    - per-capture autofocus can be computed behind a flag and is only reported in `quality`, never
+      applied, until validated;
+    - the focus study (real data, 20x / 63x) gives the final default z per objective; until then 63x
+      uses −2.6 µm at n = 1.0 (recorded in the parameter set as `unverified`).
+
+- [ ] K11: Unwrapping per tile and test plan K11-T (O5) [phase: 4]
   - Priority: medium
   - Size: M
-  - Depends on: O1
+  - Depends on: –
   - Done when:
-    - z from the request, a list of z values (one FFT, several transfer functions), and an interface
-      for numeric autofocus (metric scan over cached transfer functions) behind a flag exist and are
-      tested; autofocus metric and range stay open until measured data exists.
+    - a single `ReconstructionResult` stays wrapped; a function unwraps one tile with `fast2d`,
+      `least_squares` (congruent and not) or `none` and returns quality data (method, residue count,
+      consistency flag), for MIRA's group step (MI-40);
+    - `temporal` (φₙ = φₙ₋₁ + wrap(φₙ − φₙ₋₁), existing `TemporalUnwrapper`) is offered with optional
+      re-anchoring every N layers (low priority: no 2π ambiguity expected in-situ with SZ2080 ≤ 15 µm);
+    - the test plan K11-T in `docs/realtime/unwrapping_comparison.md` §"K11-T" is run on synthetic data;
+      the comparison decides whether least squares or `temporal` may become a default (criterion there).
 
-- [ ] K11: Unwrapping in the product [phase: 4]
-  - Priority: low
+- [ ] K20: Phase ↔ height in `fieldops` with explicit indices (G4) [phase: 4]
+  - Priority: high
   - Size: S
-  - Depends on: O5
+  - Depends on: –
   - Done when:
-    - the product field `phase_unwrapped` is produced only on request; the method is recorded in the
-      metadata; the default stays wrapped phase.
+    - `fieldops` converts phase ↔ height with explicit `n_structure`, `n_surround`, wavelength and
+      `phase_sign` (more optical path → positive phase); no default index; documented as the owner of the
+      formulas (MIRA imports it or mirrors it with a parity test, MI-51);
+    - tested against an analytic step (SZ2080: Δn = 0.012 in-situ, 0.52 developed in air).
 
 ### Phase 5 — Optimisation after profiling
 
@@ -209,11 +281,13 @@ wish list in its `todo.txt`).
 - [ ] L0: Design the GUI [phase: 6]
   - Priority: medium
   - Size: M
-  - Depends on: O7 (G3)
+  - Depends on: – (G3 decided: PySide6 + pyqtgraph)
   - Done when:
     - `docs/gui/DESIGN.md` covers users and use cases, screens, architecture (models without Qt,
-      views, worker threads, no computation in the UI thread), data sources (file, experiment, live),
-      what is taken over from the legacy GUI and what is dropped;
+      views, worker threads, no computation in the UI thread), the "image source" abstraction (L9) as the
+      only input, the observer-only rule (O9: no stage, no DHM operation), the two target PCs (Work-PC
+      and DHM-PC), what is taken over from the legacy PyQt5 GUI and what is dropped, and an evaluation of
+      napari for the offline analysis part;
     - the maintainer has approved it (`Status: approved <date>`); L1–L8 start only afterwards.
 
 - [ ] L1: Application skeleton [phase: 6]
@@ -255,21 +329,21 @@ wish list in its `todo.txt`).
 - [ ] L5: Live mode [phase: 6]
   - Priority: medium
   - Size: L
-  - Depends on: L2, DL-B10, DL-C1; O8 and DHMConnect D4 (observer role while an experiment runs)
+  - Depends on: L2, L9, DL-B10, DL-C1 (observer role, live socket 27185)
   - Done when:
     - a connection dialog and status bar (service state, queue, dropped frames, background age) work
       through `dhmconnect.client`; live hologram, spectrum, phase and intensity are shown with frame rate
       and latency; a warning appears when no service is reachable and the simulated service is used.
 
-- [ ] L6: DHM operation panel [phase: 6]
+- [ ] L9: "Image source" input abstraction (O8) [phase: 6]
   - Priority: medium
-  - Size: L
-  - Depends on: L5, DL-B8; O9
+  - Size: M
+  - Depends on: L1
   - Done when:
-    - objective and parameter set, exposure manual and automatic, OPL scan with contrast curve,
-      background acquisition with quality, laser on / off with state, a fringe contrast meter for
-      alignment and a snapshot (measure N frames and save with operator, notes and a name pattern) work
-      against the simulated service.
+    - the GUI reads images only through an `ImageSource` interface (frames + metadata, no control
+      commands); adapters: file / replay (raw archive, `experiment.h5`), `dhmconnect` live client as an
+      optional extra (`[live]`), and a documented pattern for other devices of the same architecture;
+    - a test drives the views with a synthetic source, without Qt event loop where possible.
 
 - [ ] L7: GUI tests [phase: 6]
   - Priority: medium
@@ -300,19 +374,15 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
     used, the DHM parameters stored inside it are used.
 
 - [ ] P3: Refractive index out of the DHM preset [phase: B]
-  - Priority: low | Size: S | Depends on: G7, K9
-  - Done when: the relevance of the refractive index in the DHM preset is checked and it moves to the
-    material / substrate presets where needed, without breaking old presets.
+  - Priority: low | Size: S | Depends on: K9
+  - Done when: the refractive index leaves the DHM preset; material indices come from the generated
+    material presets (G7, K9); old presets still load with a warning.
 
 - [ ] P4: Clean up `HologramProcessor` [phase: B]
   - Priority: low | Size: M | Depends on: –
   - Done when: `DHMPlotter` is a member of the processor, `set_dhm_dict` and `set_material_dict` exist,
     and the image filters that belong to MIRA are removed (after the maintainer confirms no caller needs
     them).
-
-- [ ] P5: Mode "print" of the e-field calculation [phase: B]
-  - Priority: low | Size: S | Depends on: O11
-  - Done when: the mode computes what O11 decides, with a test; until then documented as unvalidated.
 
 - [ ] P6: Rework plotting [phase: B]
   - Priority: low | Size: M | Depends on: –
@@ -445,34 +515,25 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 ## Blocked
 <!-- Format: todo as above, plus the line "Blocked by: <reason or ID>". -->
 
-- [ ] K8: Quality numbers [phase: 1]
-  - Priority: medium
-  - Size: S
-  - Depends on: K4; K18 (reference region, SA1–SA7)
-  - Done when:
-    - phase noise in the reference region after plane removal, number of frames used, piston standard
-      deviation and sideband signal-to-noise ratio are in every result;
-    - tested on synthetic data with known noise.
-  - Note 2026-11-16: number of frames used, piston standard deviation and selection summary are already in
-    every result (K2, K3, K4); open are the noise after plane removal and the sideband SNR, which need the
-    reference region.
-  - Blocked by: K18 (planning session on reference masks, averaging and stitching).
-
 - [ ] B3: Split the dependencies (carried over, partial) [phase: 0]
   - Priority: medium
   - Size: S
-  - Depends on: O10, O7, DL-C1, L1
+  - Depends on: K21, DL-C1, L1
   - Done when:
-    - `pyproject.toml` has the extras `gpu`, `dev`, `gui` (PySide6, pyqtgraph; after O7) and `live`
+    - `pyproject.toml` has the extras `gpu`, `dev`, `gui` (PySide6, pyqtgraph; G3 decided) and `live`
       (`dhmconnect` client; after DL-C1); the default install stays as today (offline library works);
     - the minimum versions are installable on the DHM-PC Python (recorded in WORKLOG.md);
     - `[project.scripts]` entry `offaxisholo-gui` is added together with L1.
   - Already done: pytest configuration and markers (`04067ea`); `gpu` extra switched to `cupy-cuda13x`,
     `requires-python` ≥ 3.11 (`2c8abb5`).
-  - Blocked by: Python is not yet installed on the DHM-PC (install check); `gui` extra waits for O7 / L0,
-    `live` extra for DHMConnect DL-C1, the script entry for L1.
+  - Blocked by: Python 3.14 is not yet installed on the DHM-PC (install check with DL-H1 / K14); the
+    `live` extra waits for DHMConnect DL-C1, the script entry for L1. The `gui` extra may be added now.
 
 ## Done
+
+- [x] K18: Cross-repository planning: reference mask, averaging and stitching — 2026-11-18 — Decision session 2026-11-17/18: SA1–SA7 decided (G10), recorded in master plan v0.4 (`e994707`) and the "Decided" tables; resulting todos K8 (unblocked), K19, MIRA MI-40/41, nanofactorysystem T104, DHMConnect DL-B4/B9.
+- [x] P5: Mode "print" of the e-field calculation — 2026-11-18 — Dropped: O11 removes the modes; explicit parameters and parameter sets instead (K9).
+- [x] L6: DHM operation panel — 2026-11-18 — Dropped: O9 makes the GUI a pure observer; DHM + stage operation moves to the nanofactorysystem system GUI (F15).
 <!-- Claude Code adds: - [x] <ID>: title — YYYY-MM-DD — 1–2 sentences on what changed — commits: `<sha>`, … -->
 - [x] P18: Translate the remaining German documentation in active code — 2026-11-17 — comment in `utils.get_logger` and docstring of `Hologram._locate_order` in English; the maintainer's own notes in `io/structure.py`, the verbatim reference skeleton and `docs/realtime/*.txt` stay German on purpose (found during the cross-repository review of 2026-11-17). — commits: `ca07542`
 - [x] K7: Background model — 2026-11-16 — `BackgroundModel` with Ub, K, quality, id, creation time and a background hash of the relevant configuration parts; save / load as `.npz` without pickle with id check; validity check and age warning (O6) tested; usable in both entry points. — commits: `d2f5342`

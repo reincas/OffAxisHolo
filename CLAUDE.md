@@ -22,7 +22,7 @@ Project files:
 - `docs/realtime/unwrapping_comparison.md`: first report Fast 2D vs. Least Squares (G1.8).
 - `docs/realtime/reference/holo_gpu_pipeline.py`: CPU-validated reference skeleton, kept verbatim (excluded from black and ruff).
 - `attic/`: archived material (B5): `legacy_tests/` (the former `tests/test/` scripts and their data), `ToDos.txt` (the maintainer's old todo notes; their items are in `TODO.md`, group P), `planning_2026-11-15/` (the planning inputs of `CLAUDE.md`, `TODO.md` and `docs/system/`). `attic/` is in `.gitignore`: files moved there with `git mv` stay versioned, new files there stay local.
-- `docs/stitching_and_averaging.md`: open problem collection on reference masks, piston phase, averaging within and across positions and stitching; decisions SA1–SA7 for the cross-repository planning session (K18).
+- `docs/stitching_and_averaging.md`: open problem collection on reference masks, piston phase, averaging within and across positions and stitching; decisions SA1–SA7, **decided 2026-11-18** (G10; results in master plan v0.4 §6 and the "Decided" table of `TODO.md`).
 - `docs/reconstruction_order.md`: why compensation happens in the hologram plane before propagation, the padding trick of the propagation, numerical tests and the focus measured on real data (formerly the local `Notes_reconstruction_order.txt`; original in `attic/notes/`).
 
 ## Commands
@@ -87,7 +87,7 @@ black . && ruff check --fix .         # formatting and linting (line length 88)
 **Facts from the hardware analysis that matter here**
 - Camera: Basler acA1920-155um, ROI 1024 × 1024, 8 bit (1 MiB per frame), exposure about 16.8 ms. Zeiss 63x preset: pixel pitch 0.0869 µm in the object plane, `dcRadius` 304, `propagationDistance` 1.1e-7 m, while a focus of about −2.6 µm was measured (open decision G4 / O1).
 - The pixel size reported by Koala configuration 180 belongs to a 20x objective (finding B17). The pixel size always comes from the parameter set, never from the device.
-- The DHM-PC driver supports CUDA 13 (maintainer, 2026-11-16). Python is not installed there yet (the PC was only reached through the C server so far); recommended: Python 3.12 like the development machine. GPU model and operating system are still unknown (K14 measures them).
+- The DHM-PC driver supports CUDA 13 (maintainer, 2026-11-16). Python is not installed there yet (the PC was only reached through the C server so far); target: **Python 3.14** with `uv` (G9, 2026-11-18). DxDiag 2026-11-18: NVIDIA RTX A2000 12 GB, Windows 11 Pro, i9-14900K, 64 GB; repeated GPU TDR events (LiveKernelEvent 141) → keep kernels short (master plan v0.4 §10).
 
 ## System context
 
@@ -113,11 +113,12 @@ Rules that follow from this:
 3. Kernels are backend-agnostic (NumPy / CuPy, `xp` passed explicitly). Exactly one thread owns the CUDA context.
 4. Hot path (per frame): no host synchronisation (`.item()`, `.get()`, `bool()` of a device array, boolean indexing, `xp.nonzero`, Python decisions on device values), no allocation after warm-up, no logging above debug level and no f-strings in the loop.
 5. Average complex fields, never phases. Compensation before propagation, unwrapping last.
-6. No invented physics: sign convention, result plane, propagation medium and distance are configuration (decisions O1, O2 / G4), never hard-wired assumptions.
-7. The pixel size never comes from Koala (B17). It is part of the parameter set.
-8. Test before optimising. Record measured numbers in `docs/realtime/benchmarks.md` with date, machine, GPU, backend and precision. No performance number without a measurement.
-9. Strict layer separation (maintainer note): DATA (configuration, results, records), PROCESSING (pure computation, no file IO, plotting, logging or network), IO (loading and saving), PIPELINE (orchestration). Plotting stays in the plotting modules.
-10. Nothing is deleted. Legacy material lives in `attic/` (B5); anything else is moved there only after the maintainer approves.
+6. No invented physics: sign convention (`phase_sign`), propagation distance with its `propagation_index`, `n_surround` and `n_structure` are explicit parameters of the parameter set or the request (G4, O11, decided 2026-11-18), never hard-wired assumptions and never silent defaults.
+7. Scope after G5-new (2026-11-18): this package reconstructs **one hologram stack** (frames of one position) and stays wrapped; unwrapping across tiles, registration, fusion, stitching and levelling belong to MIRA. The GUI is a pure observer that takes only images as input (O8, O9); no operating modes such as "print" (O11).
+8. The pixel size never comes from Koala (B17). It is part of the parameter set.
+9. Test before optimising. Record measured numbers in `docs/realtime/benchmarks.md` with date, machine, GPU, backend and precision. No performance number without a measurement.
+10. Strict layer separation (maintainer note): DATA (configuration, results, records), PROCESSING (pure computation, no file IO, plotting, logging or network), IO (loading and saving), PIPELINE (orchestration). Plotting stays in the plotting modules.
+11. Nothing is deleted. Legacy material lives in `attic/` (B5); anything else is moved there only after the maintainer approves.
 
 ## Maintainer Instructions (Hannes)
 
