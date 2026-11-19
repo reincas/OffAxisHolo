@@ -82,6 +82,9 @@ class ReconstructionSession:
     parameter_set_id : str, optional
         Id of the parameter set, stored in every result (DL-A3 a); default
         ``"config-<hash>"`` of the configuration.
+    min_reference_fraction : float, optional
+        Results warn when their reference fraction is below it (SA4, K8;
+        parameter set). None disables the warning.
 
     Notes
     -----
@@ -100,8 +103,10 @@ class ReconstructionSession:
         profile: bool = False,
         background_max_age_s: float | None = None,
         parameter_set_id: str = "",
+        min_reference_fraction: float | None = None,
     ):
         self.parameter_set_id = parameter_set_id
+        self.min_reference_fraction = min_reference_fraction
         self.selection = (selection or SelectionPolicy()).validate()
         self.background_max_age_s = background_max_age_s
         self._include_field = _check_outputs(outputs)
@@ -197,6 +202,20 @@ class ReconstructionSession:
             self._infos.append((self._pushed, info))
         self._pushed += 1
 
+    def set_reference_mask(self, mask):
+        """A-priori reference mask of the next measurement (SA1, K8).
+
+        Parameters
+        ----------
+        mask : array_like of bool or None
+            True = structure-free pixel of the reconstruction grid, e.g. from
+            :func:`offaxisholo.realtime.reference_mask.reference_mask`; None
+            returns to the border ring (``compensation.ref_border``) or the
+            whole field. Set it before the first frame of a measurement; it
+            stays until replaced.
+        """
+        self.pipeline.set_reference_mask(mask)
+
     def reset(self):
         """Start a new measurement (the background is kept)."""
         self.pipeline.reset()
@@ -234,6 +253,7 @@ class ReconstructionSession:
             selection=selection,
             warnings=warnings,
             parameter_set_id=self.parameter_set_id,
+            min_reference_fraction=self.min_reference_fraction,
         )
         infos = dict(self._infos)
         if result.frames:
@@ -261,6 +281,8 @@ def reconstruct_frames(
     xp=None,
     background_max_age_s: float | None = None,
     parameter_set_id: str = "",
+    reference_mask=None,
+    min_reference_fraction: float | None = None,
 ) -> ReconstructionResult:
     """Reconstruct one measurement from its object and background frames.
 
@@ -291,6 +313,11 @@ def reconstruct_frames(
         Warn when a stored background is older (O6); None disables it.
     parameter_set_id : str, optional
         Id of the parameter set, stored in the result (DL-A3 a).
+    reference_mask : array_like of bool, optional
+        A-priori reference mask on the reconstruction grid (SA1, K8); default
+        the border ring of ``compensation.ref_border`` or the whole field.
+    min_reference_fraction : float, optional
+        Warn when the reference fraction is below it (SA4).
 
     Returns
     -------
@@ -314,7 +341,10 @@ def reconstruct_frames(
         xp=xp,
         background_max_age_s=background_max_age_s,
         parameter_set_id=parameter_set_id,
+        min_reference_fraction=min_reference_fraction,
     )
+    if reference_mask is not None:
+        session.set_reference_mask(reference_mask)
     if isinstance(background, BackgroundModel):
         session.use_background(background)
     else:

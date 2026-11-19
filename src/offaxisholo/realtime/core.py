@@ -58,6 +58,7 @@ from .metrics import (
     intensity_stats,
     piston_phase,
     reference_phase_noise,
+    sideband_snr,
     sideband_stats,
 )
 from .timing import StageTimer
@@ -78,6 +79,27 @@ def tukey(n, alpha):
     w[left] = 0.5 * (1 + np.cos(2 * np.pi / alpha * (x[left] - alpha / 2)))
     w[right] = 0.5 * (1 + np.cos(2 * np.pi / alpha * (x[right] - 1 + alpha / 2)))
     return w
+
+
+def _noise_block(size, half_extent, order):
+    """Noise block of the sideband SNR (K8): rows / cols slices or (None, None).
+
+    A square of ``max(4, size // 32)`` spectrum pixels around the Nyquist
+    corner ``(size / 2, size / 2)`` of the unshifted spectrum, the highest
+    spatial frequencies, far from DC. Rejected (None) when it touches the box
+    ``order ± half_extent`` of the sideband or of its conjugate.
+    """
+    b = max(4, size // 32)
+    start = size // 2 - b // 2
+    block = set(range(start, start + b))
+    fy, fx = order
+    reach = range(-int(half_extent), int(half_extent) + 1)
+    for sign in (1, -1):
+        rows = {int((sign * fy + o) % size) for o in reach}
+        cols = {int((sign * fx + o) % size) for o in reach}
+        if block & rows and block & cols:
+            return None, None
+    return slice(start, start + b), slice(start, start + b)
 
 
 class _PhasorStats:
@@ -191,6 +213,18 @@ class OffAxisPipeline:
             self._mask = None
             self._sideband_window = xp.asarray(window, dtype=self.rdtype)
 
+        # sideband SNR (K8): effective sideband area and a noise block at the
+        # Nyquist corner of the spectrum, free of both sidebands
+        if d.mask == "circle":
+            self._sideband_pixels = float((oy * oy + ox * ox <= radius * radius).sum())
+            half_extent = min(math.ceil(radius), self.n // 2)
+        else:
+            self._sideband_pixels = float((window * window).sum())
+            half_extent = self.n // 2
+        self._noise_rows, self._noise_cols = _noise_block(
+            self.size, half_extent, (fy, fx)
+        )
+
         if d.edge_alpha > 0:
             edge_1d = tukey(self.size, d.edge_alpha)
             edge = np.outer(edge_1d, edge_1d)
@@ -198,14 +232,18 @@ class OffAxisPipeline:
         else:
             self._edge_window = None
 
+        # reference region (SA4 ladder, K8): a-priori mask of the capture
+        # (set_reference_mask) -> border ring (compensation.ref_border) ->
+        # whole field
         border = config.compensation.ref_border
         if border is None:
-            self._ref_weight = None  # whole field
+            self._border_mask = None
         else:
-            weight = np.zeros((self.n, self.n))
-            weight[:border, :] = weight[-border:, :] = 1
-            weight[:, :border] = weight[:, -border:] = 1
-            self._ref_weight = xp.asarray(weight, dtype=self.rdtype)
+            ring = np.zeros((self.n, self.n), dtype=bool)
+            ring[:border, :] = ring[-border:, :] = True
+            ring[:, :border] = ring[:, -border:] = True
+            self._border_mask = ring
+        self.set_reference_mask(None)
 
         self.crop_pitch = config.crop_pitch
         self._transfer_cache = {}
@@ -249,13 +287,53 @@ class OffAxisPipeline:
             if frame.min() < 0 or not np.all(np.isfinite(frame)):
                 raise ValueError("Real, finite, positive hologram image required.")
 
+    def set_reference_mask(self, mask):
+        """Use an a-priori reference mask for piston and noise (G10 SA1, K8).
+
+        Call it before the first object frame of a measurement; it stays until
+        it is replaced (``None`` returns to the border ring or the whole
+        field). The background is not affected.
+
+        Parameters
+        ----------
+        mask : array_like of bool or None
+            True = structure-free pixel of the reconstruction grid (n, n), e.g.
+            from :func:`offaxisholo.realtime.reference_mask.reference_mask`.
+
+        Raises
+        ------
+        ValueError
+            For a wrong shape or an empty mask.
+        """
+        if mask is None:
+            if self._border_mask is None:
+                self.reference_source = "whole_field"
+                self.reference_region = None
+                self._ref_weight = None
+            else:
+                self.reference_source = "border_ring"
+                self.reference_region = self._border_mask
+                self._ref_weight = self.xp.asarray(self._border_mask, dtype=self.rdtype)
+            return
+        region = np.asarray(mask, dtype=bool)
+        if region.shape != (self.n, self.n):
+            raise ValueError(
+                f"Reference mask shape {region.shape} != ({self.n}, {self.n})."
+            )
+        if not region.any():
+            raise ValueError("The reference mask holds no reference pixel.")
+        self.reference_source = "mask_a_priori"
+        self.reference_region = region
+        self._ref_weight = self.xp.asarray(region, dtype=self.rdtype)
+
     def demodulate(self, frame):
         """Camera frame (N, N), any real dtype -> complex sideband field (n, n)."""
         return self._demodulate_parts(frame)[2]
 
     def _demodulate_parts(self, frame):
         """Demodulation with its intermediate results (for the frame metrics):
-        windowed real frame (N, N), masked sideband crop (n, n), field (n, n)."""
+        windowed real frame (N, N), masked sideband crop (n, n), field (n, n),
+        full spectrum (N, N)."""
         xp = self.xp
         h = xp.astype(xp.asarray(frame), self.rdtype)
         if self._edge_window is not None:
@@ -266,7 +344,7 @@ class OffAxisPipeline:
             crop = xp.where(self._mask, crop, 0)
         else:
             crop = crop * self._sideband_window
-        return h, crop, xp.fft.ifftn(crop, axes=(-2, -1))
+        return h, crop, xp.fft.ifftn(crop, axes=(-2, -1)), spectrum
 
     def _piston(self, field, reference, weight):
         """Unit phasor exp(-i arg p) of p = sum(field * conj(reference) * w),
@@ -452,7 +530,7 @@ class OffAxisPipeline:
         t = timer.start()
         frame = self.xp.asarray(frame)
         t = timer.lap("upload", t)
-        real_frame, crop, U = self._demodulate_parts(frame)
+        real_frame, crop, U, spectrum = self._demodulate_parts(frame)
         t = timer.lap("demodulation", t)
         raw = U
         unit = correction = None
@@ -466,10 +544,14 @@ class OffAxisPipeline:
             self._fields.add(U)
         t = timer.lap("averaging", t)
         if self._metrics is not None:
-            self._record_metrics(frame, real_frame, crop, raw, unit, correction)
+            self._record_metrics(
+                frame, real_frame, crop, raw, unit, correction, spectrum
+            )
             timer.lap("metrics", t)
 
-    def _record_metrics(self, frame, real_frame, crop, field, unit, correction):
+    def _record_metrics(
+        self, frame, real_frame, crop, field, unit, correction, spectrum
+    ):
         """Hot path: per-frame metrics into the device recorder (K2)."""
         xp = self.xp
         m = self.config.metrics
@@ -479,6 +561,14 @@ class OffAxisPipeline:
             xp, frame, m.saturation_level, m.black_level, self._quantiles
         )
         fraction, peak, dx, dy = sideband_stats(xp, real_frame, crop, self._offsets)
+        snr = sideband_snr(
+            xp,
+            spectrum,
+            crop,
+            self._sideband_pixels,
+            self._noise_rows,
+            self._noise_cols,
+        )
         noise = reference_phase_noise(xp, field, self.Ub, correction, self._ref_weight)
         self._metrics.record(
             (
@@ -491,6 +581,7 @@ class OffAxisPipeline:
                 peak,
                 dx,
                 dy,
+                snr,
                 piston_phase(xp, unit),
                 noise,
             )

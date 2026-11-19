@@ -80,9 +80,11 @@ def test_header_has_every_required_field(header):
 def test_header_values_follow_the_contract(header):
     sources = COMMON["$defs"]["reference_source"]["enum"]
     assert header["quality"]["reference_source"] in sources
-    assert header["quality"]["reference_source"] == "whole_field"
-    assert header["quality"]["reference_fraction"] == 0.0
-    assert header["quality"]["phase_noise_rad"] is None  # no mask: null (D13)
+    # _config() sets compensation.ref_border: SA4 ladder -> border ring (K8)
+    assert header["quality"]["reference_source"] == "border_ring"
+    assert 0.0 < header["quality"]["reference_fraction"] < 1.0
+    assert header["quality"]["phase_noise_rad"] > 0
+    assert header["quality"]["sideband_snr"] > 1
     assert header["parameter_set_id"] == "zeiss63x-test"
     assert len(header["config_hash"]) == 64
     assert len(header["pixel_um"]) == 2 and header["propagation_index"] > 0
