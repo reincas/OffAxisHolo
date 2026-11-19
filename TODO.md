@@ -140,6 +140,9 @@ All decisions O1–O11 and the global decisions that block todos here were taken
       subsets 1, 2, 4, … N and for each selection policy, from a replayed capture;
     - the evaluation on real data (captures with `keep_raw = all`) is recorded in WORKLOG.md and gives
       the input for O3. Partial result allowed while no such captures exist.
+  - Note (2026-11-19, MIRA MI-31): report the noise with the shared definition `mira.noise.reference_noise`
+    (optional import) so fusion, comparison and this study give the same number; `mira.noise.fit_noise_model`
+    fits σ² = σt²/(Nf·Np) + σcoh²/Np (M4).
 
 - [ ] K15: Public API and documentation [phase: 2]
   - Priority: medium
