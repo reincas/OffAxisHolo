@@ -445,3 +445,27 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` (Python 3.12.3; incl. golden and import hygiene): 231 passed, 12 skipped; ruff, black clean.
 - **Commits:** `99c143e` feat(realtime): add __version__, git revision and the public exports [K15], `4ae30d6` docs(readme): document the product interface of the realtime package [K15], plus the `docs(todo)` commit.
 - **Follow-ups:** P13 (extended documentation) can build on the README section; on the DHM-PC (tagged release from GitHub, no working copy) `offaxisholo_git` is null — the version tag identifies the code there.
+
+### 2026-11-19 10:26 CET — [K17] Frame gating for the sliding and EMA modes
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/realtime/accumulators.py`: `SlidingAccumulator.add(field, weight)` / `EMAAccumulator.add(field, weight)` with a 0/1 device weight; gated `n_effective` and `mean` (raise when no frame passed)
+  - `src/offaxisholo/realtime/config.py`: `AveragingConfig.gate` (tuples normalised in `__post_init__`), `_validate_gate` (sliding / EMA only, metrics on, known metric, at least one bound, lower ≤ upper)
+  - `src/offaxisholo/realtime/core.py`: `_metric_values` (was `_record_metrics`), `_gate_weight`, `gate`, `frame_gate()`; with a gate the metrics are computed before averaging
+  - `src/offaxisholo/realtime/metrics.py`: `MetricsRecorder` keeps the gate weights, `weights()`
+  - `src/offaxisholo/realtime/selection.py`: `threshold_reason` shared by the `threshold` policy and the gate
+  - `src/offaxisholo/realtime/result.py`: gated records `used = False`, reason `"gated: …"`, `quality.n_frames_gated`, `n_frames_used` without gated frames
+  - `src/offaxisholo/realtime/api.py`: docstring and error message
+  - `tests/realtime/test_gating.py` (new): 19 tests (+ 2 CuPy tests skipped without CUDA)
+  - `tests/realtime/test_metrics.py`: hot-path check names `_metric_values`, `_gate_weight`
+  - `CLAUDE.md` (architecture, `selection.py` line), `TODO.md` (K17 to Done), `WORKLOG.md`: bookkeeping
+- **Tests:** `python -m pytest` (Python 3.12.3, incl. golden and import hygiene): 250 passed, 14 skipped; ruff, black clean. Gated sliding (window = all frames) equals the block average of the accepted frames, gated EMA equals the EMA of the accepted frames (rtol 1e-10); bright frames (+20 counts offset) are rejected by `sideband_fraction ≥ 0.03`.
+- **Commits:** `71e26ab` feat(realtime): gate frames on the device in sliding and EMA modes [K17], plus the `docs(todo)` commit. Branch `feat/k17-frame-gating`, not merged (the maintainer merges).
+- **Follow-ups:** gate thresholds belong into the parameter set (K9) once the N-study (K13) gives values; DHMConnect DL-B10 (live mode) can set `averaging.gate`. To check on the DHM-PC (K14): the CuPy gating test (`-m gpu`). Note: black 26.5 would reformat `tests/realtime/test_api.py` and `tests/test_import_hygiene.py` (style drift, left unchanged).
+
+### 2026-11-19 10:26 CET — [Phase 1] Phase summary
+- **Status:** done
+- **Changes:** none beyond the entries above (phase 1 todos K4, K16, K5, K2, K3, K6, K17, K7, K18, K8, K19 are done).
+- **Tests:** `python -m pytest`: 250 passed, 14 skipped (GPU tests skipped on the office PC).
+- **Commits:** see the K17 entry.
+- **Follow-ups:** to check on the DHM-PC (K14): all `-m gpu` tests incl. the hot-path guards with metrics, quality and gating; cost of the per-frame metrics (quantile sort, SNR block) on the RTX A2000. Open in later phases: K12, K13 (phase 2), K14 (phase 3), K9, K10, K11 (phase 4).
