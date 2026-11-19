@@ -5,8 +5,13 @@ Realtime GPU kernel for off-axis DHM (phase 1 of docs/realtime).
         DHMConfig, DemodConfig, RealtimeConfig, OffAxisPipeline, calibrate_order,
     )
 
-Product interface (K6): ``reconstruct_frames`` and ``ReconstructionSession``
-return a ``ReconstructionResult``; see ``offaxisholo.realtime.api``.
+Product interface (K6, K15): ``reconstruct_frames`` (one measurement) and
+``ReconstructionSession`` (frame by frame, used by the DHMConnect service)
+return a ``ReconstructionResult`` (contract 1.0; ``to_message`` /
+``from_message``). Helpers: ``calibrate_order`` / ``OrderCalibration``,
+``BackgroundModel``, ``SelectionPolicy``, ``reference_mask`` (K19),
+``reference_quality`` (K8), ``unwrap`` / ``TemporalUnwrapper``,
+``default_versions``.
 
 Lightweight: importing this package loads neither tkinter, matplotlib,
 scikit-image, OpenCV nor scidatacontainer (tests/test_import_hygiene.py).
@@ -35,6 +40,9 @@ _LAZY = {
     "ReconstructionSession": ".api",
     "reconstruct_frames": ".api",
     "reference_mask": ".reference_mask",
+    "reference_quality": ".quality",
+    "reference_phase_noise_after_plane": ".quality",
+    "default_versions": ".result",
     "BackgroundModel": ".background",
     "BlockAccumulator": ".accumulators",
     "SlidingAccumulator": ".accumulators",
