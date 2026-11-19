@@ -162,19 +162,15 @@ All decisions O1–O11 and the global decisions that block todos here were taken
   - `ParameterSet` draft 0.1 and `parameter_set_hash` exist in DHMConnect `fc85f5c` (DL-A3); K9 finalises
     the schema there and must reproduce the hash of the vendored example.
 
-- [ ] K10: z handling and focus sweep (G4) [phase: 4]
-  - Priority: high
-  - Size: M
-  - Depends on: –
+- [ ] K22: Default z per objective from the focus study (follow-up of K10) [phase: 4]
+  - Priority: medium
+  - Size: S
+  - Depends on: K10; 20x captures (object + background) from the lab; maintainer decision (G4)
   - Done when:
-    - z from the request (always with its `propagation_index`), a list of z values (one FFT, several
-      transfer functions) and a z sweep with a sharpness metric of the reconstructed amplitude (default:
-      minimum of std / mean) exist and are tested on synthetic defocused fields; used by
-      nanofactorysystem T107 (focus from the corner markers);
-    - per-capture autofocus can be computed behind a flag and is only reported in `quality`, never
-      applied, until validated;
-    - the focus study (real data, 20x / 63x) gives the final default z per objective; until then 63x
-      uses −2.6 µm at n = 1.0 (recorded in the parameter set as `unverified`).
+    - `tools/focus_study.py` has run on 20x and 63x captures, with the ROI rule fixed (whole field or the
+      structure region; K10 showed differences of up to 1.5 µm between whole field and central half);
+    - the maintainer has chosen the default z per objective; it is written into the parameter sets (K9),
+      still marked `unverified` until checked against the corner-marker focus (nanofactorysystem T107).
 
 - [ ] K11: Unwrapping per tile and test plan K11-T (O5) [phase: 4]
   - Priority: medium
@@ -423,6 +419,22 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## In Progress
 <!-- Claude Code moves a todo here when starting work. -->
+
+- [~] K10: z handling and focus sweep (G4) [phase: 4]
+  - Priority: high
+  - Size: M
+  - Depends on: –
+  - Done when:
+    - z from the request (always with its `propagation_index`), a list of z values (one FFT, several
+      transfer functions) and a z sweep with a sharpness metric of the reconstructed amplitude (default:
+      minimum of std / mean) exist and are tested on synthetic defocused fields; used by
+      nanofactorysystem T107 (focus from the corner markers);
+    - per-capture autofocus can be computed behind a flag and is only reported in `quality`, never
+      applied, until validated;
+    - the focus study (real data, 20x / 63x) gives the final default z per objective; until then 63x
+      uses −2.6 µm at n = 1.0 (recorded in the parameter set as `unverified`).
+  - Done (2026-11-19, `c7ba13b`, `ca350ae`): z with its `propagation_index` per request (`ReconstructionSession.result(z, propagation_index=...)`), z lists with one FFT, `realtime.focus` (sweep with `amplitude_cv`, parabola-refined minimum, `at_edge`), `focus_sweep()` for stored fields (T107), autofocus behind `ReconstructionSession(autofocus=...)` reported only in `quality`; `tools/focus_study.py` on the 63x data: whole field print DOE1 −2.71, rect1 −2.01, stair1 −2.59, developed DOE1 −3.70, rect1 −2.79, stair1 −3.75 µm at n = 1.0; central-half ROI differs by up to 1.5 µm.
+  - Remaining: the final default z per objective (no 20x data; maintainer decision) → K22.
 
 
 

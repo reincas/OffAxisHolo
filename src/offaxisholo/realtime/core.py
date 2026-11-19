@@ -368,11 +368,15 @@ class OffAxisPipeline:
         unit = p / (xp.abs(p) + _TINY)
         return unit, xp.astype(xp.conj(unit), self.cdtype)
 
-    def _transfer(self, shape, z):
-        key = (tuple(shape), float(z))
+    def _transfer(self, shape, z, n_medium=None, cache=True):
+        """Transfer function H(z) of the crop grid; ``n_medium`` defaults to
+        ``propagation.n_medium``. Cached per (shape, z, n_medium) unless
+        ``cache`` is False (focus sweeps)."""
+        p = self.config.propagation
+        n_medium = p.n_medium if n_medium is None else float(n_medium)
+        key = (tuple(shape), float(z), n_medium)
         H = self._transfer_cache.get(key)
         if H is None:
-            p = self.config.propagation
             dx, dy = self.crop_pitch
             H = transfer_function(
                 shape,
@@ -380,12 +384,13 @@ class OffAxisPipeline:
                 dy,
                 self.config.dhm.wavelength,
                 z,
-                n_medium=p.n_medium,
+                n_medium=n_medium,
                 band_limit=p.band_limit,
                 xp=self.xp,
                 dtype=self.rdtype,
             )
-            self._transfer_cache[key] = H
+            if cache:
+                self._transfer_cache[key] = H
         return H
 
     # ---------------------------------------------------------------- background
@@ -703,22 +708,11 @@ class OffAxisPipeline:
             raise RuntimeError("Background required.")
         return self._acc.mean() * self.K
 
-    def results(self, z_list=None) -> list[RealtimeResult]:
-        """
-        Results for several propagation distances (default: config z). One FFT
-        of the compensated field is shared by all distances; z = 0 is the
-        hologram plane.
-        """
+    def _propagate(self, E, z_list, n_medium, cache=True):
+        """Yield ``(z, field_z)`` for every distance: one FFT of ``E`` shared by
+        all distances, one transfer function each (z = 0 returns ``E``)."""
         xp = self.xp
-        z_list = self.config.propagation.z if z_list is None else tuple(z_list)
-        if not z_list:
-            z_list = (0.0,)
-        timer = self.timer
-        t = timer.start()
-        E = self.compensated_field()
-        t = timer.lap("compensation", t)
         padding = self.config.propagation.padding
-
         spectrum = background = None
         if any(float(z) != 0.0 for z in z_list):
             source = E
@@ -726,37 +720,109 @@ class OffAxisPipeline:
                 background = border_mean(E)
                 source = pad_centered(E - background)
             spectrum = xp.fft.fftn(source, axes=(-2, -1))
-
-        meta = self._metadata()
-        out = []
         for z in z_list:
             z = float(z)
             if z == 0.0:
-                field_z = E
-            else:
-                field_z = xp.fft.ifftn(
-                    spectrum * self._transfer(spectrum.shape, z), axes=(-2, -1)
+                yield z, E
+                continue
+            H = self._transfer(spectrum.shape, z, n_medium, cache=cache)
+            field_z = xp.fft.ifftn(spectrum * H, axes=(-2, -1))
+            if padding:
+                field_z = crop_centered(field_z, E.shape)
+                field_z = field_z + background * plane_wave_factor(
+                    z, self.config.dhm.wavelength, n_medium
                 )
-                if padding:
-                    field_z = crop_centered(field_z, E.shape)
-                    field_z = field_z + background * plane_wave_factor(
-                        z,
-                        self.config.dhm.wavelength,
-                        self.config.propagation.n_medium,
-                    )
-            out.append(RealtimeResult(field=field_z, z=z, meta=dict(meta, z=z)))
+            yield z, field_z
+
+    def _propagation_index(self, propagation_index):
+        """The index of a request, default ``propagation.n_medium``."""
+        if propagation_index is None:
+            return float(self.config.propagation.n_medium)
+        n = float(propagation_index)
+        if not (math.isfinite(n) and n > 0):
+            raise ValueError(f"propagation_index must be positive, got {n}.")
+        return n
+
+    def results(self, z_list=None, propagation_index=None) -> list[RealtimeResult]:
+        """
+        Results for several propagation distances (default: config z). One FFT
+        of the compensated field is shared by all distances; z = 0 is the
+        hologram plane.
+
+        Parameters
+        ----------
+        z_list : sequence of float, optional
+            Distances in metres; default ``propagation.z``.
+        propagation_index : float, optional
+            Refractive index of the medium that belongs to these distances
+            (G4: a z always comes with its index); default
+            ``propagation.n_medium``. Stored in ``meta["propagation_index"]``.
+        """
+        z_list = self.config.propagation.z if z_list is None else tuple(z_list)
+        if not z_list:
+            z_list = (0.0,)
+        n_medium = self._propagation_index(propagation_index)
+        timer = self.timer
+        t = timer.start()
+        E = self.compensated_field()
+        t = timer.lap("compensation", t)
+        meta = dict(self._metadata(), propagation_index=n_medium)
+        out = [
+            RealtimeResult(field=field_z, z=z, meta=dict(meta, z=z))
+            for z, field_z in self._propagate(E, z_list, n_medium)
+        ]
         timer.lap("propagation", t)
         return out
 
-    def result(self, z=None) -> RealtimeResult:
+    def result(self, z=None, propagation_index=None) -> RealtimeResult:
         """Result for one distance (default: the single configured z, or the
-        hologram plane if none is configured)."""
+        hologram plane if none is configured); ``propagation_index`` as in
+        :meth:`results`."""
         if z is None:
             configured = self.config.propagation.z
             if len(configured) > 1:
                 raise ValueError("Several z configured; use results().")
             z = configured[0] if configured else 0.0
-        return self.results((z,))[0]
+        return self.results((z,), propagation_index)[0]
+
+    def focus_sweep(self, z_um, *, roi=None, propagation_index=None):
+        """Sharpness of the compensated field over a list of distances (K10).
+
+        One FFT of the compensated field, one (uncached) transfer function
+        per distance; only one propagated field is alive at a time.
+
+        Parameters
+        ----------
+        z_um : sequence of float
+            Distances in µm (at least three for a refined minimum).
+        roi : array_like of bool, optional
+            Pixels of the crop grid (n, n) that enter the metric (True), e.g.
+            the structure region; default the whole field.
+        propagation_index : float, optional
+            Index that belongs to the distances; default
+            ``propagation.n_medium``.
+
+        Returns
+        -------
+        offaxisholo.realtime.focus.FocusSweep
+            Synchronises once per distance (one scalar each).
+        """
+        from .focus import FocusSweep, amplitude_cv
+
+        n_medium = self._propagation_index(propagation_index)
+        weight = None
+        if roi is not None:
+            region = np.asarray(roi, dtype=bool)
+            if region.shape != (self.n, self.n):
+                raise ValueError(f"ROI shape {region.shape} != ({self.n}, {self.n}).")
+            weight = self.xp.asarray(region, dtype=self.rdtype)
+        E = self.compensated_field()
+        z_m = [float(z) * 1e-6 for z in z_um]
+        values = [
+            float(amplitude_cv(self.xp, field_z, weight))
+            for _, field_z in self._propagate(E, z_m, n_medium, cache=False)
+        ]
+        return FocusSweep.from_values(z_um, values, propagation_index=n_medium)
 
     def _metadata(self) -> dict:
         c = self.config

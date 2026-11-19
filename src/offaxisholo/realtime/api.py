@@ -41,6 +41,7 @@ from dataclasses import replace
 from .background import BackgroundModel
 from .config import RealtimeConfig
 from .core import OffAxisPipeline
+from .focus import AutofocusConfig
 from .result import FrameRecord, ReconstructionResult
 from .selection import SelectionPolicy, select_frames
 
@@ -88,6 +89,10 @@ class ReconstructionSession:
     min_reference_fraction : float, optional
         Results warn when their reference fraction is below it (SA4, K8;
         parameter set). None disables the warning.
+    autofocus : AutofocusConfig, optional
+        Compute a focus sweep per result and report its minimum in
+        ``quality`` (``autofocus_*`` keys, K10). Never applied: the result
+        plane stays the requested z (G4). Off by default.
 
     Notes
     -----
@@ -107,8 +112,10 @@ class ReconstructionSession:
         background_max_age_s: float | None = None,
         parameter_set_id: str = "",
         min_reference_fraction: float | None = None,
+        autofocus: AutofocusConfig | None = None,
     ):
         self.parameter_set_id = parameter_set_id
+        self.autofocus = None if autofocus is None else autofocus.validate()
         self.min_reference_fraction = min_reference_fraction
         self.selection = (selection or SelectionPolicy()).validate()
         self.background_max_age_s = background_max_age_s
@@ -225,7 +232,12 @@ class ReconstructionSession:
         self._infos.clear()
         self._pushed = 0
 
-    def result(self, z: float | None = None, timings_s: dict | None = None):
+    def result(
+        self,
+        z: float | None = None,
+        timings_s: dict | None = None,
+        propagation_index: float | None = None,
+    ):
         """Select the frames and build the product result.
 
         Parameters
@@ -235,6 +247,10 @@ class ReconstructionSession:
             (or the hologram plane when none is configured).
         timings_s : dict, optional
             Additional caller timings in seconds (e.g. the grab time).
+        propagation_index : float, optional
+            Refractive index that belongs to ``z`` (G4: the request gives z
+            with its index); default ``config.propagation.n_medium``. Stored
+            as ``propagation_index`` in the result.
 
         Returns
         -------
@@ -249,7 +265,7 @@ class ReconstructionSession:
             selection = select_frames(pipe.frame_metrics(), self.selection)
         warnings = pipe.background_model().warnings(self.background_max_age_s)
         result = ReconstructionResult.from_realtime(
-            pipe.result(z),
+            pipe.result(z, propagation_index),
             pipe,
             include_field=self._include_field,
             timings_s=timings_s,
@@ -258,6 +274,8 @@ class ReconstructionSession:
             parameter_set_id=self.parameter_set_id,
             min_reference_fraction=self.min_reference_fraction,
         )
+        if self.autofocus is not None:
+            result.quality.update(self._autofocus(result.propagation_index).quality())
         infos = dict(self._infos)
         if result.frames:
             for record in result.frames:
@@ -269,6 +287,23 @@ class ReconstructionSession:
                 for index, info in sorted(infos.items())
             ]
         return result
+
+    def _autofocus(self, propagation_index):
+        """Focus sweep of the current measurement (report only, K10)."""
+        pipe = self.pipeline
+        roi = None
+        if self.autofocus.roi == "structure" and pipe.reference_source == (
+            "mask_a_priori"
+        ):
+            roi = ~pipe.reference_region
+            if not roi.any():
+                roi = None
+        index = self.autofocus.propagation_index
+        return pipe.focus_sweep(
+            self.autofocus.z_um,
+            roi=roi,
+            propagation_index=propagation_index if index is None else index,
+        )
 
 
 def reconstruct_frames(
@@ -286,6 +321,8 @@ def reconstruct_frames(
     parameter_set_id: str = "",
     reference_mask=None,
     min_reference_fraction: float | None = None,
+    propagation_index: float | None = None,
+    autofocus: AutofocusConfig | None = None,
 ) -> ReconstructionResult:
     """Reconstruct one measurement from its object and background frames.
 
@@ -321,6 +358,11 @@ def reconstruct_frames(
         the border ring of ``compensation.ref_border`` or the whole field.
     min_reference_fraction : float, optional
         Warn when the reference fraction is below it (SA4).
+    propagation_index : float, optional
+        Refractive index that belongs to ``z``; default
+        ``config.propagation.n_medium``.
+    autofocus : AutofocusConfig, optional
+        Report a focus-sweep estimate in ``quality`` (never applied, K10).
 
     Returns
     -------
@@ -345,6 +387,7 @@ def reconstruct_frames(
         background_max_age_s=background_max_age_s,
         parameter_set_id=parameter_set_id,
         min_reference_fraction=min_reference_fraction,
+        autofocus=autofocus,
     )
     if reference_mask is not None:
         session.set_reference_mask(reference_mask)
@@ -354,4 +397,4 @@ def reconstruct_frames(
         session.set_background(background)
     for index, frame in enumerate(frames):
         session.push(frame, None if frame_info is None else frame_info[index])
-    return session.result(z)
+    return session.result(z, propagation_index=propagation_index)

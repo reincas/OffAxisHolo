@@ -469,3 +469,18 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest`: 250 passed, 14 skipped (GPU tests skipped on the office PC).
 - **Commits:** see the K17 entry.
 - **Follow-ups:** to check on the DHM-PC (K14): all `-m gpu` tests incl. the hot-path guards with metrics, quality and gating; cost of the per-frame metrics (quantile sort, SNR block) on the RTX A2000. Open in later phases: K12, K13 (phase 2), K14 (phase 3), K9, K10, K11 (phase 4).
+
+### 2026-11-19 11:06 CET — [K10] z handling and focus sweep
+- **Status:** partial
+- **Changes:**
+  - `src/offaxisholo/realtime/focus.py` (new): `amplitude_cv`, `refine_minimum`, `FocusSweep`, `AutofocusConfig`, `sweep_range`, `focus_sweep` (stored fields)
+  - `src/offaxisholo/realtime/core.py`: `_propagate` (shared loop), `results` / `result` with `propagation_index`, transfer cache keyed by (shape, z, index), `focus_sweep` (uncached transfer functions)
+  - `src/offaxisholo/realtime/result.py`: `propagation_index` from the kernel result meta
+  - `src/offaxisholo/realtime/api.py`: `ReconstructionSession(autofocus=...)`, `result(..., propagation_index=...)`; `reconstruct_frames(propagation_index=..., autofocus=...)`
+  - `src/offaxisholo/realtime/__init__.py`: lazy exports
+  - `tests/realtime/test_focus.py` (new): 13 tests (defocused phase objects found within 0.1 µm, index scaling 1.5 ± 10 %, kernel = pure sweep, cache not grown, autofocus reported but not applied, structure ROI from the a-priori mask)
+  - `tools/focus_study.py` (new): focus study on the data of `data/developed`, `data/print`
+  - `CLAUDE.md`: architecture line for `focus.py`; `TODO.md`: K10 to In Progress with the result, new K22; `WORKLOG.md`: this entry
+- **Tests:** `python -m pytest` (Python 3.12.3, incl. golden and import hygiene): 244 passed, 12 skipped; ruff, black clean. Focus study (63x preset, step 0.25 µm, n = 1.0; whole field): print DOE1 −2.71, rect1 −2.01, stair1 −2.59, developed DOE1 −3.70, rect1 −2.79, stair1 −3.75 µm — reproduces `docs/reconstruction_order.md` §5b. Central-half ROI: print DOE1 −3.93, rect1 −1.08, stair1 −2.65; developed −3.66 / −3.26 / −3.69 µm. n = 1.508 (central half): print −6.00 (edge), −1.97, −3.96 µm. About 0.8 s per distance at 1024² double on the office PC.
+- **Commits:** `c7ba13b` feat(realtime): add focus sweep and the propagation index per request [K10], `ca350ae` feat(tools): add the focus study script for real holograms [K10], plus the `docs(todo)` commit. Branch `feat/k10-focus-sweep` (from `Holo_HR`, independent of `feat/k17-frame-gating`), not merged.
+- **Follow-ups:** K22 (default z per objective: 20x data, ROI rule, maintainer decision G4). The estimate is ROI-sensitive; nanofactorysystem T107 should evaluate the sweep on the corner markers only. DHMConnect DL-B4 note added (z with index, autofocus). Branches K17 and K10 both touch `core.py` / `api.py`; expect a small merge conflict in `OffAxisPipeline.push` / `ReconstructionSession.__init__` when both are merged.

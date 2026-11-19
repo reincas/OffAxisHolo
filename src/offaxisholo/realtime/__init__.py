@@ -11,7 +11,8 @@ return a ``ReconstructionResult`` (contract 1.0; ``to_message`` /
 ``from_message``). Helpers: ``calibrate_order`` / ``OrderCalibration``,
 ``BackgroundModel``, ``SelectionPolicy``, ``reference_mask`` (K19),
 ``reference_quality`` (K8), ``unwrap`` / ``TemporalUnwrapper``,
-``default_versions``.
+``default_versions``, focus sweep ``focus_sweep`` / ``AutofocusConfig`` /
+``sweep_range`` (K10).
 
 Lightweight: importing this package loads neither tkinter, matplotlib,
 scikit-image, OpenCV nor scidatacontainer (tests/test_import_hygiene.py).
@@ -40,6 +41,10 @@ _LAZY = {
     "ReconstructionSession": ".api",
     "reconstruct_frames": ".api",
     "reference_mask": ".reference_mask",
+    "AutofocusConfig": ".focus",
+    "FocusSweep": ".focus",
+    "focus_sweep": ".focus",
+    "sweep_range": ".focus",
     "reference_quality": ".quality",
     "reference_phase_noise_after_plane": ".quality",
     "default_versions": ".result",
