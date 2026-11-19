@@ -33,6 +33,8 @@ from typing import Any
 
 import numpy as np
 
+from .quality import median_metric, reference_quality
+
 # 0.2: timings_profiled (K5); 0.3: warnings (K7); 1.0: shared contract (K16):
 # intensity -> intensity_rel, pixel_pitch_um (x, y) -> pixel_um (y, x),
 # n_medium -> propagation_index, parameter_set_id, reference quality keys.
@@ -280,6 +282,7 @@ class ReconstructionResult:
         selection=None,
         warnings: list[str] | None = None,
         parameter_set_id: str = "",
+        min_reference_fraction: float | None = None,
     ) -> ReconstructionResult:
         """Build the product result from a kernel result.
 
@@ -314,6 +317,8 @@ class ReconstructionResult:
             Warnings to pass on (e.g. ``BackgroundModel.warnings``).
         parameter_set_id : str, optional
             Id of the parameter set (see the class parameters).
+        min_reference_fraction : float, optional
+            Warn when the reference fraction of the result is below it (SA4).
 
         Notes
         -----
@@ -370,6 +375,16 @@ class ReconstructionResult:
                 n_frames_total=int(pipeline.n_frames),
                 n_frames_used=int(pipeline.n_frames),
             )
+        # K8: reference ladder (SA4), noise after plane removal, sideband SNR
+        reference, reference_warnings = reference_quality(
+            host["phase"],
+            getattr(pipeline, "reference_region", None),
+            getattr(pipeline, "reference_source", "whole_field"),
+            min_reference_fraction=min_reference_fraction,
+        )
+        quality.update(reference)
+        quality["sideband_snr"] = median_metric(frames or [], "sideband_snr")
+        warnings = [*(warnings or []), *reference_warnings]
         background = pipeline.background_model()
         quality["background_id"] = background.model_id
         quality["background_created_utc"] = background.created_utc

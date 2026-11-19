@@ -22,12 +22,16 @@ Metrics (column order of :data:`METRIC_NAMES`):
     sideband_peak_dx_px      position of the strongest sideband pixel relative
     sideband_peak_dy_px      to the calibrated order (spectrum pixels); a
                              shifted carrier shows up here
+    sideband_snr             mean spectral power per pixel of the masked
+                             sideband / mean power per pixel of a noise block
+                             at the Nyquist corner of the spectrum (linear,
+                             K8); NaN when the block would touch a sideband
     piston_rad               global phase of the frame against the background
                              (reference region), before the piston correction
     phase_noise_rad          standard deviation of the piston-corrected phase
                              against the background in the reference region;
-                             NaN when no reference region is configured
-                             (``compensation.ref_border``; decision O4)
+                             NaN without a reference region (a-priori mask
+                             or ``compensation.ref_border``; SA4, K8)
 
 The quantiles use ``xp.quantile`` (linear interpolation; one sort per frame).
 A histogram would be cheaper for 8-bit frames but ``cupy.bincount`` reads the
@@ -48,6 +52,7 @@ METRIC_NAMES = (
     "sideband_peak_fraction",
     "sideband_peak_dx_px",
     "sideband_peak_dy_px",
+    "sideband_snr",
     "piston_rad",
     "phase_noise_rad",
 )
@@ -122,6 +127,37 @@ def sideband_stats(xp, real_frame, crop, offsets):
         peak_dx,
         peak_dy,
     )
+
+
+def sideband_snr(xp, spectrum, crop, sideband_pixels, noise_rows, noise_cols):
+    """Sideband signal-to-noise ratio of one frame (K8).
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    spectrum : array
+        Unnormalised FFT of the (windowed) frame, shape (N, N).
+    crop : array
+        Masked (or windowed) sideband crop of ``spectrum``, shape (n, n).
+    sideband_pixels : float
+        Effective number of sideband pixels (mask area, or the sum of the
+        squared sideband window).
+    noise_rows, noise_cols : slice or None
+        Noise block of the spectrum (high spatial frequencies, free of both
+        sidebands and DC); None returns NaN.
+
+    Returns
+    -------
+    0-d device array
+        Mean sideband power per pixel / mean noise power per pixel (linear).
+    """
+    if noise_rows is None:
+        return xp.asarray(math.nan, dtype=xp.float64)
+    signal = xp.sum(xp.abs(crop) ** 2, dtype=xp.float64) / sideband_pixels
+    block = spectrum[noise_rows, noise_cols]
+    noise = xp.mean(xp.astype(xp.abs(block) ** 2, xp.float64))
+    return signal / (noise + _TINY)
 
 
 def piston_phase(xp, unit_phasor):
