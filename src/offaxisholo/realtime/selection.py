@@ -37,8 +37,9 @@ The kernel averages in ``push`` (hot path), before the selection is known.
   (1024 x 1024) 128 MiB (single) or 256 MiB (double).
 * Sliding and EMA modes have no end of measurement and cannot keep the fields.
   They can only use fixed thresholds decided per frame on the device (a 0/1
-  weight per frame, no host decision). This gating is not implemented yet
-  (K17); ``apply_selection`` refuses these modes.
+  weight per frame, no host decision): ``AveragingConfig.gate`` (K17), with
+  the same bounds semantics as the ``threshold`` policy. ``apply_selection``
+  refuses these modes.
 """
 
 from __future__ import annotations
@@ -199,6 +200,37 @@ def _format(value: float) -> str:
     return f"{value:.6g}"
 
 
+def threshold_reason(metrics: dict, thresholds: dict) -> str | None:
+    """Reject reason of one frame against fixed thresholds, or None.
+
+    Shared by the ``threshold`` policy and the frame gate of the sliding / EMA
+    modes (K17), so both report the same reason for the same bounds.
+
+    Parameters
+    ----------
+    metrics : dict
+        Metrics of the frame (metric name -> value).
+    thresholds : dict
+        Metric name -> ``(lower, upper)``; None for an open bound. Tested in
+        the order of the dict; the first failing bound gives the reason.
+
+    Returns
+    -------
+    str or None
+        ``"<name>: not available"`` for NaN, ``"<name> <value> < <lower>"`` or
+        ``"<name> <value> > <upper>"``; None when all bounds hold.
+    """
+    for name, (lower, upper) in thresholds.items():
+        value = float(metrics[name])
+        if math.isnan(value):
+            return f"{name}: not available"
+        if lower is not None and value < lower:
+            return f"{name} {_format(value)} < {_format(lower)}"
+        if upper is not None and value > upper:
+            return f"{name} {_format(value)} > {_format(upper)}"
+    return None
+
+
 def select_frames(records, policy: SelectionPolicy | None = None) -> Selection:
     """Select the frames of one measurement from their metrics.
 
@@ -229,17 +261,10 @@ def select_frames(records, policy: SelectionPolicy | None = None) -> Selection:
     reasons: list[str | None] = [None] * count
 
     if policy.policy == "threshold":
-        for name, (lower, upper) in policy.thresholds.items():
-            values = _column(rows, name)
-            for i, value in enumerate(values):
-                if reasons[i] is not None:
-                    continue
-                if math.isnan(value):
-                    reasons[i] = f"{name}: not available"
-                elif lower is not None and value < lower:
-                    reasons[i] = f"{name} {_format(value)} < {_format(lower)}"
-                elif upper is not None and value > upper:
-                    reasons[i] = f"{name} {_format(value)} > {_format(upper)}"
+        for name in policy.thresholds:
+            _column(rows, name)  # unknown metric -> ValueError
+        for i, row in enumerate(rows):
+            reasons[i] = threshold_reason(row, policy.thresholds)
 
     elif policy.policy == "robust":
         for name in policy.robust_metrics:

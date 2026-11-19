@@ -54,6 +54,7 @@ from .accumulators import FieldStore, make_accumulator
 from .background import BackgroundModel, utc_now
 from .config import RealtimeConfig
 from .metrics import (
+    METRIC_NAMES,
     MetricsRecorder,
     intensity_stats,
     piston_phase,
@@ -264,6 +265,16 @@ class OffAxisPipeline:
             self._offsets = xp.asarray(offsets)
         else:
             self._metrics = None
+        # frame gating of the sliding / EMA modes (K17): (column, lower, upper)
+        # per metric; validated by RealtimeConfig (needs the metrics)
+        column = {name: i for i, name in enumerate(METRIC_NAMES)}
+        self._gate = (
+            tuple(
+                (column[name], lower, upper)
+                for name, (lower, upper) in sorted(config.averaging.gate.items())
+            )
+            or None
+        )
         self._piston_obj = _PhasorStats(xp)
         self._piston_bg = _PhasorStats(xp)
         self.Ub = None
@@ -539,20 +550,48 @@ class OffAxisPipeline:
             U = U * correction
             self._piston_obj.add(unit)
             t = timer.lap("piston", t)
-        self._acc.add(U)
+        values = weight = None
+        if self._gate is not None:
+            values = self._metric_values(
+                frame, real_frame, crop, raw, unit, correction, spectrum
+            )
+            weight = self._gate_weight(values)
+            t = timer.lap("metrics", t)
+            self._acc.add(U, weight)
+        else:
+            self._acc.add(U)
         if self._fields is not None:
             self._fields.add(U)
         t = timer.lap("averaging", t)
         if self._metrics is not None:
-            self._record_metrics(
-                frame, real_frame, crop, raw, unit, correction, spectrum
-            )
+            if values is None:
+                values = self._metric_values(
+                    frame, real_frame, crop, raw, unit, correction, spectrum
+                )
+            self._metrics.record(values, weight)
             timer.lap("metrics", t)
 
-    def _record_metrics(
+    def _gate_weight(self, values):
+        """Hot path: 0/1 gate weight (0-d device array, real dtype) of a frame
+        from the fixed thresholds of ``averaging.gate`` (K17). A NaN metric
+        fails its bounds and rejects the frame."""
+        xp = self.xp
+        accepted = None
+        for column, lower, upper in self._gate:
+            value = xp.astype(xp.asarray(values[column]), xp.float64)
+            ok = value == value  # False for NaN
+            if lower is not None:
+                ok = ok & (value >= lower)
+            if upper is not None:
+                ok = ok & (value <= upper)
+            accepted = ok if accepted is None else accepted & ok
+        return xp.astype(accepted, self.rdtype)
+
+    def _metric_values(
         self, frame, real_frame, crop, field, unit, correction, spectrum
     ):
-        """Hot path: per-frame metrics into the device recorder (K2)."""
+        """Hot path: per-frame metrics (K2) as a tuple of 0-d device values in
+        the order of ``METRIC_NAMES``."""
         xp = self.xp
         m = self.config.metrics
         if unit is None:  # piston correction disabled: measure it anyway
@@ -570,21 +609,19 @@ class OffAxisPipeline:
             self._noise_cols,
         )
         noise = reference_phase_noise(xp, field, self.Ub, correction, self._ref_weight)
-        self._metrics.record(
-            (
-                saturated,
-                black,
-                p05,
-                median,
-                p95,
-                fraction,
-                peak,
-                dx,
-                dy,
-                snr,
-                piston_phase(xp, unit),
-                noise,
-            )
+        return (
+            saturated,
+            black,
+            p05,
+            median,
+            p95,
+            fraction,
+            peak,
+            dx,
+            dy,
+            snr,
+            piston_phase(xp, unit),
+            noise,
         )
 
     @property
@@ -637,6 +674,27 @@ class OffAxisPipeline:
         if self._metrics is None:
             return []
         return self._metrics.records()
+
+    @property
+    def gate(self) -> dict:
+        """The frame gate of the sliding / EMA modes (``averaging.gate``, K17);
+        empty when frames are not gated."""
+        return dict(self.config.averaging.gate)
+
+    def frame_gate(self) -> list[tuple[int, bool]]:
+        """Gate verdict of the frames since the last reset, aligned with
+        :meth:`frame_metrics` (host copy, synchronises).
+
+        Returns
+        -------
+        list of (int, bool)
+            Frame index and whether the frame passed the gate (True for all
+            frames when no gate is configured). Empty when metrics are
+            disabled.
+        """
+        if self._metrics is None:
+            return []
+        return [(index, weight > 0.5) for index, weight in self._metrics.weights()]
 
     # ------------------------------------------------------------------- results
     def compensated_field(self):

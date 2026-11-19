@@ -34,6 +34,9 @@ from typing import Any
 import numpy as np
 
 from .quality import median_metric, reference_quality
+from .selection import threshold_reason
+
+GATE_PREFIX = "gated: "  # reject reason of frames rejected by the K17 gate
 
 # 0.2: timings_profiled (K5); 0.3: warnings (K7); 1.0: shared contract (K16):
 # intensity -> intensity_rel, pixel_pitch_um (x, y) -> pixel_um (y, x),
@@ -359,6 +362,17 @@ class ReconstructionResult:
                         used, reason = verdict[record.index]
                         record.used = bool(used)
                         record.reject_reason = reason
+        gate = getattr(pipeline, "gate", None) or {}
+        n_gated = 0
+        if gate:
+            # K17: the device weight decides, the host only names the reason
+            passed = dict(pipeline.frame_gate())
+            for record in frames:
+                if not passed.get(record.index, True):
+                    n_gated += 1
+                    record.used = False
+                    reason = threshold_reason(record.metrics, gate)
+                    record.reject_reason = GATE_PREFIX + (reason or "rejected")
         config = pipeline.config
         dx, dy = pipeline.crop_pitch
         quality = {
@@ -375,6 +389,9 @@ class ReconstructionResult:
                 n_frames_total=int(pipeline.n_frames),
                 n_frames_used=int(pipeline.n_frames),
             )
+        if gate:
+            quality["n_frames_used"] = max(0, quality["n_frames_used"] - n_gated)
+            quality["n_frames_gated"] = n_gated  # the bounds are in the config
         # K8: reference ladder (SA4), noise after plane removal, sideband SNR
         reference, reference_warnings = reference_quality(
             host["phase"],

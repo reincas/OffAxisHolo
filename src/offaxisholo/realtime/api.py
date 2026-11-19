@@ -27,7 +27,10 @@ import only these two names plus the configuration classes
 Defaults (maintainer decisions of 2026-11-16): frame metrics are on (they can be
 switched off with ``metrics=False``); the selection policy is ``all`` (O3).
 A policy other than ``all`` needs the block averaging mode, because the fields
-are kept until the selection (``realtime.selection``, design note).
+are kept until the selection (``realtime.selection``, design note). The
+sliding and EMA modes gate frames by fixed thresholds on the device instead
+(``AveragingConfig.gate``, K17); gated frames appear in the frame records with
+``used = False`` and a ``"gated: …"`` reason.
 """
 
 from __future__ import annotations
@@ -119,7 +122,7 @@ class ReconstructionSession:
         if selecting and config.averaging.mode != "block":
             raise ValueError(
                 f"Selection policy '{self.selection.policy}' needs averaging mode "
-                f"'block' (sliding / EMA gating: K17)."
+                f"'block'; sliding / EMA gate frames with averaging.gate (K17)."
             )
         self.pipeline = OffAxisPipeline(
             config, xp=xp, profile=profile, keep_fields=selecting

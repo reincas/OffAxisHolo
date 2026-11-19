@@ -219,14 +219,16 @@ class MetricsRecorder:
         self.xp = xp
         self.capacity = int(capacity)
         self._table = xp.full((self.capacity, len(METRIC_NAMES)), math.nan)
+        self._weights = xp.ones((self.capacity,))  # gate weights (K17)
         self.count = 0
 
     def reset(self):
         """Forget all frames (the buffer is reused, not reallocated)."""
         self._table[...] = math.nan
+        self._weights[...] = 1.0
         self.count = 0
 
-    def record(self, values):
+    def record(self, values, weight=None):
         """Store the metrics of the next frame.
 
         Parameters
@@ -234,11 +236,33 @@ class MetricsRecorder:
         values : sequence
             One 0-d device array (or Python number) per entry of
             :data:`METRIC_NAMES`, in that order.
+        weight : 0-d array, optional
+            Gate weight of the frame (K17); default 1 (accepted).
         """
         row = self.count % self.capacity
         for column, value in enumerate(values):
             self._table[row, column] = value
+        self._weights[row] = 1.0 if weight is None else weight
         self.count += 1
+
+    def weights(self) -> list[tuple[int, float]]:
+        """Host copy of the gate weights, aligned with :meth:`records`.
+
+        Returns
+        -------
+        list of (int, float)
+            Frame index since the last reset and its gate weight (1.0 for
+            frames recorded without a gate).
+        """
+        from .. import backend
+
+        kept = min(self.count, self.capacity)
+        weights = backend.to_numpy(self._weights)
+        first = self.count - kept
+        return [
+            (index, float(weights[index % self.capacity]))
+            for index in range(first, self.count)
+        ]
 
     def records(self) -> list[tuple[int, dict]]:
         """Host copy of the kept frames, oldest first (synchronises).
