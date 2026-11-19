@@ -103,21 +103,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
       sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
     - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
 
-- [ ] K8: Quality numbers [phase: 1]
-  - Priority: medium
-  - Size: S
-  - Depends on: K4, K19
-  - Done when:
-    - phase noise in the reference region after plane removal, number of frames used, piston standard
-      deviation and sideband signal-to-noise ratio are in every result;
-    - the reference region follows the ladder of SA4: a-priori mask (K19) → `border_ring` → `whole_field`
-      with `reference_fraction = 0`; `quality` reports `reference_source`, `reference_fraction` and
-      `phase_noise_rad` = `null` without a mask, and warns below `min_reference_fraction`;
-    - tested on synthetic data with known noise.
-  - Note 2026-11-16: number of frames used, piston standard deviation and selection summary are already in
-    every result (K2, K3, K4); open are the noise after plane removal and the sideband SNR, which need the
-    reference region.
-
 ### Phase 2 — Replay, N-study, public API
 
 - [ ] K12: Replay reader for experiment files and the raw archive [phase: 2]
@@ -479,6 +464,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K8: Quality numbers — 2026-11-19 — SA4 reference ladder (a-priori mask via `set_reference_mask` / `reconstruct_frames(reference_mask=...)` → border ring → whole field) for piston, per-frame noise and `quality`; `phase_noise_rad` after piston + plane removal (null for the whole field), warning below `min_reference_fraction`; new per-frame metric and `quality.sideband_snr` (sideband vs Nyquist-corner noise block) — commits: `0c4a3b8`.
 - [x] K19: Reference-mask rasteriser helper (G10 SA2) — 2026-11-18 — `offaxisholo.realtime.reference_mask`: pure NumPy function from `occupied_um` polygons (or a `uint8` raster), actual position, `pose_tolerance_um` + `optical_margin_um`, pixel size (y, x) and an optional image → stage matrix to a boolean mask (True = structure-free); tested for exact area, margin, rotation and raster parity — commits: `2c2666d`.
 - [x] K20: Phase ↔ height in `fieldops` with explicit indices (G4) — 2026-11-18 — `phase_to_height_um` / `height_to_phase_rad` with keyword-only `n_structure`, `n_surround`, `wavelength_um`, `phase_sign`, no defaults, documented as the owner of the formulas for MIRA MI-51; tested on an analytic 15 µm step (SZ2080 Δn 0.012 in-situ, 0.52 developed) — commits: `906f9b8`.
 - [x] K4: `ReconstructionResult` and `FrameRecord` — 2026-11-18 — Dataclasses, `to_message()` / `from_message()` and round trips since `43b772f`; the remaining criterion (validation against the vendored examples) was met by K16 — commits: `43b772f`, `84bb939`.

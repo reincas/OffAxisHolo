@@ -417,3 +417,17 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` (Python 3.12.3): 219 passed, 12 skipped. Correction to the K20 entry above: `tests/test_phase_height.py` has 11 tests, not 13.
 - **Commits:** `2c2666d` feat(realtime): rasterise the a-priori reference mask from occupied_um [K19]
 - **Follow-ups:** K8 can now compute the phase noise on the mask; DHMConnect DL-B4 calls it per capture. The image → stage orientation (possible flips of camera axes) is part of the calibration T104 / MI-41; until then identity.
+
+### 2026-11-19 08:57 CET — [K8] Quality numbers
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/realtime/quality.py` (new): `reference_phase_noise_after_plane`, `reference_quality` (SA4 keys + warning), `median_metric`
+  - `src/offaxisholo/realtime/core.py`: `OffAxisPipeline.set_reference_mask` (a-priori mask → border ring → whole field; drives piston and per-frame noise), `_noise_block` for the SNR, spectrum passed to the metrics
+  - `src/offaxisholo/realtime/metrics.py`: per-frame metric `sideband_snr`
+  - `src/offaxisholo/realtime/result.py`: `from_realtime` fills `reference_source`, `reference_fraction`, `phase_noise_rad`, `sideband_snr`; `min_reference_fraction` warning
+  - `src/offaxisholo/realtime/api.py`: `ReconstructionSession.set_reference_mask`, `min_reference_fraction`; `reconstruct_frames(reference_mask=..., min_reference_fraction=...)`
+  - `tests/realtime/test_quality.py` (new): 9 tests; `tests/realtime/test_contract.py`: the fixture uses a border ring → expects `border_ring`
+  - `TODO.md`: K8 to Done; `WORKLOG.md`: this entry
+- **Tests:** `python -m pytest` (Python 3.12.3; incl. golden and import hygiene): 228 passed, 12 skipped; ruff, black clean. Known noise: plane + 0.05 rad Gaussian noise (wrapped at ±π) recovered within 5 %; camera noise 0.2 → 2.0 counts raises the phase noise > 2× and lowers the SNR > 2× (synthetic DHM).
+- **Commits:** `0c4a3b8` feat(realtime): report reference, noise and sideband SNR quality [K8], plus the `docs(todo)` commit.
+- **Follow-ups:** the SNR is only comparable between captures of the same geometry (block size `max(4, N/32)` at the Nyquist corner); DHMConnect DL-B4 passes the K19 mask per capture via `set_reference_mask`; `min_reference_fraction` comes from the parameter set (K9). To check on the DHM-PC (K14): cost of the extra block sum per frame (expected negligible).
