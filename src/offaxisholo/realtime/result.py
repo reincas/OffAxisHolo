@@ -163,7 +163,8 @@ class ReconstructionResult:
         Vacuum wavelength in µm.
     propagation_index : float
         Refractive index of the propagation medium that belongs to ``z_um``
-        (G4); kernel configuration ``propagation.n_medium``.
+        (G4); the index of the request (``RealtimeResult.meta``), default the
+        kernel configuration ``propagation.n_medium``.
     config_hash : str
         sha256 of the kernel configuration (``RealtimeConfig.config_hash``).
     parameter_set_id : str, optional
@@ -396,7 +397,9 @@ class ReconstructionResult:
             pixel_um=(dy * 1e6, dx * 1e6),
             z_um=float(result.z) * 1e6,
             wavelength_um=config.dhm.wavelength * 1e6,
-            propagation_index=config.propagation.n_medium,
+            propagation_index=float(
+                result.meta.get("propagation_index", config.propagation.n_medium)
+            ),
             config_hash=pipeline.config_hash,
             parameter_set_id=parameter_set_id,
             frames=list(frames or []),
