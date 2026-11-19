@@ -431,3 +431,17 @@ Format and rules: see "Work log (mandatory)" in CLAUDE.md. Work before 2026-11-1
 - **Tests:** `python -m pytest` (Python 3.12.3; incl. golden and import hygiene): 228 passed, 12 skipped; ruff, black clean. Known noise: plane + 0.05 rad Gaussian noise (wrapped at ±π) recovered within 5 %; camera noise 0.2 → 2.0 counts raises the phase noise > 2× and lowers the SNR > 2× (synthetic DHM).
 - **Commits:** `0c4a3b8` feat(realtime): report reference, noise and sideband SNR quality [K8], plus the `docs(todo)` commit.
 - **Follow-ups:** the SNR is only comparable between captures of the same geometry (block size `max(4, N/32)` at the Nyquist corner); DHMConnect DL-B4 passes the K19 mask per capture via `set_reference_mask`; `min_reference_fraction` comes from the parameter set (K9). To check on the DHM-PC (K14): cost of the extra block sum per frame (expected negligible).
+
+### 2026-11-19 08:59 CET — [K15] Public API and documentation
+- **Status:** done
+- **Changes:**
+  - `src/offaxisholo/_version.py` (new): `__version__` (distribution metadata), `git_revision()` (`git describe --always --dirty`, cached, 5 s timeout, None outside a working copy)
+  - `src/offaxisholo/__init__.py`: re-exports both
+  - `src/offaxisholo/realtime/__init__.py`: exports `reference_quality`, `reference_phase_noise_after_plane`, `default_versions`; docstring lists the entry points
+  - `src/offaxisholo/realtime/result.py`: `default_versions` adds `offaxisholo_git`
+  - `tests/test_version.py` (new): 3 tests
+  - `README.md`: section "Product Interface"; OAH-E06 fixes (missing import, placeholder, stray fence)
+  - `TODO.md`: K15 to Done; `WORKLOG.md`: this entry
+- **Tests:** `python -m pytest` (Python 3.12.3; incl. golden and import hygiene): 231 passed, 12 skipped; ruff, black clean.
+- **Commits:** `99c143e` feat(realtime): add __version__, git revision and the public exports [K15], `4ae30d6` docs(readme): document the product interface of the realtime package [K15], plus the `docs(todo)` commit.
+- **Follow-ups:** P13 (extended documentation) can build on the README section; on the DHM-PC (tagged release from GitHub, no working copy) `offaxisholo_git` is null — the version tag identifies the code there.

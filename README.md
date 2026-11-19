@@ -70,6 +70,7 @@ with oah.use_backend("cupy", precision="single"):
 phase = oah.to_numpy(processor.phase_map)   # or processor.to_cpu()
 
 # pipeline
+from offaxisholo import ReconstructionPipeline
 pipe = ReconstructionPipeline(data_path, save_path, backend="cupy")
 ```
 
@@ -112,6 +113,55 @@ phase = result.to_numpy()["phase"]       # wrapped phase, amplitude, ...
 * Parity mode (`crop=None`, `mask="circle"`, `eps_rel="machine"`, `piston=False`, `precision="double"`) reproduces `HologramProcessor` up to round-off; the offline library is unchanged and serves as golden reference (`tests/test_offline_golden.py`).
 * Configuration as JSON with hash (`RealtimeConfig.to_json` / `from_json` / `config_hash`).
 * Tests: `pytest tests/realtime`; benchmark: `python tests/benchmark_realtime.py 1024 2048`; tools: `tools/compare_unwrapping.py`, `tools/noise_vs_n.py`.
+
+---
+
+# Product Interface (DHM service, replay)
+
+The DHMConnect service and offline replays use two entry points of `offaxisholo.realtime`. Both return a
+`ReconstructionResult` that follows the shared contract `ReconstructionResult` 1.0 (schemas in
+`dhmconnect/schemas/`, vendored under `tests/contracts/`): wrapped `phase_rad` and `intensity_rel`
+(I_object / I_background) as float32, optional complex `field`, `pixel_um` `(y, x)`, `z_um` with its
+`propagation_index`, per-frame records, quality numbers, timings, `config_hash`, `parameter_set_id` and
+`versions` (package version and git hash).
+
+```python
+from offaxisholo.realtime import (
+    DHMConfig, DemodConfig, RealtimeConfig, SelectionPolicy,
+    ReconstructionSession, calibrate_order, reconstruct_frames, reference_mask,
+)
+
+cal = calibrate_order(background_frames, dc_radius=10)           # position of the first order
+config = RealtimeConfig(
+    dhm=DHMConfig.from_preset("Zeiss 63x"),
+    demod=DemodConfig(size=1024, order=cal.order),
+).validate()
+
+# one measurement
+result = reconstruct_frames(frames, background_frames, config,
+                            selection=SelectionPolicy(),          # policy "all"
+                            reference_mask=mask,                  # optional, see below
+                            min_reference_fraction=0.1,
+                            parameter_set_id="zeiss63x-v1")
+header, buffers = result.to_message()                             # JSON header + arrays, no pickle
+
+# frame by frame (service)
+session = ReconstructionSession(config, parameter_set_id="zeiss63x-v1")
+session.set_background(background_frames)                         # or use_background(model)
+session.set_reference_mask(mask)                                  # per capture
+for frame in frames:
+    session.push(frame, {"frame_id": 0})
+result = session.result(z=-2.6e-6)
+```
+
+* **Reference region (quality, K8):** `mask = reference_mask(shape, pixel_um, center_um, occupied_um=..., pose_tolerance_um=..., optical_margin_um=...)`
+  marks structure-free pixels (K19). Without a mask the border ring of `compensation.ref_border` is used, else the whole
+  field (`reference_fraction = 0`, `phase_noise_rad = null`). `quality` also holds frame counts, piston spread,
+  selection summary and the median `sideband_snr`.
+* **Frame selection:** `SelectionPolicy` (`all`, thresholds, robust outliers) decides from the per-frame metrics
+  (`METRIC_NAMES`).
+* **Background:** `session.background_model()` stores a reusable `BackgroundModel` (id, age, hash).
+* **Version:** `offaxisholo.__version__`; `offaxisholo.git_revision()` gives the short git hash of the source tree.
 
 ---
 
@@ -162,7 +212,8 @@ OffAxisHolo/
 
 # Usage Examples
 
-Usage examples will be added after ongoing refactoring is completed.
+See "GPU Backend" (offline reconstruction), "Realtime Kernel" and "Product Interface" above, and the
+scripts in `tools/`.
 
 
 # Development Tools
@@ -188,5 +239,3 @@ python scripts/clean.py
 # Notes
 
 This project is actively under refactoring towards a modular scientific architecture suitable for reproducible research in digital holography.
-
-````

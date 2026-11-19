@@ -569,16 +569,19 @@ def default_versions(xp=None) -> dict[str, str | None]:
     Returns
     -------
     dict
-        ``{"offaxisholo": ..., "numpy": ..., "<namespace>": ...}``; the git
-        revision is added by K15.
+        ``{"offaxisholo": ..., "offaxisholo_git": ..., "numpy": ...,
+        "<namespace>": ...}``; ``offaxisholo_git`` is the short git hash of
+        the source tree (``-dirty`` with local changes) or None for an
+        installed release (K15).
     """
-    from importlib import metadata
+    from .._version import __version__, git_revision
 
-    try:
-        own = metadata.version("offaxisholo")
-    except metadata.PackageNotFoundError:
-        own = None
-    versions = {"offaxisholo": own, "numpy": np.__version__}
+    own = None if __version__.endswith("+unknown") else __version__
+    versions = {
+        "offaxisholo": own,
+        "offaxisholo_git": git_revision(),
+        "numpy": np.__version__,
+    }
     if xp is not None and xp is not np:
         name = getattr(xp, "__name__", "xp").split(".")[0]
         versions[name] = getattr(xp, "__version__", None)

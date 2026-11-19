@@ -129,16 +129,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
     (optional import) so fusion, comparison and this study give the same number; `mira.noise.fit_noise_model`
     fits σ² = σt²/(Nf·Np) + σcoh²/Np (M4).
 
-- [ ] K15: Public API and documentation [phase: 2]
-  - Priority: medium
-  - Size: S
-  - Depends on: K6
-  - Done when:
-    - `offaxisholo.realtime` exports the entry points and result classes; README has a section on the
-      product interface;
-    - `offaxisholo.__version__` and a helper that returns the git hash for the result metadata exist
-      (covers old G2 "version in every result").
-
 ### Phase 3 — Validation on the DHM-PC (hardware)
 
 - [ ] K14: GPU validation on the DHM-PC [phase: 3]
@@ -464,6 +454,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K15: Public API and documentation — 2026-11-19 — `offaxisholo.__version__`, `offaxisholo.git_revision()` (short hash, `-dirty`, cached) recorded as `versions.offaxisholo_git` in every result; `offaxisholo.realtime` exports and docstring list the entry points; README section "Product Interface" (and OAH-E06 README fixes) — commits: `99c143e`, `4ae30d6`.
 - [x] K8: Quality numbers — 2026-11-19 — SA4 reference ladder (a-priori mask via `set_reference_mask` / `reconstruct_frames(reference_mask=...)` → border ring → whole field) for piston, per-frame noise and `quality`; `phase_noise_rad` after piston + plane removal (null for the whole field), warning below `min_reference_fraction`; new per-frame metric and `quality.sideband_snr` (sideband vs Nyquist-corner noise block) — commits: `0c4a3b8`.
 - [x] K19: Reference-mask rasteriser helper (G10 SA2) — 2026-11-18 — `offaxisholo.realtime.reference_mask`: pure NumPy function from `occupied_um` polygons (or a `uint8` raster), actual position, `pose_tolerance_um` + `optical_margin_um`, pixel size (y, x) and an optional image → stage matrix to a boolean mask (True = structure-free); tested for exact area, margin, rotation and raster parity — commits: `2c2666d`.
 - [x] K20: Phase ↔ height in `fieldops` with explicit indices (G4) — 2026-11-18 — `phase_to_height_um` / `height_to_phase_rad` with keyword-only `n_structure`, `n_surround`, `wavelength_um`, `phase_sign`, no defaults, documented as the owner of the formulas for MIRA MI-51; tested on an analytic 15 µm step (SZ2080 Δn 0.012 in-situ, 0.52 developed) — commits: `906f9b8`.

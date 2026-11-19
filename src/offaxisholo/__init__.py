@@ -10,6 +10,7 @@
 ##########################################################################
 
 # from .reconstruction import DHMPlotter
+from ._version import __version__, git_revision  # noqa: F401
 from .backend import (
     get_backend,
     get_precision,
