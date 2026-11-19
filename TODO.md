@@ -94,15 +94,6 @@ All decisions O1–O11 and the global decisions that block todos here were taken
 
 ### Phase 1 — Product interface (no hardware)
 
-- [ ] K17: Frame gating for the sliding and EMA modes (follow-up of K3) [phase: 1]
-  - Priority: low
-  - Size: M
-  - Depends on: K3, K6; useful for DHMConnect DL-B10 (live mode)
-  - Done when:
-    - fixed thresholds are evaluated per frame on the device into a 0/1 weight (no host decision), and the
-      sliding and EMA accumulators average with that weight (weighted count, `n_effective` correct);
-    - the rejected frames are reported in the frame records; hot-path check and a CuPy test exist.
-
 ### Phase 2 — Replay, N-study, public API
 
 - [ ] K12: Replay reader for experiment files and the raw archive [phase: 2]
@@ -454,6 +445,7 @@ Each item keeps the offline behaviour unchanged unless the todo says otherwise; 
 
 ## Done
 
+- [x] K17: Frame gating for the sliding and EMA modes — 2026-11-19 — `AveragingConfig.gate` (metric → (lower, upper)) is evaluated per frame on the device into a 0/1 weight; sliding averages sum(wU)/sum(w) over the window, EMA steps only on accepted frames (equals the plain EMA of the accepted frames); gated frames get `used = False` and a `"gated: …"` reason, `quality.n_frames_gated`; hot-path check and CuPy test exist — commits: `71e26ab`.
 - [x] K15: Public API and documentation — 2026-11-19 — `offaxisholo.__version__`, `offaxisholo.git_revision()` (short hash, `-dirty`, cached) recorded as `versions.offaxisholo_git` in every result; `offaxisholo.realtime` exports and docstring list the entry points; README section "Product Interface" (and OAH-E06 README fixes) — commits: `99c143e`, `4ae30d6`.
 - [x] K8: Quality numbers — 2026-11-19 — SA4 reference ladder (a-priori mask via `set_reference_mask` / `reconstruct_frames(reference_mask=...)` → border ring → whole field) for piston, per-frame noise and `quality`; `phase_noise_rad` after piston + plane removal (null for the whole field), warning below `min_reference_fraction`; new per-frame metric and `quality.sideband_snr` (sideband vs Nyquist-corner noise block) — commits: `0c4a3b8`.
 - [x] K19: Reference-mask rasteriser helper (G10 SA2) — 2026-11-18 — `offaxisholo.realtime.reference_mask`: pure NumPy function from `occupied_um` polygons (or a `uint8` raster), actual position, `pose_tolerance_um` + `optical_margin_um`, pixel size (y, x) and an optional image → stage matrix to a boolean mask (True = structure-free); tested for exact area, margin, rotation and raster parity — commits: `2c2666d`.

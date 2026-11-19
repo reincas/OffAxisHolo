@@ -214,7 +214,8 @@ def test_metric_functions_have_no_host_synchronisation():
         metrics_module.piston_phase,
         metrics_module.reference_phase_noise,
         metrics_module.MetricsRecorder.record,
-        OffAxisPipeline._record_metrics,
+        OffAxisPipeline._metric_values,
+        OffAxisPipeline._gate_weight,
         OffAxisPipeline._demodulate_parts,
     ):
         tree = ast.parse(textwrap.dedent(inspect.getsource(function)))

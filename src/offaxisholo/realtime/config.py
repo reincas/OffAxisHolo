@@ -129,6 +129,14 @@ class AveragingConfig:
     window: int = 16  # number of frames of the sliding mode
     ema_alpha: float = 0.05
     renorm_every: int = 1000  # sliding: re-sum the ring buffer against drift
+    # sliding / EMA frame gating (K17): metric name -> (lower, upper), None =
+    # open bound; evaluated per frame on the device; NaN rejects the frame.
+    # Block mode uses the frame selection (SelectionPolicy 'threshold') instead.
+    gate: dict[str, tuple[float | None, float | None]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        # JSON gives lists; keep the bounds as tuples (equality, hashing)
+        self.gate = {str(k): tuple(v) for k, v in dict(self.gate).items()}
 
 
 @dataclass
@@ -219,6 +227,8 @@ class RealtimeConfig:
         if not all(math.isfinite(z) for z in p.z):
             raise ValueError("Propagation distances must be finite.")
         m = self.metrics
+        if a.gate:
+            self._validate_gate()
         if m.capacity is not None and m.capacity < 1:
             raise ValueError("metrics.capacity must be >= 1.")
         if not m.black_level < m.saturation_level:
@@ -228,6 +238,31 @@ class RealtimeConfig:
         if self.backend not in BACKENDS:
             raise ValueError(f"Unknown backend. Possible: {BACKENDS}.")
         return self
+
+    def _validate_gate(self):
+        """Check ``averaging.gate`` (K17); raises ValueError."""
+        from .metrics import METRIC_NAMES
+
+        a = self.averaging
+        if a.mode == "block":
+            raise ValueError(
+                "averaging.gate is for the sliding and EMA modes; block mode "
+                "uses the frame selection (SelectionPolicy 'threshold')."
+            )
+        if not self.metrics.enabled:
+            raise ValueError("averaging.gate needs metrics.enabled.")
+        for name, bounds in a.gate.items():
+            if name not in METRIC_NAMES:
+                raise ValueError(
+                    f"Unknown gate metric '{name}'. Possible: {METRIC_NAMES}."
+                )
+            if len(bounds) != 2:
+                raise ValueError(f"Gate of {name} must be (lower, upper).")
+            lower, upper = bounds
+            if lower is None and upper is None:
+                raise ValueError(f"Gate of {name} has no bound.")
+            if lower is not None and upper is not None and not lower <= upper:
+                raise ValueError(f"Gate of {name}: lower {lower} > upper {upper}.")
 
     # ------------------------------------------------- (de)serialisation
     def to_dict(self) -> dict:
